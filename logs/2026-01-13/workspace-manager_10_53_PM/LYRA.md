@@ -5,9 +5,9 @@
 |-------|-------|
 | Project Name | Workspace Manager |
 | Type | Native macOS Application |
-| Purpose | Embedded terminal inside a workspace orchestrator |
-| Tech Stack | Swift, SwiftUI, SwiftTerm (CPU renderer) |
-| Target | macOS 14+ on Apple Silicon |
+| Purpose | Embedded GPU-accelerated terminal inside a workspace orchestrator |
+| Tech Stack | Swift, SwiftUI, Metal (MTKView), SwiftTerm core (PTY + parser) |
+| Target | macOS 14+ with Apple Silicon and 120Hz rendering |
 
 ---
 
@@ -30,34 +30,16 @@
 
 ---
 
-| ADR | Decision | Date: 13 January 2026 | Time: 10:53 PM | Name: Lyra |
-
-### Context
-1. Multiple Metal renderer prototypes rendered incorrect glyphs (full-grid block fill).
-2. Release bundle validation confirmed the issue persisted.
-
-### Decision
-1. Pause Metal renderer development on main.
-2. Return to SwiftTerm CPU renderer for stability.
-3. Preserve GPU work on the metal-renderer branch for future debugging.
-
-### Consequences
-1. Main branch regains a functional terminal.
-2. 120Hz GPU rendering is deferred until atlas/shader issues are resolved.
-
----
-
 ## Current Status
 
-| Status | Focus | Date: 13 January 2026 | Time: 10:53 PM | Name: Lyra |
+| Status | Focus | Date: 13 January 2026 | Time: 08:31 PM | Name: Lyra |
 
 ### What WORKS
 1. App launches as a bundle and receives keyboard input.
 2. Workspace orchestration UI is stable.
-3. CPU-based terminal rendering functions reliably.
 
 ### What DOES NOT WORK
-1. Metal renderer shows incorrect glyph output (full-grid blocks).
+1. Terminal rendering is still CPU-bound and cannot hit 120Hz.
 
 ### Immediate Objective
-1. Stabilize CPU rendering and only resume GPU work after a clear debugging plan.
+1. Implement MetalTerminalView and integrate it into the terminal container.

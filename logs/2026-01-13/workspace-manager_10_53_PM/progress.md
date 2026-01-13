@@ -18,16 +18,3 @@
     2. Render a static grid using a glyph atlas to validate frame pacing.
     3. Bridge PTY output into the renderer with dirty-rect updates.
     4. Measure CPU/GPU usage in release builds.
-
----
-
-| Progress Todo | Metal Renderer Program | Date: 13 January 2026 | Time: 10:53 PM | Name: Ghost |
-
-### Completed Tasks
-    1. ✅ Attempted Metal renderer integration through multiple iterations.
-    2. ✅ Validated persistent glyph rendering failure in release bundle.
-    3. ✅ Reverted main branch to CPU-based SwiftTerm renderer.
-
-### Next Steps
-    1. Keep main branch stable on CPU renderer.
-    2. Only resume Metal renderer debugging after defining atlas/shader validation steps.

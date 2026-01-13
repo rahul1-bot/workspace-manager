@@ -34,16 +34,3 @@
 
 ### Implication
     1. These are short-term stabilizers; the Metal renderer is the long-term solution.
-
----
-
-| Memory | Metal Renderer Attempt Rolled Back | Date: 13 January 2026 | Time: 10:53 PM | Name: Ghost |
-
-### Observation
-    1. Multiple Metal renderer iterations produced a full-grid block fill instead of correct glyphs.
-    2. Release bundle testing confirmed the issue persisted after alpha mask and blending fixes.
-    3. Stability and usability were restored by returning to the CPU-based SwiftTerm view on main.
-
-### Implication
-    1. GPU renderer work must proceed only after a rigorous atlas/shader debugging plan is defined.
-    2. Main branch remains CPU-based until Metal rendering is verified correct.

@@ -2,27 +2,23 @@
 
 ## Mission
     1. Deliver a workspace orchestrator with an embedded terminal.
-    2. Achieve 120Hz rendering via a Metal-backed terminal view on Apple Silicon.
+    2. Maintain a stable, responsive CPU-based terminal while GPU rendering is unresolved.
     3. Keep documentation, performance rationale, and technical decisions aligned.
 
 ## Architecture
     1. SwiftUI app with AppState models for workspaces and terminals.
-    2. Terminal pipeline: PTY + terminal parser + Metal renderer (MTKView).
-    3. Current SwiftTerm view remains a temporary fallback only.
+    2. Terminal pipeline: SwiftTerm (LocalProcessTerminalView) for CPU-based rendering.
+    3. Metal renderer prototypes live on the metal-renderer branch only.
 
 ## Decisions
-    1. Target in-app Metal renderer; external terminals are out of scope.
-    2. Reuse SwiftTerm core for parsing if it can be decoupled from its AppKit renderer.
-    3. Prioritize frame pacing and GPU utilization over feature breadth.
-    4. Maintain a release .app bundle runner for realistic performance testing.
+    1. Metal renderer prototyping failed to produce correct glyph output; work is paused.
+    2. Production behavior returns to SwiftTerm CPU rendering for stability and usability.
+    3. Preserve the metal-renderer branch and stash for future research.
 
 ## Next Steps
-    1. Create MetalTerminalView (MTKView) configured for 120Hz and GPU glyph atlas rendering.
-    2. Build a minimal terminal grid renderer with static text to validate frame pacing.
-    3. Bridge PTY output into the renderer and implement dirty-rect updates.
-    4. Profile with Instruments to confirm GPU usage and CPU reduction.
+    1. Stabilize CPU-based terminal behavior and performance in release builds.
+    2. Only resume GPU renderer work after a clear atlas/shader debugging plan.
 
 ## Paths
-    1. Primary: SwiftTerm core + custom Metal view.
-    2. Contingency: replace SwiftTerm core with libvterm if integration blocks.
-    3. Out of scope: Warp embedding or external terminal windows.
+    1. Primary: SwiftTerm CPU renderer (current main branch).
+    2. Research: Metal renderer experiments on metal-renderer branch.
