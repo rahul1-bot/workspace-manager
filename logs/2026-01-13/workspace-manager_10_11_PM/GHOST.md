@@ -21,9 +21,9 @@
     8. Replace the glyph atlas with a grayscale alpha mask (r8Unorm) to guarantee transparent backgrounds.
 
 ## Next Steps
-    1. Confirm the glyph atlas transparency by dumping the atlas to an image and verifying alpha values.
-    2. Validate shader sampling and UV mapping with a single glyph debug render.
-    3. Restore correct text rendering before adding cursor and selection visuals.
+    1. Validate live PTY output and input in the Metal view through release bundle runs.
+    2. Add cursor rendering and selection visuals in the Metal pipeline.
+    3. Profile with Instruments to confirm GPU usage and frame pacing.
 
 ## Paths
     1. Primary: SwiftTerm core + custom Metal view.

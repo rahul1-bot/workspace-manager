@@ -43,7 +43,6 @@
 ### What DOES NOT WORK
 1. Terminal rendering is still CPU-bound and cannot hit 120Hz.
 2. Cursor rendering and selection visuals are not yet implemented in Metal.
-3. Glyph atlas transparency is still incorrect, resulting in a filled grid.
 
 ### Immediate Objective
-1. Fix glyph atlas transparency and validate correct text rendering.
+1. Validate live input/output in the Metal view and add cursor rendering.

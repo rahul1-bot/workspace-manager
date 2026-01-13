@@ -91,14 +91,3 @@
 
 ### Implication
     1. Empty terminal cells should render as background without accidental glyph fill.
-
----
-
-| Memory | Metal Glyph Rendering Still Broken | Date: 13 January 2026 | Time: 10:11 PM | Name: Ghost |
-
-### Observation
-    1. The Metal renderer still fills the screen with block glyphs despite alpha mask and blending fixes.
-    2. Release bundle runs confirm the issue persists under production settings.
-
-### Implication
-    1. The failure is likely in atlas generation, UV mapping, or shader sampling and must be debugged with targeted diagnostics.

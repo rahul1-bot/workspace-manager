@@ -83,16 +83,3 @@
 ### Next Steps
     1. Validate that blank cells render correctly in the release bundle.
     2. If fixed, proceed to cursor rendering and selection highlighting.
-
----
-
-| Progress Todo | Metal Renderer Program | Date: 13 January 2026 | Time: 10:11 PM | Name: Ghost |
-
-### Completed Tasks
-    1. ✅ Rebuilt and ran the release bundle after atlas and shader changes.
-    2. ✅ Confirmed that glyph rendering is still broken (full grid of blocks).
-
-### Next Steps
-    1. Dump the glyph atlas to an image file and verify transparency per glyph.
-    2. Render a single test glyph quad with fixed UVs to isolate shader/UV issues.
-    3. Fix atlas generation or UV mapping before adding cursor rendering.
