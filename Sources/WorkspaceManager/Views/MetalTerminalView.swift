@@ -465,6 +465,15 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
         descriptor.vertexFunction = vertexFunction
         descriptor.fragmentFunction = fragmentFunction
         descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+        if let attachment = descriptor.colorAttachments[0] {
+            attachment.isBlendingEnabled = true
+            attachment.rgbBlendOperation = .add
+            attachment.alphaBlendOperation = .add
+            attachment.sourceRGBBlendFactor = .sourceAlpha
+            attachment.sourceAlphaBlendFactor = .sourceAlpha
+            attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+            attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        }
 
         do {
             return try device.makeRenderPipelineState(descriptor: descriptor)
@@ -649,7 +658,7 @@ final class GlyphAtlas {
         let bytesPerRow = width * bytesPerPixel
 
         let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        let bitmapInfo = CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue
         guard let context = CGContext(
             data: nil,
             width: width,

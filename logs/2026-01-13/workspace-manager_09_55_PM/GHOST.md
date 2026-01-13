@@ -17,7 +17,6 @@
     4. Maintain a release .app bundle runner for realistic performance testing.
     5. Implement a Metal renderer prototype with a glyph atlas and static grid as the first milestone.
     6. Bridge SwiftTerm core (Terminal + LocalProcess) into the Metal renderer, updating rows via Terminal update ranges.
-    7. Use alpha blending and BGRA atlas format to preserve glyph transparency.
 
 ## Next Steps
     1. Validate live PTY output and input in the Metal view through release bundle runs.

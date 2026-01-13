@@ -46,16 +46,3 @@
     1. Validate live I/O in the bundled app and confirm GPU activity.
     2. Implement cursor rendering and selection highlighting.
     3. Profile frame pacing and optimize glyph uploads.
-
----
-
-| Progress Todo | Metal Renderer Program | Date: 13 January 2026 | Time: 09:55 PM | Name: Ghost |
-
-### Completed Tasks
-    1. ✅ Enabled alpha blending on the Metal pipeline.
-    2. ✅ Aligned glyph atlas bitmap format with BGRA Metal texture.
-    3. ✅ Rebuilt and relaunched the release bundle after the render fix.
-
-### Next Steps
-    1. Verify that blank cells render as background and text is readable.
-    2. Implement cursor rendering and selection highlighting.

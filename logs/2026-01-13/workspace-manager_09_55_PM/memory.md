@@ -58,14 +58,3 @@
 
 ### Implication
     1. The Metal renderer now reflects live terminal output; cursor and selection rendering remain pending.
-
----
-
-| Memory | Glyph Atlas Format and Blending Fix | Date: 13 January 2026 | Time: 09:55 PM | Name: Ghost |
-
-### Observation
-    1. Added alpha blending on the Metal pipeline to respect glyph transparency.
-    2. Switched the glyph atlas bitmap context to BGRA (byteOrder32Little + premultipliedFirst) to match the Metal texture format.
-
-### Implication
-    1. Glyphs should render with correct transparency instead of filling the entire grid with blocks.
