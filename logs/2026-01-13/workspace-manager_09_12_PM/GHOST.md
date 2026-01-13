@@ -15,12 +15,12 @@
     2. Reuse SwiftTerm core for parsing if it can be decoupled from its AppKit renderer.
     3. Prioritize frame pacing and GPU utilization over feature breadth.
     4. Maintain a release .app bundle runner for realistic performance testing.
-    5. Implement a Metal renderer prototype with a glyph atlas and static grid as the first milestone.
 
 ## Next Steps
-    1. Wire PTY output into the Metal renderer and update glyph buffers on change.
-    2. Implement dirty-rect redraws to avoid full grid updates.
-    3. Profile with Instruments to confirm GPU usage and frame pacing.
+    1. Create MetalTerminalView (MTKView) configured for 120Hz and GPU glyph atlas rendering.
+    2. Build a minimal terminal grid renderer with static text to validate frame pacing.
+    3. Bridge PTY output into the renderer and implement dirty-rect updates.
+    4. Profile with Instruments to confirm GPU usage and CPU reduction.
 
 ## Paths
     1. Primary: SwiftTerm core + custom Metal view.

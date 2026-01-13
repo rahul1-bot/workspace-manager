@@ -80,6 +80,7 @@ struct TerminalView: NSViewRepresentable {
 /// A container view that manages multiple terminal instances
 struct TerminalContainer: View {
     @EnvironmentObject var appState: AppState
+    private let useMetalRenderer = true
 
     var body: some View {
         Group {
@@ -90,11 +91,15 @@ struct TerminalContainer: View {
                     TerminalHeader(terminal: terminal, workspace: workspace)
 
                     // Terminal view with focus management
-                    TerminalView(
-                        workingDirectory: terminal.workingDirectory,
-                        terminalId: terminal.id
-                    )
-                    .id(terminal.id)
+                    if useMetalRenderer {
+                        MetalTerminalView()
+                    } else {
+                        TerminalView(
+                            workingDirectory: terminal.workingDirectory,
+                            terminalId: terminal.id
+                        )
+                        .id(terminal.id)
+                    }
                 }
             } else {
                 EmptyTerminalView()

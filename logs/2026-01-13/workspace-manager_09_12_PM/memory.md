@@ -34,15 +34,3 @@
 
 ### Implication
     1. These are short-term stabilizers; the Metal renderer is the long-term solution.
-
----
-
-| Memory | Metal Renderer Prototype | Date: 13 January 2026 | Time: 09:12 PM | Name: Ghost |
-
-### Observation
-    1. Implemented a MetalTerminalView using MTKView at 120Hz with a runtime Metal shader.
-    2. Built a CPU-generated glyph atlas and static grid rendered via GPU textures.
-    3. Integrated the Metal view as the active terminal renderer on the metal-renderer branch.
-
-### Implication
-    1. Frame pacing can now be validated independently of PTY data integration.
