@@ -72,14 +72,3 @@
 ### Next Steps
     1. Validate that blank cells are transparent in the release bundle.
     2. If resolved, move on to cursor rendering and selection highlighting.
-
----
-
-| Progress Todo | Metal Renderer Program | Date: 13 January 2026 | Time: 10:09 PM | Name: Ghost |
-
-### Completed Tasks
-    1. ✅ Ensured the space glyph is not drawn into the atlas.
-
-### Next Steps
-    1. Validate that blank cells render correctly in the release bundle.
-    2. If fixed, proceed to cursor rendering and selection highlighting.
