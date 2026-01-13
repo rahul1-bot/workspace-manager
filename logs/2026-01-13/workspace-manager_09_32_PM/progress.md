@@ -32,17 +32,3 @@
     1. Connect PTY output to the glyph buffer and update on terminal events.
     2. Add dirty-rect updates to avoid full grid redraws.
     3. Validate GPU usage in a release build.
-
----
-
-| Progress Todo | Metal Renderer Program | Date: 13 January 2026 | Time: 09:32 PM | Name: Ghost |
-
-### Completed Tasks
-    1. ✅ Integrated SwiftTerm Terminal + LocalProcess into the Metal renderer.
-    2. ✅ Implemented row-level updates using Terminal update ranges.
-    3. ✅ Added basic key handling for input and compiled successfully.
-
-### Next Steps
-    1. Validate live I/O in the bundled app and confirm GPU activity.
-    2. Implement cursor rendering and selection highlighting.
-    3. Profile frame pacing and optimize glyph uploads.

@@ -38,11 +38,10 @@
 1. App launches as a bundle and receives keyboard input.
 2. Workspace orchestration UI is stable.
 3. Metal renderer prototype displays a static grid at 120Hz.
-4. PTY output now streams into the Metal renderer using SwiftTerm core.
 
 ### What DOES NOT WORK
 1. Terminal rendering is still CPU-bound and cannot hit 120Hz.
-2. Cursor rendering and selection visuals are not yet implemented in Metal.
+2. PTY output is not yet wired into the Metal renderer.
 
 ### Immediate Objective
-1. Validate live input/output in the Metal view and add cursor rendering.
+1. Bridge PTY output into the Metal renderer and implement dirty-rect updates.

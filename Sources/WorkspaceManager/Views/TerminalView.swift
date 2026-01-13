@@ -92,7 +92,7 @@ struct TerminalContainer: View {
 
                     // Terminal view with focus management
                     if useMetalRenderer {
-                        MetalTerminalView()
+                        MetalTerminalView(workingDirectory: terminal.workingDirectory)
                     } else {
                         TerminalView(
                             workingDirectory: terminal.workingDirectory,

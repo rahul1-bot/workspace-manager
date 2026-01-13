@@ -46,15 +46,3 @@
 
 ### Implication
     1. Frame pacing can now be validated independently of PTY data integration.
-
----
-
-| Memory | SwiftTerm Core Bridged to Metal | Date: 13 January 2026 | Time: 09:32 PM | Name: Ghost |
-
-### Observation
-    1. Implemented a MetalTerminalSession that uses SwiftTerm Terminal + LocalProcess.
-    2. PTY output updates the Metal grid via Terminal update ranges and row-level buffer writes.
-    3. Basic key handling now sends escape sequences and UTF-8 input directly to the shell process.
-
-### Implication
-    1. The Metal renderer now reflects live terminal output; cursor and selection rendering remain pending.

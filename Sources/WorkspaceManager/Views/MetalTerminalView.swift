@@ -2,16 +2,20 @@ import SwiftUI
 import MetalKit
 import CoreText
 import AppKit
+import SwiftTerm
+import Darwin
 
 struct MetalTerminalView: NSViewRepresentable {
     typealias NSViewType = MTKView
+
+    let workingDirectory: String
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
     func makeNSView(context: Context) -> MTKView {
-        let mtkView = MTKView(frame: .zero)
+        let mtkView = MetalTerminalMTKView(frame: .zero)
         mtkView.device = MTLCreateSystemDefaultDevice()
         mtkView.preferredFramesPerSecond = 120
         mtkView.isPaused = false
@@ -23,8 +27,16 @@ struct MetalTerminalView: NSViewRepresentable {
 
         if let device = mtkView.device {
             let renderer = MetalTerminalRenderer(device: device, view: mtkView)
+            let session = MetalTerminalSession(
+                workingDirectory: workingDirectory,
+                renderer: renderer
+            )
             context.coordinator.renderer = renderer
+            context.coordinator.session = session
+            mtkView.terminalSession = session
+            renderer.session = session
             mtkView.delegate = renderer
+            session.start()
         }
 
         return mtkView
@@ -38,6 +50,186 @@ struct MetalTerminalView: NSViewRepresentable {
 
     class Coordinator {
         var renderer: MetalTerminalRenderer?
+        var session: MetalTerminalSession?
+    }
+}
+
+final class MetalTerminalMTKView: MTKView {
+    weak var terminalSession: MetalTerminalSession?
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.makeFirstResponder(self)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        super.mouseDown(with: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        terminalSession?.handleKeyDown(event)
+    }
+}
+
+final class MetalTerminalSession: SwiftTerm.TerminalDelegate, SwiftTerm.LocalProcessDelegate {
+    private var terminal: SwiftTerm.Terminal!
+    private var process: SwiftTerm.LocalProcess!
+    private let workingDirectory: String
+    private weak var renderer: MetalTerminalRenderer?
+
+    private var textGrid: [String] = []
+    private var cols: Int
+    private var rows: Int
+
+    init(workingDirectory: String, renderer: MetalTerminalRenderer) {
+        let options = SwiftTerm.TerminalOptions(
+            cols: 80,
+            rows: 24,
+            cursorStyle: .steadyBlock,
+            screenReaderMode: false,
+            scrollback: 2000,
+            enableSixelReported: false
+        )
+        self.workingDirectory = workingDirectory
+        self.renderer = renderer
+        self.cols = options.cols
+        self.rows = options.rows
+        self.terminal = SwiftTerm.Terminal(delegate: self, options: options)
+        self.process = SwiftTerm.LocalProcess(delegate: self)
+    }
+
+    func start() {
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        let cwd = FileManager.default.fileExists(atPath: workingDirectory)
+            ? workingDirectory
+            : FileManager.default.homeDirectoryForCurrentUser.path
+        var env = ProcessInfo.processInfo.environment
+        env["PWD"] = cwd
+        let environment = env.map { "\($0.key)=\($0.value)" }
+        process.startProcess(
+            executable: shell,
+            args: ["-l"],
+            environment: environment,
+            execName: nil,
+            currentDirectory: cwd
+        )
+        if let renderer = renderer {
+            let grid = renderer.currentGridSize()
+            resize(cols: grid.cols, rows: grid.rows)
+        }
+    }
+
+    func resize(cols: Int, rows: Int) {
+        self.cols = max(cols, 20)
+        self.rows = max(rows, 10)
+        terminal.resize(cols: self.cols, rows: self.rows)
+        textGrid = Array(repeating: String(repeating: " ", count: self.cols), count: self.rows)
+        renderer?.updateText(lines: textGrid, changedRows: nil)
+    }
+
+    func handleKeyDown(_ event: NSEvent) {
+        switch event.keyCode {
+        case 36: // return
+            sendBytes(SwiftTerm.EscapeSequences.cmdRet)
+            return
+        case 48: // tab
+            sendBytes(SwiftTerm.EscapeSequences.cmdTab)
+            return
+        case 51: // delete/backspace
+            sendBytes(SwiftTerm.EscapeSequences.cmdDel)
+            return
+        case 53: // escape
+            sendBytes(SwiftTerm.EscapeSequences.cmdEsc)
+            return
+        case 117: // forward delete
+            sendBytes(SwiftTerm.EscapeSequences.cmdDelKey)
+            return
+        case 123: // left
+            sendBytes(SwiftTerm.EscapeSequences.moveLeftNormal)
+            return
+        case 124: // right
+            sendBytes(SwiftTerm.EscapeSequences.moveRightNormal)
+            return
+        case 125: // down
+            sendBytes(SwiftTerm.EscapeSequences.moveDownNormal)
+            return
+        case 126: // up
+            sendBytes(SwiftTerm.EscapeSequences.moveUpNormal)
+            return
+        case 115: // home
+            sendBytes(SwiftTerm.EscapeSequences.moveHomeNormal)
+            return
+        case 119: // end
+            sendBytes(SwiftTerm.EscapeSequences.moveEndNormal)
+            return
+        case 116: // page up
+            sendBytes(SwiftTerm.EscapeSequences.cmdPageUp)
+            return
+        case 121: // page down
+            sendBytes(SwiftTerm.EscapeSequences.cmdPageDown)
+            return
+        default:
+            break
+        }
+
+        if let chars = event.characters {
+            sendBytes([UInt8](chars.utf8))
+        }
+    }
+
+    private func sendBytes(_ bytes: [UInt8]) {
+        process.send(data: bytes[...])
+    }
+
+    func processTerminated(_ source: SwiftTerm.LocalProcess, exitCode: Int32?) {
+        // TODO: surface exit in UI
+    }
+
+    func dataReceived(slice: ArraySlice<UInt8>) {
+        terminal.feed(buffer: slice)
+        flushUpdates()
+    }
+
+    func getWindowSize() -> winsize {
+        return winsize(
+            ws_row: UInt16(terminal.rows),
+            ws_col: UInt16(terminal.cols),
+            ws_xpixel: UInt16(16),
+            ws_ypixel: UInt16(16)
+        )
+    }
+
+    func send(source: SwiftTerm.Terminal, data: ArraySlice<UInt8>) {
+        process.send(data: data)
+    }
+
+    private func flushUpdates() {
+        guard let range = terminal.getUpdateRange() else { return }
+        let start = max(0, range.startY)
+        let end = min(rows - 1, range.endY)
+        if textGrid.count != rows {
+            textGrid = Array(repeating: String(repeating: " ", count: cols), count: rows)
+        }
+        if start <= end {
+            for row in start...end {
+                if let line = terminal.getLine(row: row) {
+                    var text = line.translateToString(trimRight: false, startCol: 0, endCol: cols)
+                    if text.count < cols {
+                        text += String(repeating: " ", count: cols - text.count)
+                    } else if text.count > cols {
+                        text = String(text.prefix(cols))
+                    }
+                    textGrid[row] = text.replacingOccurrences(of: "\u{0}", with: " ")
+                } else {
+                    textGrid[row] = String(repeating: " ", count: cols)
+                }
+            }
+        }
+        terminal.clearUpdateRange()
+        renderer?.updateText(lines: textGrid, changedRows: start <= end ? start...end : nil)
     }
 }
 
@@ -59,9 +251,16 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
     private let samplerState: MTLSamplerState
     private let atlas: GlyphAtlas
 
+    weak var session: MetalTerminalSession?
+
     private var vertexBuffer: MTLBuffer
     private var vertexCount: Int
     private var viewportSize = SIMD2<UInt32>(0, 0)
+    private var lastDrawableSize = CGSize.zero
+    private var gridColumns = 0
+    private var gridRows = 0
+    private let gridMargin: CGFloat = 12
+    private var textGrid: [String] = []
 
     init(device: MTLDevice, view: MTKView) {
         self.device = device
@@ -71,9 +270,18 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
         self.samplerState = MetalTerminalRenderer.buildSampler(device: device)
 
         let initialSize = view.drawableSize
+        lastDrawableSize = initialSize
+        let grid = MetalTerminalRenderer.gridGeometry(atlas: atlas, drawableSize: initialSize, margin: gridMargin)
+        self.gridColumns = grid.columns
+        self.gridRows = grid.rows
+        self.textGrid = Array(repeating: String(repeating: " ", count: gridColumns), count: gridRows)
         let vertices = MetalTerminalRenderer.buildGridVertices(
             atlas: atlas,
-            drawableSize: initialSize
+            drawableSize: initialSize,
+            margin: gridMargin,
+            columns: gridColumns,
+            rows: gridRows,
+            lines: textGrid
         )
         self.vertexCount = vertices.count
         self.vertexBuffer = device.makeBuffer(
@@ -86,9 +294,19 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+        lastDrawableSize = size
+        let grid = MetalTerminalRenderer.gridGeometry(atlas: atlas, drawableSize: size, margin: gridMargin)
+        gridColumns = grid.columns
+        gridRows = grid.rows
+        textGrid = Array(repeating: String(repeating: " ", count: gridColumns), count: gridRows)
+        session?.resize(cols: gridColumns, rows: gridRows)
         let vertices = MetalTerminalRenderer.buildGridVertices(
             atlas: atlas,
-            drawableSize: size
+            drawableSize: size,
+            margin: gridMargin,
+            columns: gridColumns,
+            rows: gridRows,
+            lines: textGrid
         )
         vertexCount = vertices.count
         vertexBuffer = device.makeBuffer(
@@ -119,6 +337,66 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
 
         commandBuffer?.present(drawable)
         commandBuffer?.commit()
+    }
+
+    func currentGridSize() -> (cols: Int, rows: Int) {
+        return (gridColumns, gridRows)
+    }
+
+    func updateText(lines: [String], changedRows: ClosedRange<Int>?) {
+        guard gridColumns > 0, gridRows > 0 else { return }
+        if lines.count != gridRows {
+            textGrid = Array(repeating: String(repeating: " ", count: gridColumns), count: gridRows)
+        } else {
+            textGrid = lines
+        }
+
+        if vertexBuffer.length == 0 {
+            return
+        }
+
+        if let changedRows {
+            updateVertexBufferRows(rows: changedRows)
+        } else {
+            rebuildFullVertexBuffer()
+        }
+    }
+
+    private func rebuildFullVertexBuffer() {
+        let vertices = MetalTerminalRenderer.buildGridVertices(
+            atlas: atlas,
+            drawableSize: lastDrawableSize,
+            margin: gridMargin,
+            columns: gridColumns,
+            rows: gridRows,
+            lines: textGrid
+        )
+        vertexCount = vertices.count
+        vertexBuffer = device.makeBuffer(
+            bytes: vertices,
+            length: vertices.count * MemoryLayout<Vertex>.stride,
+            options: .storageModeShared
+        )!
+    }
+
+    private func updateVertexBufferRows(rows: ClosedRange<Int>) {
+        guard gridColumns > 0 else { return }
+        let rowVertexCount = gridColumns * 6
+        for row in rows {
+            if row < 0 || row >= gridRows { continue }
+            let line = textGrid[row]
+            let rowVertices = MetalTerminalRenderer.buildRowVertices(
+                atlas: atlas,
+                margin: gridMargin,
+                row: row,
+                columns: gridColumns,
+                line: line
+            )
+            let offsetVertices = row * rowVertexCount
+            let byteOffset = offsetVertices * MemoryLayout<Vertex>.stride
+            let copySize = rowVertices.count * MemoryLayout<Vertex>.stride
+            memcpy(vertexBuffer.contents().advanced(by: byteOffset), rowVertices, copySize)
+        }
     }
 
     private static func buildPipeline(device: MTLDevice) -> MTLRenderPipelineState {
@@ -205,31 +483,30 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
         return device.makeSamplerState(descriptor: descriptor)!
     }
 
-    private static func buildGridVertices(atlas: GlyphAtlas, drawableSize: CGSize) -> [Vertex] {
-        let margin: CGFloat = 12
+    private static func gridGeometry(atlas: GlyphAtlas, drawableSize: CGSize, margin: CGFloat) -> (columns: Int, rows: Int) {
         let availableWidth = max(drawableSize.width - margin * 2, atlas.cellSize.width)
         let availableHeight = max(drawableSize.height - margin * 2, atlas.cellSize.height)
         let columns = max(Int(availableWidth / atlas.cellSize.width), 20)
         let rows = max(Int(availableHeight / atlas.cellSize.height), 10)
+        return (columns, rows)
+    }
 
-        let lines = [
-            "METAL TERMINAL 120HZ",
-            "GPU RENDERER ONLINE",
-            "EMBEDDED WORKSPACE MANAGER"
-        ]
+    private static func buildGridVertices(
+        atlas: GlyphAtlas,
+        drawableSize: CGSize,
+        margin: CGFloat,
+        columns: Int,
+        rows: Int,
+        lines: [String]
+    ) -> [Vertex] {
 
         var vertices: [Vertex] = []
         vertices.reserveCapacity(columns * rows * 6)
 
         for row in 0..<rows {
-            let line = row < lines.count ? Array(lines[row]) : []
             for col in 0..<columns {
-                let char: UInt8
-                if col < line.count {
-                    char = UInt8(String(line[col]).utf8.first ?? 32)
-                } else {
-                    char = 32
-                }
+                let line = row < lines.count ? lines[row] : ""
+                let char = ascii(from: line, column: col)
 
                 let uv = atlas.uv(for: char)
                 let x0 = Float(margin + CGFloat(col) * atlas.cellSize.width)
@@ -253,6 +530,49 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
         }
 
         return vertices
+    }
+
+    private static func buildRowVertices(
+        atlas: GlyphAtlas,
+        margin: CGFloat,
+        row: Int,
+        columns: Int,
+        line: String
+    ) -> [Vertex] {
+        var vertices: [Vertex] = []
+        vertices.reserveCapacity(columns * 6)
+        for col in 0..<columns {
+            let char = ascii(from: line, column: col)
+            let uv = atlas.uv(for: char)
+            let x0 = Float(margin + CGFloat(col) * atlas.cellSize.width)
+            let y0 = Float(margin + CGFloat(row) * atlas.cellSize.height)
+            let x1 = x0 + Float(atlas.cellSize.width)
+            let y1 = y0 + Float(atlas.cellSize.height)
+
+            let u0 = uv.min.x
+            let v0 = uv.min.y
+            let u1 = uv.max.x
+            let v1 = uv.max.y
+
+            vertices.append(Vertex(position: SIMD2<Float>(x0, y0), texCoord: SIMD2<Float>(u0, v0)))
+            vertices.append(Vertex(position: SIMD2<Float>(x1, y0), texCoord: SIMD2<Float>(u1, v0)))
+            vertices.append(Vertex(position: SIMD2<Float>(x0, y1), texCoord: SIMD2<Float>(u0, v1)))
+
+            vertices.append(Vertex(position: SIMD2<Float>(x1, y0), texCoord: SIMD2<Float>(u1, v0)))
+            vertices.append(Vertex(position: SIMD2<Float>(x1, y1), texCoord: SIMD2<Float>(u1, v1)))
+            vertices.append(Vertex(position: SIMD2<Float>(x0, y1), texCoord: SIMD2<Float>(u0, v1)))
+        }
+        return vertices
+    }
+
+    private static func ascii(from line: String, column: Int) -> UInt8 {
+        guard column < line.count else { return 32 }
+        let index = line.index(line.startIndex, offsetBy: column)
+        let scalar = line[index].unicodeScalars.first?.value ?? 32
+        if scalar < 32 || scalar > 126 {
+            return 32
+        }
+        return UInt8(scalar)
     }
 }
 

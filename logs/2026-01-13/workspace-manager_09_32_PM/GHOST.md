@@ -16,11 +16,10 @@
     3. Prioritize frame pacing and GPU utilization over feature breadth.
     4. Maintain a release .app bundle runner for realistic performance testing.
     5. Implement a Metal renderer prototype with a glyph atlas and static grid as the first milestone.
-    6. Bridge SwiftTerm core (Terminal + LocalProcess) into the Metal renderer, updating rows via Terminal update ranges.
 
 ## Next Steps
-    1. Validate live PTY output and input in the Metal view through release bundle runs.
-    2. Add cursor rendering and selection visuals in the Metal pipeline.
+    1. Wire PTY output into the Metal renderer and update glyph buffers on change.
+    2. Implement dirty-rect redraws to avoid full grid updates.
     3. Profile with Instruments to confirm GPU usage and frame pacing.
 
 ## Paths
