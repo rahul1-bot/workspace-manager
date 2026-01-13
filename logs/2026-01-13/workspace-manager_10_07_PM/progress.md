@@ -59,16 +59,3 @@
 ### Next Steps
     1. Verify that blank cells render as background and text is readable.
     2. Implement cursor rendering and selection highlighting.
-
----
-
-| Progress Todo | Metal Renderer Program | Date: 13 January 2026 | Time: 10:07 PM | Name: Ghost |
-
-### Completed Tasks
-    1. ✅ Rebuilt the glyph atlas as a grayscale alpha mask (r8Unorm).
-    2. ✅ Switched the fragment shader to use mask alpha for text output.
-    3. ✅ Skipped space glyph rendering to keep space cells transparent.
-
-### Next Steps
-    1. Validate that blank cells are transparent in the release bundle.
-    2. If resolved, move on to cursor rendering and selection highlighting.

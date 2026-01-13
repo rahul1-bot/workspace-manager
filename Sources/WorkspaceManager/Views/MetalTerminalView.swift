@@ -446,8 +446,8 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
             texture2d<float> atlas [[texture(0)]],
             sampler samplerState [[sampler(0)]]
         ) {
-            float4 color = atlas.sample(samplerState, in.texCoord);
-            return color;
+            float alpha = atlas.sample(samplerState, in.texCoord).r;
+            return float4(1.0, 1.0, 1.0, alpha);
         }
         """
 
@@ -654,11 +654,11 @@ final class GlyphAtlas {
     ) -> MTLTexture {
         let width = cellWidth * columns
         let height = cellHeight * rows
-        let bytesPerPixel = 4
+        let bytesPerPixel = 1
         let bytesPerRow = width * bytesPerPixel
 
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        let bitmapInfo = CGImageAlphaInfo.none.rawValue
         guard let context = CGContext(
             data: nil,
             width: width,
@@ -671,7 +671,7 @@ final class GlyphAtlas {
             fatalError("Failed to create glyph atlas context")
         }
 
-        context.setFillColor(NSColor.clear.cgColor)
+        context.setFillColor(NSColor.black.cgColor)
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         context.setFillColor(NSColor.white.cgColor)
         context.setTextDrawingMode(.fill)
@@ -684,6 +684,9 @@ final class GlyphAtlas {
 
         for i in 0..<glyphCount {
             let ascii = firstASCII + UInt8(i)
+            if ascii == 32 {
+                continue
+            }
             var char = UniChar(ascii)
             var glyph = CGGlyph()
             if !CTFontGetGlyphsForCharacters(font, &char, &glyph, 1) {
@@ -702,7 +705,7 @@ final class GlyphAtlas {
         }
 
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
+            pixelFormat: .r8Unorm,
             width: width,
             height: height,
             mipmapped: false

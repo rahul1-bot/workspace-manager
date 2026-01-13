@@ -69,15 +69,3 @@
 
 ### Implication
     1. Glyphs should render with correct transparency instead of filling the entire grid with blocks.
-
----
-
-| Memory | Alpha Mask Glyph Atlas | Date: 13 January 2026 | Time: 10:07 PM | Name: Ghost |
-
-### Observation
-    1. Rebuilt the glyph atlas as a grayscale mask (R8) and sample it as alpha in the fragment shader.
-    2. Skipped drawing the space glyph so the space cell stays fully transparent.
-    3. Switched the Metal texture format to r8Unorm and output white text with sampled alpha.
-
-### Implication
-    1. The renderer should no longer fill every cell with a block when the atlas background is meant to be transparent.
