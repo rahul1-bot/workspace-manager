@@ -15,13 +15,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Force the app to become active and accept keyboard input
         NSApp.activate(ignoringOtherApps: true)
 
-        // Make the main window key
+        // Make the main window key and configure for transparency
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.makeKeyWindow()
+            self?.configureWindowForGlassEffect()
             self?.logActivationState(context: "didFinishLaunching")
         }
 
         installInputMonitors()
+    }
+
+    private func configureWindowForGlassEffect() {
+        guard let window = NSApp.mainWindow ?? NSApp.windows.first else { return }
+        window.isOpaque = false
+        window.backgroundColor = NSColor.clear
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {

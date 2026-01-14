@@ -1,6 +1,19 @@
 import SwiftUI
 import AppKit
 
+// Glass background for sidebar
+struct GlassSidebarBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var sidebarWidth: CGFloat = 280
@@ -9,6 +22,7 @@ struct ContentView: View {
         NavigationSplitView {
             WorkspaceSidebar()
                 .navigationSplitViewColumnWidth(min: 200, ideal: 280, max: 400)
+                .background(GlassSidebarBackground())
         } detail: {
             TerminalContainer()
         }
@@ -17,16 +31,7 @@ struct ContentView: View {
             NSApp.activate(ignoringOtherApps: true)
         })
         .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
-                Button(action: {
-                    withAnimation {
-                        appState.showSidebar.toggle()
-                    }
-                }) {
-                    Image(systemName: "sidebar.left")
-                }
-                .help("Toggle Sidebar")
-            }
+            // Note: NavigationSplitView provides its own sidebar toggle, so we don't add another one
 
             ToolbarItemGroup(placement: .primaryAction) {
                 if appState.selectedWorkspaceId != nil {

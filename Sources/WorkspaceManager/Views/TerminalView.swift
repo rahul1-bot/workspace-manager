@@ -2,6 +2,31 @@ import SwiftUI
 import SwiftTerm
 import AppKit
 
+// MARK: - Visual Effect Background for Glass Effect
+struct VisualEffectBackground: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    init(material: NSVisualEffectView.Material = .hudWindow, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) {
+        self.material = material
+        self.blendingMode = blendingMode
+    }
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        view.isEmphasized = true
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
 /// SwiftUI wrapper for SwiftTerm's LocalProcessTerminalView
 struct TerminalView: NSViewRepresentable {
     let workingDirectory: String
@@ -15,22 +40,31 @@ struct TerminalView: NSViewRepresentable {
         let terminalView = LocalProcessTerminalView(frame: .zero)
         context.coordinator.terminalView = terminalView
 
-        // Configure terminal appearance
-        terminalView.configureNativeColors()
+        // Configure terminal with transparent background for glass effect
+        terminalView.wantsLayer = true
+        terminalView.layer?.backgroundColor = NSColor.clear.cgColor
+        terminalView.nativeBackgroundColor = NSColor(white: 0.0, alpha: 0.0)  // Fully transparent
+        terminalView.nativeForegroundColor = NSColor.white
 
-        // Set font - using a nice monospace font
+        // Set font - Cascadia Code, size 14, normal weight
         let fontSize: CGFloat = 14
-        let font = NSFont(name: "MesloLGS NF", size: fontSize)
-            ?? NSFont(name: "SF Mono", size: fontSize)
-            ?? NSFont(name: "Menlo", size: fontSize)
+        let font = NSFont(name: "Cascadia Code", size: fontSize)
+            ?? NSFont(name: "Cascadia Mono", size: fontSize)
             ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         terminalView.font = font
 
-        // Configure terminal options (performance tuned)
+        // Note: SwiftTerm does not support custom line height/spacing
+
+        // Configure terminal options
         let terminal = terminalView.getTerminal()
         terminal.options.scrollback = 1_000_000  // Massive scrollback - effectively unlimited
-        terminal.options.cursorStyle = .steadyBlock
         terminal.options.enableSixelReported = false
+
+        // Set bar cursor style using the proper method (triggers caret view update)
+        terminal.setCursorStyle(.steadyBar)
+
+        // Set caret/cursor color for visibility on transparent background
+        terminalView.caretColor = NSColor.white
 
         // Start the shell process
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
@@ -82,22 +116,27 @@ struct TerminalContainer: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Group {
-            if let terminal = appState.selectedTerminal,
-               let workspace = appState.selectedWorkspace {
-                VStack(spacing: 0) {
-                    // Terminal header
-                    TerminalHeader(terminal: terminal, workspace: workspace)
+        ZStack {
+            // Glass blur background
+            VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
 
-                    // Terminal view with focus management
-                    TerminalView(
-                        workingDirectory: terminal.workingDirectory,
-                        terminalId: terminal.id
-                    )
-                    .id(terminal.id)
+            Group {
+                if let terminal = appState.selectedTerminal,
+                   let workspace = appState.selectedWorkspace {
+                    VStack(spacing: 0) {
+                        // Terminal header
+                        TerminalHeader(terminal: terminal, workspace: workspace)
+
+                        // Terminal view with focus management
+                        TerminalView(
+                            workingDirectory: terminal.workingDirectory,
+                            terminalId: terminal.id
+                        )
+                        .id(terminal.id)
+                    }
+                } else {
+                    EmptyTerminalView()
                 }
-            } else {
-                EmptyTerminalView()
             }
         }
     }
@@ -116,13 +155,14 @@ struct TerminalHeader: View {
             Text(terminal.name)
                 .font(.system(.body, design: .monospaced))
                 .fontWeight(.medium)
+                .foregroundColor(.white)
 
             Text("—")
-                .foregroundColor(.secondary)
+                .foregroundColor(.white.opacity(0.6))
 
             Text(workspace.name)
                 .font(.system(.callout, design: .default))
-                .foregroundColor(.secondary)
+                .foregroundColor(.white.opacity(0.8))
                 .lineLimit(1)
                 .truncationMode(.middle)
 
@@ -130,11 +170,11 @@ struct TerminalHeader: View {
 
             Text(shortenedPath(workspace.path))
                 .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
+                .foregroundColor(.white.opacity(0.6))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color.white.opacity(0.1))
     }
 
     func shortenedPath(_ path: String) -> String {
@@ -151,15 +191,15 @@ struct EmptyTerminalView: View {
         VStack(spacing: 16) {
             Image(systemName: "terminal")
                 .font(.system(size: 48))
-                .foregroundColor(.secondary)
+                .foregroundColor(.white.opacity(0.5))
 
             Text("No Terminal Selected")
                 .font(.title2)
-                .foregroundColor(.secondary)
+                .foregroundColor(.white.opacity(0.7))
 
             Text("Select a terminal from the sidebar or create a new one")
                 .font(.callout)
-                .foregroundColor(.secondary)
+                .foregroundColor(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 8) {
@@ -167,15 +207,15 @@ struct EmptyTerminalView: View {
                     .font(.system(.caption, design: .monospaced))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.2))
+                    .background(Color.white.opacity(0.15))
                     .cornerRadius(4)
+                    .foregroundColor(.white.opacity(0.8))
 
                 Text("New Terminal")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.white.opacity(0.5))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
 }
