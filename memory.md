@@ -4,6 +4,20 @@
 
 ---
 
+| Memory | Minimal Window Chrome | Date: 15 January 2026 | Time: 12:04 AM | Name: Lyra |
+
+### Observation
+1. `.hiddenTitleBar` window style removes title bar area completely.
+2. `standardWindowButton(.closeButton)?.isHidden = true` hides traffic lights.
+3. `.ignoresSafeArea()` on background view extends blur into titlebar area.
+4. Single unified background prevents visual inconsistency.
+
+### Implication
+1. For truly minimal UI, combine hiddenTitleBar + ignoresSafeArea.
+2. Only one NSVisualEffectView needed for entire window — avoid stacking.
+
+---
+
 | Memory | Zed-Style Sidebar Design | Date: 14 January 2026 | Time: 11:41 PM | Name: Lyra |
 
 ### Observation

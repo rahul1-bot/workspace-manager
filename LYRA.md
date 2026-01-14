@@ -34,6 +34,7 @@ A simple terminal orchestration app for macOS. The goal is to provide a better w
 8. Workspaces from config: name + path pairs.
 9. **Terminal state persistence**: Switching tabs preserves shell state (ZStack + opacity approach).
 10. **Zed-style sidebar**: Seamless glass panel with ⌘B toggle, no NavigationSplitView chrome.
+11. **Minimal window**: No title bar, no traffic lights, unified glass background everywhere.
 
 ### Config File Location
 ```

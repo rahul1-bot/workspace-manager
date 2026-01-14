@@ -54,7 +54,23 @@
 5. Added ⌘T shortcut for new terminal creation.
 6. Commit: `e276498` — zed-style sidebar with seamless glass UI.
 
+---
+
+| Progress Todo | Minimal Window Chrome | Date: 15 January 2026 | Time: 12:04 AM | Name: Lyra |
+
+### Problem
+1. Window had visible title bar with "WorkspaceManager" text and traffic lights.
+2. After hiding traffic lights, grey titlebar strip remained.
+3. Glass background wasn't unified — some areas had blur, others were transparent.
+
+### Solution
+1. Used `.hiddenTitleBar` window style to remove all window chrome.
+2. Hidden traffic lights via `standardWindowButton().isHidden = true`.
+3. Created single full-window glass background in ContentView with `.ignoresSafeArea()`.
+4. Removed duplicate backgrounds from sidebar and terminal container.
+5. Commit: `3ccc55c` — minimal window with unified glass background.
+
 ### Next Steps
-1. Hot-reload config without app restart (optional enhancement).
-2. Config validation with helpful error messages.
-3. Additional terminal settings (colors, themes).
+1. Keyboard navigation for terminal switching (⌘I/⌘K for up/down, ⌘J/⌘L for focus).
+2. Hot-reload config without app restart (optional enhancement).
+3. Config validation with helpful error messages.
