@@ -1,11 +1,11 @@
 import SwiftUI
 import AppKit
 
-// Glass background for sidebar
+// Glass background for sidebar - same as terminal for symmetry
 struct GlassSidebarBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = .sidebar
+        view.material = .hudWindow  // Same as terminal area
         view.blendingMode = .behindWindow
         view.state = .active
         return view
@@ -16,42 +16,37 @@ struct GlassSidebarBackground: NSViewRepresentable {
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
-    @State private var sidebarWidth: CGFloat = 280
+    @State private var showSidebar = true
 
     var body: some View {
-        NavigationSplitView {
-            WorkspaceSidebar()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 280, max: 400)
-                .background(GlassSidebarBackground())
-        } detail: {
+        HStack(spacing: 0) {
+            // Sidebar - instant toggle, no animation
+            if showSidebar {
+                WorkspaceSidebar()
+                    .frame(width: 240)
+                    .background(GlassSidebarBackground())
+            }
+
+            // Terminal area
             TerminalContainer()
         }
-        .navigationTitle("")
-        .simultaneousGesture(TapGesture().onEnded {
-            NSApp.activate(ignoringOtherApps: true)
-        })
-        .toolbar {
-            // Note: NavigationSplitView provides its own sidebar toggle, so we don't add another one
-
-            ToolbarItemGroup(placement: .primaryAction) {
-                if appState.selectedWorkspaceId != nil {
-                    Button(action: {
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
+        .onAppear {
+            NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                // ⌘B toggle sidebar
+                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "b" {
+                    showSidebar.toggle()
+                    return nil
+                }
+                // ⌘T new terminal
+                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "t" {
+                    if appState.selectedWorkspaceId != nil {
                         appState.createTerminalInSelectedWorkspace()
-                    }) {
-                        Image(systemName: "plus")
                     }
-                    .help("New Terminal (⌘T)")
+                    return nil
                 }
-
-                if appState.selectedTerminalId != nil,
-                   let workspaceId = appState.selectedWorkspaceId {
-                    Button(action: {
-                        appState.removeTerminal(id: appState.selectedTerminalId!, from: workspaceId)
-                    }) {
-                        Image(systemName: "trash")
-                    }
-                    .help("Delete Terminal")
-                }
+                return event
             }
         }
     }
