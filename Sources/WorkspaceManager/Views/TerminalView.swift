@@ -136,6 +136,7 @@ struct TerminalView: NSViewRepresentable {
 }
 
 /// A container view that manages multiple terminal instances
+/// All terminals stay alive in a ZStack - we show/hide based on selection
 struct TerminalContainer: View {
     @EnvironmentObject var appState: AppState
 
@@ -144,23 +145,27 @@ struct TerminalContainer: View {
             // Glass blur background
             VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
 
-            Group {
-                if let terminal = appState.selectedTerminal,
-                   let workspace = appState.selectedWorkspace {
+            // Render ALL terminals, keep them alive, show/hide based on selection
+            ForEach(appState.workspaces) { workspace in
+                ForEach(workspace.terminals) { terminal in
+                    let isSelected = terminal.id == appState.selectedTerminal?.id
+
                     VStack(spacing: 0) {
-                        // Terminal header
                         TerminalHeader(terminal: terminal, workspace: workspace)
 
-                        // Terminal view with focus management
                         TerminalView(
                             workingDirectory: terminal.workingDirectory,
                             terminalId: terminal.id
                         )
-                        .id(terminal.id)
                     }
-                } else {
-                    EmptyTerminalView()
+                    .opacity(isSelected ? 1 : 0)
+                    .allowsHitTesting(isSelected)
                 }
+            }
+
+            // Show empty view only when nothing is selected
+            if appState.selectedTerminal == nil {
+                EmptyTerminalView()
             }
         }
     }
