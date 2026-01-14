@@ -47,17 +47,53 @@
 
 ---
 
+| ADR | Decision | Date: 14 January 2026 | Time: 09:37 PM | Name: Lyra |
+
+### Context
+1. Custom Metal renderer attempt failed due to glyph atlas/shader issues (full-grid block fill symptom).
+2. Research conducted on existing GPU-accelerated terminal solutions for embedding.
+3. The core goal is workspace orchestration, not terminal rendering innovation.
+
+### Research Findings
+1. No drop-in GPU-accelerated embeddable terminal library exists for Swift/SwiftUI as of January 2026.
+2. Ghostty (by Mitchell Hashimoto) has libghostty — a C-compatible library with Metal rendering. The macOS Ghostty app is a SwiftUI app using libghostty internally. However, libghostty is NOT production-ready for external embedding; API is unstable with no official release yet. Future plans include Swift frameworks for terminal views.
+3. SwiftTerm has an open issue (#202) for Metal renderer support. Miguel de Icaza is actively working on it as of August 2025, starting a fresh implementation after the original metal-backend branch proved too complex with poor performance.
+4. All other GPU-accelerated terminals (Alacritty, kitty, Wezterm) are standalone applications, not embeddable libraries.
+
+### Decision
+1. Abandon custom Metal renderer development indefinitely.
+2. Continue with SwiftTerm CPU renderer for terminal embedding.
+3. Focus engineering effort on workspace orchestration UX — the actual value proposition.
+4. Monitor libghostty and SwiftTerm Metal renderer progress for future adoption when stable.
+
+### Consequences
+1. Terminal rendering capped at ~60Hz CPU-bound performance, which is adequate for command-line workflows.
+2. Engineering time redirected to orchestration features that differentiate the product.
+3. Future GPU acceleration possible by adopting libghostty Swift framework or SwiftTerm Metal when available.
+
+### Sources
+1. Ghostty GitHub: https://github.com/ghostty-org/ghostty
+2. libghostty announcement: https://mitchellh.com/writing/libghostty-is-coming
+3. SwiftTerm Metal issue: https://github.com/migueldeicaza/SwiftTerm/issues/202
+
+---
+
 ## Current Status
 
-| Status | Focus | Date: 13 January 2026 | Time: 10:53 PM | Name: Lyra |
+| Status | Focus | Date: 14 January 2026 | Time: 09:37 PM | Name: Lyra |
 
 ### What WORKS
 1. App launches as a bundle and receives keyboard input.
 2. Workspace orchestration UI is stable.
-3. CPU-based terminal rendering functions reliably.
+3. CPU-based terminal rendering functions reliably at 60Hz.
 
 ### What DOES NOT WORK
-1. Metal renderer shows incorrect glyph output (full-grid blocks).
+1. Metal renderer abandoned — glyph atlas issues unresolved, preserved on metal-renderer branch.
 
 ### Immediate Objective
-1. Stabilize CPU rendering and only resume GPU work after a clear debugging plan.
+1. Focus on workspace orchestration layer improvements.
+2. Design and implement terminal session management, workspace switching, and layout features.
+
+### Future Watch Items
+1. libghostty Swift framework release (monitor Ghostty releases).
+2. SwiftTerm Metal renderer stabilization (monitor issue #202).

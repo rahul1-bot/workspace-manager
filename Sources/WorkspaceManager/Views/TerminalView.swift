@@ -28,7 +28,7 @@ struct TerminalView: NSViewRepresentable {
 
         // Configure terminal options (performance tuned)
         let terminal = terminalView.getTerminal()
-        terminal.options.scrollback = 2000
+        terminal.options.scrollback = 1_000_000  // Massive scrollback - effectively unlimited
         terminal.options.cursorStyle = .steadyBlock
         terminal.options.enableSixelReported = false
 
