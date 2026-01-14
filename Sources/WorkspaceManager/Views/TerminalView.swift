@@ -40,28 +40,32 @@ struct TerminalView: NSViewRepresentable {
         let terminalView = LocalProcessTerminalView(frame: .zero)
         context.coordinator.terminalView = terminalView
 
+        // Get terminal config from ConfigService
+        let terminalConfig = ConfigService.shared.config.terminal
+
         // Configure terminal with transparent background for glass effect
         terminalView.wantsLayer = true
         terminalView.layer?.backgroundColor = NSColor.clear.cgColor
         terminalView.nativeBackgroundColor = NSColor(white: 0.0, alpha: 0.0)  // Fully transparent
         terminalView.nativeForegroundColor = NSColor.white
 
-        // Set font - Cascadia Code, size 14, normal weight
-        let fontSize: CGFloat = 14
-        let font = NSFont(name: "Cascadia Code", size: fontSize)
+        // Set font from config
+        let fontSize: CGFloat = CGFloat(terminalConfig.font_size)
+        let font = NSFont(name: terminalConfig.font, size: fontSize)
             ?? NSFont(name: "Cascadia Mono", size: fontSize)
             ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         terminalView.font = font
 
         // Note: SwiftTerm does not support custom line height/spacing
 
-        // Configure terminal options
+        // Configure terminal options from config
         let terminal = terminalView.getTerminal()
-        terminal.options.scrollback = 1_000_000  // Massive scrollback - effectively unlimited
+        terminal.options.scrollback = terminalConfig.scrollback
         terminal.options.enableSixelReported = false
 
-        // Set bar cursor style using the proper method (triggers caret view update)
-        terminal.setCursorStyle(.steadyBar)
+        // Set cursor style from config
+        let cursorStyle = parseCursorStyle(terminalConfig.cursor_style)
+        terminal.setCursorStyle(cursorStyle)
 
         // Set caret/cursor color for visibility on transparent background
         terminalView.caretColor = NSColor.white
@@ -107,6 +111,26 @@ struct TerminalView: NSViewRepresentable {
 
         @objc func focusTerminal() {
             terminalView?.window?.makeFirstResponder(terminalView)
+        }
+    }
+
+    /// Parse cursor style string from config to SwiftTerm CursorStyle
+    private func parseCursorStyle(_ style: String) -> CursorStyle {
+        switch style.lowercased() {
+        case "bar", "steady_bar", "steadybar":
+            return .steadyBar
+        case "blink_bar", "blinkbar", "blinking_bar":
+            return .blinkBar
+        case "block", "steady_block", "steadyblock":
+            return .steadyBlock
+        case "blink_block", "blinkblock", "blinking_block":
+            return .blinkBlock
+        case "underline", "steady_underline", "steadyunderline":
+            return .steadyUnderline
+        case "blink_underline", "blinkundernline", "blinking_underline":
+            return .blinkUnderline
+        default:
+            return .steadyBar
         }
     }
 }

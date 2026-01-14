@@ -1,0 +1,171 @@
+import Foundation
+import TOMLKit
+
+/// Service for loading and managing application configuration from TOML
+class ConfigService {
+    static let shared = ConfigService()
+
+    private(set) var config: AppConfig
+
+    /// Path to the configuration file
+    private let configPath: URL
+
+    /// Study root path for default workspaces
+    private static let studyRoot = "/Users/rahulsawhney/Library/CloudStorage/OneDrive-Personal/Documents/StudyDocuments/Rahul"
+
+    /// Default course folders
+    private static let defaultCourses = [
+        "10) AI-2 Project (Majors-2)(10 ETCS)(Coding Project)",
+        "38) Computational Imaging Project (Applications-12)(10 ETCS)(Coding Project)",
+        "19) Project-Representation-Learning (Minor-5)(10 ETCS)(Coding Project)",
+        "39) Research Movement Analysis (Seminar-3)(5 ETCS)(Report-Presentation)",
+        "16) ML in MRI (Majors-3 OR Seminar-1)(5 ETCS)(Presentation-Exam)",
+    ]
+
+    private init() {
+        // Expand ~ to home directory
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        let configDir = homeDir.appendingPathComponent(".config/workspace-manager")
+        self.configPath = configDir.appendingPathComponent("config.toml")
+
+        // Load or create default config
+        self.config = AppConfig()
+        loadConfig()
+    }
+
+    /// Expand tilde in paths to full home directory path
+    func expandPath(_ path: String) -> String {
+        if path.hasPrefix("~") {
+            let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+            return path.replacingCharacters(in: path.startIndex..<path.index(after: path.startIndex), with: homeDir)
+        }
+        return path
+    }
+
+    /// Load configuration from TOML file
+    func loadConfig() {
+        // Check if config file exists
+        guard FileManager.default.fileExists(atPath: configPath.path) else {
+            // Create default config
+            createDefaultConfig()
+            return
+        }
+
+        do {
+            let tomlString = try String(contentsOf: configPath, encoding: .utf8)
+            let tomlTable = try TOMLTable(string: tomlString)
+
+            // Parse terminal config
+            var terminalConfig = TerminalConfig()
+            if let terminalTable = tomlTable["terminal"] as? TOMLTable {
+                if let font = terminalTable["font"] as? String {
+                    terminalConfig.font = font
+                }
+                if let fontSize = terminalTable["font_size"] as? Int {
+                    terminalConfig.font_size = fontSize
+                }
+                if let scrollback = terminalTable["scrollback"] as? Int {
+                    terminalConfig.scrollback = scrollback
+                }
+                if let cursorStyle = terminalTable["cursor_style"] as? String {
+                    terminalConfig.cursor_style = cursorStyle
+                }
+            }
+
+            // Parse workspaces array
+            var workspaces: [WorkspaceConfig] = []
+            if let workspacesArray = tomlTable["workspaces"] as? TOMLArray {
+                for item in workspacesArray {
+                    if let wsTable = item as? TOMLTable,
+                       let name = wsTable["name"] as? String,
+                       let path = wsTable["path"] as? String {
+                        let expandedPath = expandPath(path)
+                        workspaces.append(WorkspaceConfig(name: name, path: expandedPath))
+                    }
+                }
+            }
+
+            self.config = AppConfig(terminal: terminalConfig, workspaces: workspaces)
+
+        } catch {
+            print("Failed to load config.toml: \(error)")
+            createDefaultConfig()
+        }
+    }
+
+    /// Create default configuration file
+    private func createDefaultConfig() {
+        // Build default workspaces
+        var workspaces: [WorkspaceConfig] = []
+
+        // Add root workspace
+        workspaces.append(WorkspaceConfig(name: "Root", path: Self.studyRoot))
+
+        // Add course workspaces that exist
+        for courseName in Self.defaultCourses {
+            let coursePath = "\(Self.studyRoot)/\(courseName)"
+            if FileManager.default.fileExists(atPath: coursePath) {
+                workspaces.append(WorkspaceConfig(name: courseName, path: coursePath))
+            }
+        }
+
+        // Create default config object
+        self.config = AppConfig(
+            terminal: TerminalConfig(),
+            workspaces: workspaces
+        )
+
+        // Write TOML file
+        saveConfig()
+    }
+
+    /// Save current configuration to TOML file
+    func saveConfig() {
+        // Create config directory if needed
+        let configDir = configPath.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+
+        // Build TOML content manually for clean formatting
+        var toml = """
+        # Workspace Manager Configuration
+
+        [terminal]
+        font = "\(config.terminal.font)"
+        font_size = \(config.terminal.font_size)
+        scrollback = \(config.terminal.scrollback)
+        cursor_style = "\(config.terminal.cursor_style)"
+
+        # Workspaces
+        # Each workspace needs a name and path
+        # Use ~ for home directory
+
+        """
+
+        for workspace in config.workspaces {
+            // Convert path back to use ~ for cleaner config
+            let displayPath = workspace.path.replacingOccurrences(
+                of: FileManager.default.homeDirectoryForCurrentUser.path,
+                with: "~"
+            )
+            toml += """
+
+            [[workspaces]]
+            name = "\(workspace.name)"
+            path = "\(displayPath)"
+            """
+        }
+
+        toml += "\n"
+
+        do {
+            try toml.write(to: configPath, atomically: true, encoding: .utf8)
+        } catch {
+            print("Failed to save config.toml: \(error)")
+        }
+    }
+
+    /// Reload configuration from disk
+    func reloadConfig() {
+        loadConfig()
+    }
+}

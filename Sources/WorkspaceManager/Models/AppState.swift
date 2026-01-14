@@ -11,18 +11,6 @@ class AppState: ObservableObject {
 
     private let saveURL: URL
 
-    // Default study root
-    static let defaultRoot = "/Users/rahulsawhney/Library/CloudStorage/OneDrive-Personal/Documents/StudyDocuments/Rahul"
-
-    // Default course workspaces
-    static let defaultWorkspaces = [
-        "10) AI-2 Project (Majors-2)(10 ETCS)(Coding Project)",
-        "38) Computational Imaging Project (Applications-12)(10 ETCS)(Coding Project)",
-        "19) Project-Representation-Learning (Minor-5)(10 ETCS)(Coding Project)",
-        "39) Research Movement Analysis (Seminar-3)(5 ETCS)(Report-Presentation)",
-        "16) ML in MRI (Majors-3 OR Seminar-1)(5 ETCS)(Presentation-Exam)",
-    ]
-
     init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let appDir = appSupport.appendingPathComponent("WorkspaceManager", isDirectory: true)
@@ -33,9 +21,9 @@ class AppState: ObservableObject {
         self.saveURL = appDir.appendingPathComponent("workspaces.json")
         load()
 
-        // Initialize default workspaces if empty
+        // Initialize workspaces from config if empty
         if workspaces.isEmpty {
-            initializeDefaultWorkspaces()
+            initializeWorkspacesFromConfig()
         }
     }
 
@@ -63,16 +51,14 @@ class AppState: ObservableObject {
 
     // MARK: - Initialization
 
-    func initializeDefaultWorkspaces() {
-        // Add root workspace
-        let rootWorkspace = Workspace(name: "Root", path: Self.defaultRoot)
-        workspaces.append(rootWorkspace)
+    func initializeWorkspacesFromConfig() {
+        let configService = ConfigService.shared
+        let workspaceConfigs = configService.config.workspaces
 
-        // Add course workspaces
-        for courseName in Self.defaultWorkspaces {
-            let coursePath = "\(Self.defaultRoot)/\(courseName)"
-            if FileManager.default.fileExists(atPath: coursePath) {
-                let workspace = Workspace(name: courseName, path: coursePath)
+        for wsConfig in workspaceConfigs {
+            let expandedPath = configService.expandPath(wsConfig.path)
+            if FileManager.default.fileExists(atPath: expandedPath) {
+                let workspace = Workspace(name: wsConfig.name, path: expandedPath)
                 workspaces.append(workspace)
             }
         }

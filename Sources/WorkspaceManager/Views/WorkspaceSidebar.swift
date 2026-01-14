@@ -67,7 +67,10 @@ struct WorkspaceSidebar: View {
                     newWorkspacePath = ""
                 },
                 onCreate: {
-                    let path = newWorkspacePath.isEmpty ? AppState.defaultRoot : newWorkspacePath
+                    // Use first workspace path from config as default, or home directory
+                    let defaultPath = ConfigService.shared.config.workspaces.first?.path
+                        ?? FileManager.default.homeDirectoryForCurrentUser.path
+                    let path = newWorkspacePath.isEmpty ? defaultPath : newWorkspacePath
                     appState.addWorkspace(name: newWorkspaceName, path: path)
                     appState.showNewWorkspaceSheet = false
                     newWorkspaceName = ""
