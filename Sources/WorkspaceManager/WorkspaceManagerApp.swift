@@ -31,6 +31,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.backgroundColor = NSColor.clear
         window.titlebarAppearsTransparent = true
         window.styleMask.insert(.fullSizeContentView)
+
+        // Hide title and traffic lights for minimal UI
+        window.titleVisibility = .hidden
+        window.standardWindowButton(.closeButton)?.isHidden = true
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -105,7 +111,7 @@ struct WorkspaceManagerApp: App {
                     NSApp.activate(ignoringOtherApps: true)
                 }
         }
-        .windowStyle(.automatic)
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1200, height: 800)
         .commands {
             // Custom keyboard commands

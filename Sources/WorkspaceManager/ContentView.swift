@@ -19,19 +19,23 @@ struct ContentView: View {
     @State private var showSidebar = true
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Sidebar - instant toggle, no animation
-            if showSidebar {
-                WorkspaceSidebar()
-                    .frame(width: 240)
-                    .background(GlassSidebarBackground())
-            }
+        ZStack {
+            // Full-window glass background for coherent blur everywhere
+            GlassSidebarBackground()
+                .ignoresSafeArea()
 
-            // Terminal area
-            TerminalContainer()
+            HStack(spacing: 0) {
+                // Sidebar - instant toggle, no animation
+                if showSidebar {
+                    WorkspaceSidebar()
+                        .frame(width: 240)
+                }
+
+                // Terminal area
+                TerminalContainer()
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
         .onAppear {
             NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 // ⌘B toggle sidebar

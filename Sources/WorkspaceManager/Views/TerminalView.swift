@@ -142,9 +142,6 @@ struct TerminalContainer: View {
 
     var body: some View {
         ZStack {
-            // Glass blur background
-            VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
-
             // Render ALL terminals, keep them alive, show/hide based on selection
             ForEach(appState.workspaces) { workspace in
                 ForEach(workspace.terminals) { terminal in
