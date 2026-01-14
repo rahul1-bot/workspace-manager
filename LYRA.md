@@ -32,6 +32,7 @@ A simple terminal orchestration app for macOS. The goal is to provide a better w
 6. **Config-driven**: All settings in `~/.config/workspace-manager/config.toml`
 7. Terminal settings from config: font, font_size, scrollback, cursor_style.
 8. Workspaces from config: name + path pairs.
+9. **Terminal state persistence**: Switching tabs preserves shell state (ZStack + opacity approach).
 
 ### Config File Location
 ```

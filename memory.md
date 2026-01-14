@@ -4,6 +4,21 @@
 
 ---
 
+| Memory | Terminal State Persistence in SwiftUI | Date: 14 January 2026 | Time: 11:28 PM | Name: Lyra |
+
+### Observation
+1. SwiftUI destroys NSViewRepresentable views when conditionally rendered out of the view hierarchy.
+2. Using `.id(someValue)` modifier forces view recreation when the value changes.
+3. Terminal apps like Warp/iTerm keep all tab processes alive — they hide views, not destroy them.
+4. ZStack with opacity toggle preserves view instances while controlling visibility.
+
+### Implication
+1. For stateful views (terminals, video players, etc.), use ZStack + opacity instead of conditional if/else.
+2. Use `allowsHitTesting(false)` on hidden views to prevent accidental interaction.
+3. Memory tradeoff: more views alive = more RAM, but state preservation is worth it for terminal apps.
+
+---
+
 | Memory | Config-Driven Architecture | Date: 14 January 2026 | Time: 11:10 PM | Name: Lyra |
 
 ### Observation
