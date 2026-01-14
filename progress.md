@@ -70,7 +70,34 @@
 4. Removed duplicate backgrounds from sidebar and terminal container.
 5. Commit: `3ccc55c` — minimal window with unified glass background.
 
+---
+
+| Progress Todo | Keyboard Navigation | Date: 15 January 2026 | Time: 12:19 AM | Name: Lyra |
+
+### Problem
+1. Terminal switching required mouse clicks on sidebar.
+2. No way to navigate terminals without showing sidebar.
+3. When switching terminals via keyboard, focus didn't follow — keystrokes went to old terminal.
+
+### Solution
+1. Added ⌘I (previous) and ⌘K (next) for quick terminal cycling — works even with sidebar hidden.
+2. Added ⌘J to focus sidebar (shows if hidden) with arrow key navigation.
+3. Added ⌘L to return focus to terminal.
+4. Added `isSelected` parameter to TerminalView — only selected terminal requests first responder.
+5. Added `selectPreviousTerminal()` and `selectNextTerminal()` to AppState with cycling logic.
+6. Commit: `7398580` — keyboard navigation for terminal switching.
+
+### Keymaps Summary
+1. ⌘B — Toggle sidebar visibility (focus stays on terminal).
+2. ⌘I — Previous terminal (cycles).
+3. ⌘K — Next terminal (cycles).
+4. ⌘J — Focus sidebar (show if hidden).
+5. ⌘L — Focus terminal.
+6. ⌘T — New terminal.
+7. ↑/↓ — Navigate when sidebar focused.
+8. Enter — Select and focus terminal.
+
 ### Next Steps
-1. Keyboard navigation for terminal switching (⌘I/⌘K for up/down, ⌘J/⌘L for focus).
-2. Hot-reload config without app restart (optional enhancement).
-3. Config validation with helpful error messages.
+1. Hot-reload config without app restart (optional enhancement).
+2. Config validation with helpful error messages.
+3. Additional terminal settings (colors, themes).

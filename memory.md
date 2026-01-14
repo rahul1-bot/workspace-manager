@@ -4,6 +4,21 @@
 
 ---
 
+| Memory | Keyboard Focus in Multi-Terminal SwiftUI | Date: 15 January 2026 | Time: 12:19 AM | Name: Lyra |
+
+### Observation
+1. When multiple NSViewRepresentable views exist in ZStack, all compete for first responder.
+2. Changing visibility (opacity) doesn't automatically change keyboard focus.
+3. Must explicitly pass selection state and only request focus for selected view.
+4. `updateNSView` is called when SwiftUI state changes — good place to request focus.
+
+### Implication
+1. For multi-terminal/multi-view apps, track selection state and pass to each view.
+2. Only selected view should call `makeFirstResponder` in updateNSView.
+3. Global keyboard shortcuts via NSEvent monitor work well for navigation without menu items.
+
+---
+
 | Memory | Minimal Window Chrome | Date: 15 January 2026 | Time: 12:04 AM | Name: Lyra |
 
 ### Observation
