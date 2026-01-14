@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
 
+// ConfigService is in the same module, no import needed
+
 class AppState: ObservableObject {
     @Published var workspaces: [Workspace] = []
     @Published var selectedWorkspaceId: UUID?
@@ -155,5 +157,58 @@ class AppState: ObservableObject {
             return nil
         }
         return workspace.terminals.first { $0.id == tId }
+    }
+
+    // MARK: - Terminal Navigation
+
+    /// Get flat list of all terminals with their workspace IDs
+    var allTerminals: [(workspaceId: UUID, terminal: Terminal)] {
+        var result: [(UUID, Terminal)] = []
+        for workspace in workspaces {
+            for terminal in workspace.terminals {
+                result.append((workspace.id, terminal))
+            }
+        }
+        return result
+    }
+
+    /// Navigate to previous terminal (cycles)
+    func selectPreviousTerminal() {
+        let terminals = allTerminals
+        guard !terminals.isEmpty else { return }
+
+        // Find current index
+        if let currentId = selectedTerminalId,
+           let currentIndex = terminals.firstIndex(where: { $0.terminal.id == currentId }) {
+            // Go to previous, wrap around to end if at beginning
+            let previousIndex = currentIndex == 0 ? terminals.count - 1 : currentIndex - 1
+            let prev = terminals[previousIndex]
+            selectTerminal(id: prev.terminal.id, in: prev.workspaceId)
+        } else {
+            // No selection, select last terminal
+            if let last = terminals.last {
+                selectTerminal(id: last.terminal.id, in: last.workspaceId)
+            }
+        }
+    }
+
+    /// Navigate to next terminal (cycles)
+    func selectNextTerminal() {
+        let terminals = allTerminals
+        guard !terminals.isEmpty else { return }
+
+        // Find current index
+        if let currentId = selectedTerminalId,
+           let currentIndex = terminals.firstIndex(where: { $0.terminal.id == currentId }) {
+            // Go to next, wrap around to beginning if at end
+            let nextIndex = (currentIndex + 1) % terminals.count
+            let next = terminals[nextIndex]
+            selectTerminal(id: next.terminal.id, in: next.workspaceId)
+        } else {
+            // No selection, select first terminal
+            if let first = terminals.first {
+                selectTerminal(id: first.terminal.id, in: first.workspaceId)
+            }
+        }
     }
 }

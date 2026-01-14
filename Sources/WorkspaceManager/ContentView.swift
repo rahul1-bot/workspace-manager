@@ -17,6 +17,7 @@ struct GlassSidebarBackground: NSViewRepresentable {
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var showSidebar = true
+    @State private var sidebarFocused = false
 
     var body: some View {
         ZStack {
@@ -29,6 +30,11 @@ struct ContentView: View {
                 if showSidebar {
                     WorkspaceSidebar()
                         .frame(width: 240)
+                        .overlay(
+                            // Visual indicator when sidebar is focused
+                            RoundedRectangle(cornerRadius: 0)
+                                .stroke(sidebarFocused ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 2)
+                        )
                 }
 
                 // Terminal area
@@ -38,18 +44,68 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                // ⌘B toggle sidebar
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "b" {
+                let cmd = event.modifierFlags.contains(.command)
+                let char = event.charactersIgnoringModifiers ?? ""
+
+                // ⌘B toggle sidebar visibility (focus stays on terminal)
+                if cmd && char == "b" {
                     showSidebar.toggle()
+                    if !showSidebar { sidebarFocused = false }
                     return nil
                 }
+
                 // ⌘T new terminal
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "t" {
+                if cmd && char == "t" {
                     if appState.selectedWorkspaceId != nil {
                         appState.createTerminalInSelectedWorkspace()
                     }
                     return nil
                 }
+
+                // ⌘I - previous terminal (cycles)
+                if cmd && char == "i" {
+                    appState.selectPreviousTerminal()
+                    return nil
+                }
+
+                // ⌘K - next terminal (cycles)
+                if cmd && char == "k" {
+                    appState.selectNextTerminal()
+                    return nil
+                }
+
+                // ⌘J - focus sidebar (show if hidden)
+                if cmd && char == "j" {
+                    showSidebar = true
+                    sidebarFocused = true
+                    return nil
+                }
+
+                // ⌘L - focus terminal
+                if cmd && char == "l" {
+                    sidebarFocused = false
+                    return nil
+                }
+
+                // Arrow keys when sidebar is focused
+                if sidebarFocused {
+                    // Up arrow - previous terminal
+                    if event.keyCode == 126 {
+                        appState.selectPreviousTerminal()
+                        return nil
+                    }
+                    // Down arrow - next terminal
+                    if event.keyCode == 125 {
+                        appState.selectNextTerminal()
+                        return nil
+                    }
+                    // Enter/Return - focus terminal
+                    if event.keyCode == 36 {
+                        sidebarFocused = false
+                        return nil
+                    }
+                }
+
                 return event
             }
         }

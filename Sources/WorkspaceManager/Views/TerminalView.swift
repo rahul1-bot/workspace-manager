@@ -31,6 +31,7 @@ struct VisualEffectBackground: NSViewRepresentable {
 struct TerminalView: NSViewRepresentable {
     let workingDirectory: String
     let terminalId: UUID
+    let isSelected: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -99,7 +100,8 @@ struct TerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
-        if nsView.window?.firstResponder !== nsView {
+        // Only request focus if this terminal is selected
+        if isSelected && nsView.window?.firstResponder !== nsView {
             DispatchQueue.main.async {
                 nsView.window?.makeFirstResponder(nsView)
             }
@@ -152,7 +154,8 @@ struct TerminalContainer: View {
 
                         TerminalView(
                             workingDirectory: terminal.workingDirectory,
-                            terminalId: terminal.id
+                            terminalId: terminal.id,
+                            isSelected: isSelected
                         )
                     }
                     .opacity(isSelected ? 1 : 0)
