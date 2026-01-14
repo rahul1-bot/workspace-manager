@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-A simple terminal orchestration app for macOS. The goal is to provide a better workspace management experience than tmux — with a native UI, multiple terminal sessions organized by workspaces, and a clean user experience.
+A simple terminal orchestration app for macOS. The goal is to provide a better workspace management experience than tmux — with a native UI, multiple terminal sessions organized by workspaces, and a clean minimalistic config-driven experience.
 
 ---
 
@@ -13,34 +13,15 @@ A simple terminal orchestration app for macOS. The goal is to provide a better w
 | Project Name | Workspace Manager |
 | Type | Native macOS Application |
 | Purpose | Terminal orchestration with workspace management |
-| Tech Stack | Swift, SwiftUI, SwiftTerm (CPU renderer) |
+| Tech Stack | Swift, SwiftUI, SwiftTerm (CPU renderer), TOMLKit |
 | Target | macOS 14+ on Apple Silicon |
-
----
-
-## Architecture Decision Record
-
-| ADR | Decision | Date: 14 January 2026 | Time: 10:29 PM | Name: Lyra |
-
-### Context
-1. Evaluated GPU-accelerated terminal rendering (custom Metal, libghostty, SwiftTerm Metal).
-2. No production-ready embeddable GPU terminal library exists for Swift/SwiftUI as of January 2026.
-3. The core value is workspace orchestration, not terminal rendering performance.
-
-### Decision
-1. Use SwiftTerm CPU renderer for terminal embedding — stable and functional.
-2. Focus engineering effort on orchestration features (profiles, workspaces, persistence).
-3. Monitor libghostty and SwiftTerm Metal for future GPU adoption when stable.
-
-### Consequences
-1. Terminal rendering at ~60Hz is adequate for command-line workflows.
-2. Development time goes toward features that differentiate the product.
+| Config | `~/.config/workspace-manager/config.toml` |
 
 ---
 
 ## Current Status
 
-| Status | Focus | Date: 14 January 2026 | Time: 10:29 PM | Name: Lyra |
+| Status | Focus | Date: 14 January 2026 | Time: 11:10 PM | Name: Lyra |
 
 ### What WORKS
 1. Native macOS app with SwiftUI interface.
@@ -48,11 +29,42 @@ A simple terminal orchestration app for macOS. The goal is to provide a better w
 3. Glass/transparent UI with blur effect (NSVisualEffectView).
 4. Workspace sidebar with expandable workspace trees.
 5. Multiple terminal sessions per workspace.
-6. Bar cursor, Cascadia Code font, 1M line scrollback.
+6. **Config-driven**: All settings in `~/.config/workspace-manager/config.toml`
+7. Terminal settings from config: font, font_size, scrollback, cursor_style.
+8. Workspaces from config: name + path pairs.
 
-### Immediate Objective
-1. Implement user profiles system for workspace persistence.
-2. Allow users to create, save, and switch between workspace configurations.
+### Config File Location
+```
+~/.config/workspace-manager/config.toml
+```
+
+### Config Structure
+```toml
+[terminal]
+font = "Cascadia Code"
+font_size = 14
+scrollback = 1000000
+cursor_style = "bar"
+
+[[workspaces]]
+name = "Root"
+path = "~/path/to/workspace"
+```
+
+---
+
+## Architecture
+
+### Files
+- `Sources/WorkspaceManager/Models/Config.swift` — Config data structures
+- `Sources/WorkspaceManager/Services/ConfigService.swift` — TOML loading/parsing
+- `Sources/WorkspaceManager/Models/AppState.swift` — Loads workspaces from config
+- `Sources/WorkspaceManager/Views/TerminalView.swift` — Reads terminal settings from config
+
+### Data Flow
+```
+App Launch → ConfigService.loadConfig() → Parse TOML → AppState initializes with workspaces
+```
 
 ---
 
