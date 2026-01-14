@@ -37,8 +37,24 @@
 4. Shell processes stay alive in background, just hidden from view.
 5. Commit: `60a82ad` — persist terminal state across tab switches.
 
+---
+
+| Progress Todo | Zed-Style Sidebar Redesign | Date: 14 January 2026 | Time: 11:41 PM | Name: Lyra |
+
+### Problem
+1. NavigationSplitView gave standard macOS sidebar look with heavy divider and chrome.
+2. Wanted cleaner, Zed-style integrated panel that feels part of the window.
+3. Sidebar had opaque background breaking the glass aesthetic.
+
+### Solution
+1. Replaced NavigationSplitView with simple HStack layout.
+2. Added ⌘B keyboard shortcut for instant sidebar toggle (no animation).
+3. Changed sidebar material from `.sidebar` to `.hudWindow` for matching glass effect.
+4. Removed all dividers and opaque backgrounds (including terminal header).
+5. Added ⌘T shortcut for new terminal creation.
+6. Commit: `e276498` — zed-style sidebar with seamless glass UI.
+
 ### Next Steps
-1. Redesign sidebar to Zed-style integrated panel (HStack instead of NavigationSplitView).
-2. Hot-reload config without app restart (optional enhancement).
-3. Config validation with helpful error messages.
-4. Additional terminal settings (colors, themes).
+1. Hot-reload config without app restart (optional enhancement).
+2. Config validation with helpful error messages.
+3. Additional terminal settings (colors, themes).

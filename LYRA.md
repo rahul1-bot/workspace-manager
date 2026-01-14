@@ -33,6 +33,7 @@ A simple terminal orchestration app for macOS. The goal is to provide a better w
 7. Terminal settings from config: font, font_size, scrollback, cursor_style.
 8. Workspaces from config: name + path pairs.
 9. **Terminal state persistence**: Switching tabs preserves shell state (ZStack + opacity approach).
+10. **Zed-style sidebar**: Seamless glass panel with ⌘B toggle, no NavigationSplitView chrome.
 
 ### Config File Location
 ```

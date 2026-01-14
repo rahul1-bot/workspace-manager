@@ -4,6 +4,21 @@
 
 ---
 
+| Memory | Zed-Style Sidebar Design | Date: 14 January 2026 | Time: 11:41 PM | Name: Lyra |
+
+### Observation
+1. NavigationSplitView provides macOS-standard sidebar but with heavy visual chrome.
+2. Simple HStack with conditional rendering gives full control over appearance.
+3. NSEvent.addLocalMonitorForEvents enables global keyboard shortcuts without menu items.
+4. Using same `.hudWindow` material across all panels creates seamless glass effect.
+
+### Implication
+1. For minimal UI, avoid NavigationSplitView — use HStack + manual sidebar toggle.
+2. Keyboard shortcuts via NSEvent monitor are instant and don't require toolbar buttons.
+3. Consistent material across all views is key to cohesive glass aesthetic.
+
+---
+
 | Memory | Terminal State Persistence in SwiftUI | Date: 14 January 2026 | Time: 11:28 PM | Name: Lyra |
 
 ### Observation
