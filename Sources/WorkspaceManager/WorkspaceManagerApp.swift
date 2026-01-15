@@ -7,11 +7,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var flagsMonitor: Any?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // Initialize libghostty FIRST - before any views are created
+        GhosttyAppManager.shared.initialize()
+
         // Ensure the app runs as a regular foreground app
         NSApp.setActivationPolicy(.regular)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+
         // Force the app to become active and accept keyboard input
         NSApp.activate(ignoringOtherApps: true)
 

@@ -18,9 +18,28 @@ let package = Package(
             name: "WorkspaceManager",
             dependencies: [
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
-                .product(name: "TOMLKit", package: "TOMLKit")
+                .product(name: "TOMLKit", package: "TOMLKit"),
+                "GhosttyKit"
             ],
-            path: "Sources/WorkspaceManager"
+            path: "Sources/WorkspaceManager",
+            linkerSettings: [
+                .linkedFramework("Metal"),
+                .linkedFramework("MetalKit"),
+                .linkedFramework("QuartzCore"),
+                .linkedFramework("CoreText"),
+                .linkedFramework("CoreGraphics"),
+                .linkedFramework("Foundation"),
+                .linkedFramework("Carbon"),
+                .linkedFramework("AppKit"),
+                .linkedFramework("IOKit"),
+                .linkedFramework("CoreServices"),
+                .linkedLibrary("z"),
+                .linkedLibrary("c++")
+            ]
+        ),
+        .binaryTarget(
+            name: "GhosttyKit",
+            path: "Frameworks/GhosttyKit.xcframework"
         )
     ]
 )

@@ -4,3 +4,4 @@ Build/
 DerivedData/
 .swiftpm/
 *.xcodeproj
+Frameworks/

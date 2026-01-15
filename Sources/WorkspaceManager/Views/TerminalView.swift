@@ -137,6 +137,9 @@ struct TerminalView: NSViewRepresentable {
     }
 }
 
+/// Feature flag to switch between SwiftTerm and libghostty rendering
+let useGhosttyRenderer = true
+
 /// A container view that manages multiple terminal instances
 /// All terminals stay alive in a ZStack - we show/hide based on selection
 struct TerminalContainer: View {
@@ -152,11 +155,21 @@ struct TerminalContainer: View {
                     VStack(spacing: 0) {
                         TerminalHeader(terminal: terminal, workspace: workspace)
 
-                        TerminalView(
-                            workingDirectory: terminal.workingDirectory,
-                            terminalId: terminal.id,
-                            isSelected: isSelected
-                        )
+                        if useGhosttyRenderer {
+                            // Use libghostty Metal renderer (120hz)
+                            GhosttyTerminalView(
+                                workingDirectory: terminal.workingDirectory,
+                                terminalId: terminal.id,
+                                isSelected: isSelected
+                            )
+                        } else {
+                            // Use SwiftTerm CPU renderer
+                            TerminalView(
+                                workingDirectory: terminal.workingDirectory,
+                                terminalId: terminal.id,
+                                isSelected: isSelected
+                            )
+                        }
                     }
                     .opacity(isSelected ? 1 : 0)
                     .allowsHitTesting(isSelected)
