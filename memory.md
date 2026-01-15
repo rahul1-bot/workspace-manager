@@ -4,6 +4,24 @@
 
 ---
 
+| Memory | libghostty Integration Pattern | Date: 15 January 2026 | Time: 03:35 PM | Name: Lyra |
+
+### Observation
+1. libghostty is a callback-driven embedding API, not a view component.
+2. The host app provides an NSView, libghostty creates CAMetalLayer as backing layer.
+3. Metal rendering happens entirely inside libghostty — Swift never touches Metal directly.
+4. CVDisplayLink (display refresh callback) is managed by libghostty for 120hz rendering.
+5. Input events must be translated from NSEvent to ghostty_input_key_s struct.
+
+### Implication
+1. Integration requires creating an NSView subclass that routes events to libghostty C API.
+2. SwiftUI wrapper (NSViewRepresentable) holds the NSView and ghostty_surface_t handle.
+3. App-level state (ghostty_app_t) should be singleton, surfaces are per-terminal.
+4. Runtime callbacks must be implemented in Swift for clipboard, window management, close handling.
+5. No need to manage Metal pipeline — libghostty handles all GPU work internally.
+
+---
+
 | Memory | Keyboard Focus in Multi-Terminal SwiftUI | Date: 15 January 2026 | Time: 12:19 AM | Name: Lyra |
 
 ### Observation

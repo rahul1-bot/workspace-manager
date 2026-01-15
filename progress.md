@@ -127,6 +127,62 @@
 3. Ghostty docs: https://ghostty.org/docs/about
 
 ### Status
-1. Bookmarked for future weekend session.
-2. Current SwiftTerm implementation works well — no urgent need.
-3. Will revisit when libghostty has stable public Swift framework.
+1. ✅ Research completed — full codebase reconnaissance done.
+2. Ready for Phase 2: Build and Integration.
+
+---
+
+| Progress Todo | libghostty Deep Reconnaissance | Date: 15 January 2026 | Time: 03:32 PM | Name: Lyra |
+
+### Objective
+1. Understand Ghostty's architecture for 120hz Metal terminal rendering integration.
+2. This is an engineering skills test — problem decomposition, cross-language integration, build system mastery.
+
+### Environment Setup
+1. ✅ Installed Zig 0.15.2 via Homebrew.
+2. ✅ Verified Xcode 26.2 (required for Ghostty main branch).
+3. ✅ Cloned Ghostty repo to `../ghostty-research/`.
+
+### Agent-1 Findings: macOS Swift Architecture
+1. Swift imports `GhosttyKit` module (XCFramework).
+2. libghostty manages ALL Metal rendering internally — Swift does not touch Metal directly.
+3. Swift passes `NSView*` pointer via `config.platform.macos.nsview`.
+4. libghostty creates `CAMetalLayer` as backing layer automatically.
+5. `CVDisplayLink` triggers rendering at display refresh rate (120hz on ProMotion).
+6. Key file: `SurfaceView_AppKit.swift` (98KB) — handles all input event routing.
+7. Bridging header only imports `VibrantLayer.h` (minimal).
+
+### Agent-2 Findings: C API Surface
+1. Opaque types: `ghostty_app_t`, `ghostty_config_t`, `ghostty_surface_t`.
+2. Initialization: `ghostty_init()` → `ghostty_config_new()` → `ghostty_app_new()` → `ghostty_surface_new()`.
+3. Rendering: `ghostty_app_tick()` (process work) + `ghostty_surface_draw()` (render frame).
+4. Input: `ghostty_surface_key()`, `ghostty_surface_mouse_button()`, `ghostty_surface_text()`.
+5. Size: `ghostty_surface_set_size()`, `ghostty_surface_set_content_scale()`.
+6. Callback-driven architecture via `ghostty_runtime_config_s` struct.
+7. Platform config takes `NSView*` directly in `ghostty_surface_config_s.platform.macos.nsview`.
+
+### Agent-3 Findings: Build System
+1. Build command for XCFramework:
+    ```
+    zig build -Dapp-runtime=none -Demit-xcframework=true -Dxcframework-target=native -Doptimize=ReleaseFast
+    ```
+2. Output location: `macos/GhosttyKit.xcframework/macos-arm64_x86_64/libghostty.a`.
+3. Metal shaders are EMBEDDED in the static library (no separate .metallib files).
+4. All dependencies bundled into single fat static library via `libtool -static`.
+5. Key flags: `-Dapp-runtime=none` (library mode), `-Dxcframework-target=native` (faster iteration).
+
+### Integration Architecture
+1. Add `GhosttyKit.xcframework` to workspace-manager Xcode project.
+2. Create `GhosttyTerminalView` (NSViewRepresentable) replacing SwiftTerm's `LocalProcessTerminalView`.
+3. Initialize libghostty once at app launch via `ghostty_init()`.
+4. Create shared `ghostty_app_t` instance managed by AppState.
+5. Each terminal = one `ghostty_surface_t` attached to its NSView.
+6. Route keyboard/mouse events from SwiftUI through C API.
+7. Implement runtime callbacks for clipboard, window actions, close handling.
+
+### Next Actions
+1. Build GhosttyKit.xcframework from source.
+2. Create minimal Swift wrapper for libghostty C API.
+3. Replace SwiftTerm with libghostty in single terminal test.
+4. Verify 120hz rendering on ProMotion display.
+5. Port full multi-terminal architecture.
