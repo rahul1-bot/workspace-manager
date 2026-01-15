@@ -213,7 +213,44 @@ zig build -Dapp-runtime=none -Demit-xcframework=true -Dxcframework-target=native
 3. All Metal shaders embedded in static library — no runtime dependencies.
 
 ### Next Phase: Integration
-1. Copy xcframework to workspace-manager project.
-2. Add to Xcode project as embedded framework.
-3. Create GhosttyTerminalView replacing SwiftTerm.
-4. Implement runtime callbacks for clipboard/window actions.
+1. ✅ Copy xcframework to workspace-manager project.
+2. ✅ Add to Xcode project as embedded framework.
+3. ✅ Create GhosttyTerminalView replacing SwiftTerm.
+4. ✅ Implement runtime callbacks for clipboard/window actions.
+
+---
+
+| Progress Todo | libghostty Integration Complete | Date: 15 January 2026 | Time: 03:48 PM | Name: Lyra |
+
+### Milestone Achieved
+1. Successfully integrated libghostty into workspace-manager.
+2. Surfaces are created and initialized - Metal rendering pipeline is active.
+3. Commit: `0125660` — full integration with feature flag.
+
+### Implementation Details
+1. Created `GhosttyAppManager` singleton managing `ghostty_app_t` lifecycle.
+2. Created `GhosttySurfaceNSView` (NSView subclass) wrapping `ghostty_surface_t`.
+3. Created `GhosttyTerminalView` (SwiftUI NSViewRepresentable wrapper).
+4. Implemented keyboard input translation (NSEvent → ghostty_input_key_s).
+5. Implemented mouse input handling (position, buttons, scroll).
+6. Implemented clipboard callbacks (read/write).
+
+### Key Learning: Initialization Timing
+1. SwiftUI creates views before `applicationDidFinishLaunching` fires.
+2. Solution: Initialize libghostty in `applicationWillFinishLaunching` instead.
+3. This ensures `ghostty_app_t` exists before any `GhosttySurfaceNSView` is created.
+
+### Feature Flag
+1. `useGhosttyRenderer = true` in TerminalView.swift enables libghostty.
+2. Set to `false` to fall back to SwiftTerm CPU rendering.
+
+### Build Instructions
+1. Clone Ghostty: `git clone https://github.com/ghostty-org/ghostty ../ghostty-research`
+2. Build xcframework: `cd ../ghostty-research && zig build -Dapp-runtime=none -Demit-xcframework=true -Dxcframework-target=native -Doptimize=ReleaseFast`
+3. Copy to project: `cp -R macos/GhosttyKit.xcframework ../workspace-manager/Frameworks/`
+
+### Next Steps
+1. Verify terminal text is rendering correctly.
+2. Test keyboard input (typing, special keys, modifiers).
+3. Test 120hz on ProMotion display.
+4. Debug any rendering or input issues.
