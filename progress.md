@@ -98,6 +98,35 @@
 8. Enter — Select and focus terminal.
 
 ### Next Steps
-1. Hot-reload config without app restart (optional enhancement).
-2. Config validation with helpful error messages.
-3. Additional terminal settings (colors, themes).
+1. **libghostty integration** — Replace SwiftTerm with Ghostty's Metal renderer for 120hz.
+2. Hot-reload config without app restart (optional enhancement).
+3. Config validation with helpful error messages.
+4. Additional terminal settings (colors, themes).
+
+---
+
+| Progress Todo | Future Research: libghostty | Date: 15 January 2026 | Time: 02:41 AM | Name: Lyra |
+
+### Research Summary
+1. Ghostty's macOS app is Swift/SwiftUI consuming libghostty via C API.
+2. libghostty provides Metal rendering, font shaping, PTY handling — 120fps possible.
+3. Architecture: Zig core → C static library (.a) → Swift bridging header → SwiftUI app.
+4. libghostty-vt (VT parser) released September 2025, but full rendering API not yet stable.
+
+### Integration Plan (Weekend Project)
+1. Clone Ghostty repo: `git clone https://github.com/ghostty-org/ghostty`
+2. Study `/macos` folder — see how Swift integrates with libghostty.
+3. Build libghostty as static lib (requires Zig toolchain).
+4. Create Swift bridging header to expose C API.
+5. Replace SwiftTerm view with libghostty surface calls.
+6. Each terminal = one libghostty surface.
+
+### Resources
+1. GitHub: https://github.com/ghostty-org/ghostty
+2. libghostty announcement: https://mitchellh.com/writing/libghostty-is-coming
+3. Ghostty docs: https://ghostty.org/docs/about
+
+### Status
+1. Bookmarked for future weekend session.
+2. Current SwiftTerm implementation works well — no urgent need.
+3. Will revisit when libghostty has stable public Swift framework.
