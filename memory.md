@@ -4,6 +4,22 @@
 
 ---
 
+| Memory | Scroll Deceleration Jank | Date: 15 January 2026 | Time: 04:06 PM | Name: Lyra |
+
+### Observation
+1. libghostty 120hz scrolling is smooth during active scroll motion.
+2. Jank appears specifically during scroll deceleration (momentum slowdown).
+3. The "landing" phase when scroll velocity approaches zero shows frame timing issues.
+4. This is a known difficult problem — low velocity scroll requires precise frame timing.
+
+### Implication
+1. The CVDisplayLink is working correctly for high-velocity scrolling.
+2. Scroll momentum physics at low velocities may need tuning.
+3. Future optimization: investigate Ghostty's scroll deceleration curve settings.
+4. Release build is noticeably smoother than debug build.
+
+---
+
 | Memory | libghostty Integration Pattern | Date: 15 January 2026 | Time: 03:35 PM | Name: Lyra |
 
 ### Observation

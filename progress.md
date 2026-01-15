@@ -250,7 +250,45 @@ zig build -Dapp-runtime=none -Demit-xcframework=true -Dxcframework-target=native
 3. Copy to project: `cp -R macos/GhosttyKit.xcframework ../workspace-manager/Frameworks/`
 
 ### Next Steps
-1. Verify terminal text is rendering correctly.
-2. Test keyboard input (typing, special keys, modifiers).
-3. Test 120hz on ProMotion display.
+1. ✅ Verify terminal text is rendering correctly.
+2. ✅ Test keyboard input (typing, special keys, modifiers).
+3. ✅ Test 120hz on ProMotion display.
 4. Debug any rendering or input issues.
+
+---
+
+| Progress Todo | 120hz Testing and Config | Date: 15 January 2026 | Time: 04:06 PM | Name: Lyra |
+
+### Visual Verification
+1. ✅ Terminal text renders correctly with libghostty Metal renderer.
+2. ✅ Transparent background working via `background-opacity = 0.0`.
+3. ✅ Bar cursor style configured via `cursor-style = bar`.
+4. ✅ Display confirmed at 120Hz: `1728 x 1117 @ 120.00Hz`.
+
+### Performance Testing
+1. Release build (`swift build -c release`) is noticeably smoother than debug.
+2. Active scrolling is smooth at 120hz.
+3. Minor jank observed during scroll deceleration phase (momentum landing).
+4. This is a known difficult optimization area for future work.
+
+### Ghostty Config Location
+```
+~/.config/ghostty/config
+```
+
+### Current Config
+```
+background-opacity = 0.0
+cursor-style = bar
+cursor-style-blink = false
+font-family = "Cascadia Code"
+font-size = 14
+font-thicken = true
+adjust-cell-height = 1
+scrollback-limit = 1000000
+```
+
+### Future Optimizations
+1. Investigate scroll deceleration curve tuning.
+2. Profile CVDisplayLink callback timing.
+3. Consider vsync settings for momentum scrolling.
