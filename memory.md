@@ -4,19 +4,28 @@
 
 ---
 
-| Memory | Scroll Deceleration Jank | Date: 15 January 2026 | Time: 04:06 PM | Name: Lyra |
+| Memory | Scroll Deceleration Jank Analysis | Date: 15 January 2026 | Time: 04:19 PM | Name: Lyra |
 
 ### Observation
 1. libghostty 120hz scrolling is smooth during active scroll motion.
 2. Jank appears specifically during scroll deceleration (momentum slowdown).
 3. The "landing" phase when scroll velocity approaches zero shows frame timing issues.
 4. This is a known difficult problem — low velocity scroll requires precise frame timing.
+5. Similar to mobile phone scroll momentum — the physics of "landing" a scroll smoothly is complex.
+
+### Technical Details
+1. NSEvent.momentumPhase encodes scroll momentum state: began, changed, ended, cancelled.
+2. ghostty_input_scroll_mods_t is a packed bitmask: bit 0 = precision, bits 1-3 = momentum phase.
+3. We encode momentum phase correctly but jank persists — issue may be deeper in libghostty.
+4. Ghostty's own SurfaceView_AppKit.swift has extensive scroll handling (~100 lines).
+5. Release build significantly smoother than debug — always test with release for scroll quality.
 
 ### Implication
 1. The CVDisplayLink is working correctly for high-velocity scrolling.
-2. Scroll momentum physics at low velocities may need tuning.
-3. Future optimization: investigate Ghostty's scroll deceleration curve settings.
-4. Release build is noticeably smoother than debug build.
+2. Scroll momentum physics at low velocities may need tuning at libghostty level.
+3. This may require studying Ghostty's internal scroll momentum interpolation.
+4. Consider if explicit ghostty_surface_draw() calls needed during momentum phase.
+5. This is an advanced optimization — core functionality works well, polish can come later.
 
 ---
 

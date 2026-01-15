@@ -309,11 +309,24 @@ class GhosttySurfaceNSView: NSView {
     override func scrollWheel(with event: NSEvent) {
         guard let surface = surface else { return }
 
-        // ghostty_input_scroll_mods_t is a bitmask
+        // ScrollMods is packed: bit 0 = precision, bits 1-3 = momentum phase
         var scrollMods: ghostty_input_scroll_mods_t = 0
+
+        // Bit 0: precision scrolling
         if event.hasPreciseScrollingDeltas {
-            scrollMods |= 1  // Precision scrolling flag
+            scrollMods |= 1
         }
+
+        // Bits 1-3: momentum phase (shifted left by 1)
+        let momentum: Int32 = switch event.momentumPhase {
+            case .began: 5      // may_begin
+            case .stationary: 1 // stationary
+            case .changed: 2    // changed
+            case .ended: 3      // ended
+            case .cancelled: 4  // cancelled
+            default: 0          // none
+        }
+        scrollMods |= (momentum << 1)
 
         ghostty_surface_mouse_scroll(surface, event.scrollingDeltaX, event.scrollingDeltaY, scrollMods)
     }

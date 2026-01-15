@@ -292,3 +292,69 @@ scrollback-limit = 1000000
 1. Investigate scroll deceleration curve tuning.
 2. Profile CVDisplayLink callback timing.
 3. Consider vsync settings for momentum scrolling.
+
+---
+
+| Progress Todo | libghostty 120hz Integration Complete | Date: 15 January 2026 | Time: 04:19 PM | Name: Lyra |
+
+### Summary
+1. Successfully completed libghostty integration for 120hz Metal terminal rendering.
+2. This was an engineering skills test — cross-language integration (Zig → C → Swift), build system mastery, problem decomposition.
+3. Project is now using GPU-accelerated rendering via libghostty instead of SwiftTerm CPU rendering.
+
+### Completed Tasks
+1. ✅ Built GhosttyKit.xcframework from Ghostty source using Zig build system.
+2. ✅ Integrated xcframework into Swift Package Manager project with proper linker settings.
+3. ✅ Created GhosttyAppManager singleton for ghostty_app_t lifecycle management.
+4. ✅ Created GhosttySurfaceNSView (NSView subclass) wrapping ghostty_surface_t.
+5. ✅ Created GhosttyTerminalView (SwiftUI NSViewRepresentable wrapper).
+6. ✅ Implemented full keyboard input translation (NSEvent → ghostty_input_key_s).
+7. ✅ Implemented mouse input handling (position, buttons, scroll with momentum).
+8. ✅ Implemented clipboard callbacks (read/write to NSPasteboard).
+9. ✅ Configured transparent background via `background-opacity = 0.0`.
+10. ✅ Configured bar cursor via `cursor-style = bar`.
+11. ✅ Increased scroll speed via `mouse-scroll-multiplier = 3`.
+12. ✅ Verified 120hz rendering on ProMotion display.
+
+### Key Bugs Fixed During Integration
+1. Initialization timing — SwiftUI creates views before applicationDidFinishLaunching, moved init to applicationWillFinishLaunching.
+2. Clipboard callback signature mismatch — corrected to use ghostty_clipboard_content_s struct.
+3. Missing Carbon framework — required for TIS* keyboard functions.
+4. CGFloat to Double conversion — scale_factor required explicit cast.
+5. Scroll momentum encoding — added NSEvent.momentumPhase encoding in scrollMods bitmask.
+
+### Remaining Work: Scroll Deceleration Jank
+1. Issue: Subtle stutter appears during scroll deceleration phase (when momentum slows down before stopping).
+2. Context: This is a complex motion physics problem — similar to how mobile phone scroll momentum works.
+3. The issue is visible only at low scroll velocities as the scroll "lands" to a stop.
+4. Possible causes: CVDisplayLink frame timing, momentum curve calculation, vsync alignment at low velocities.
+5. This is a known difficult optimization problem in high refresh rate displays.
+6. Added momentum phase encoding to scrollMods (bits 1-3) but issue persists.
+
+### Investigation Notes for Future
+1. Study Ghostty's SurfaceView_AppKit.swift scrollWheel implementation more deeply.
+2. Compare our momentum phase encoding against Ghostty's approach.
+3. Profile CVDisplayLink callback timing during deceleration phase.
+4. Investigate if ghostty_surface_draw() needs explicit calling during momentum.
+5. Check if there are additional scroll-related config options in libghostty.
+
+### Ghostty Config (Updated)
+```
+~/.config/ghostty/config
+background-opacity = 0.0
+cursor-style = bar
+cursor-style-blink = false
+font-family = "Cascadia Code"
+font-size = 14
+font-thicken = true
+adjust-cell-height = 1
+mouse-scroll-multiplier = 3
+scrollback-limit = 1000000
+```
+
+### Build Instructions
+1. Requires Zig 0.15.2 and Metal Toolchain installed.
+2. Clone Ghostty: `git clone https://github.com/ghostty-org/ghostty ../ghostty-research`
+3. Build: `cd ../ghostty-research && zig build -Dapp-runtime=none -Demit-xcframework=true -Dxcframework-target=native -Doptimize=ReleaseFast`
+4. Copy: `cp -R macos/GhosttyKit.xcframework ../workspace-manager/Frameworks/`
+5. Run release build: `swift build -c release && .build/release/WorkspaceManager`
