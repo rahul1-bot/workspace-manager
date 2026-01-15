@@ -181,8 +181,39 @@
 7. Implement runtime callbacks for clipboard, window actions, close handling.
 
 ### Next Actions
-1. Build GhosttyKit.xcframework from source.
+1. ✅ Build GhosttyKit.xcframework from source.
 2. Create minimal Swift wrapper for libghostty C API.
 3. Replace SwiftTerm with libghostty in single terminal test.
 4. Verify 120hz rendering on ProMotion display.
 5. Port full multi-terminal architecture.
+
+---
+
+| Progress Todo | GhosttyKit Build Success | Date: 15 January 2026 | Time: 03:37 PM | Name: Lyra |
+
+### Environment Setup
+1. Installed Metal Toolchain via `xcodebuild -downloadComponent MetalToolchain` (704MB).
+2. This was required for compiling Metal shaders embedded in libghostty.
+
+### Build Command
+```bash
+cd ghostty-research
+zig build -Dapp-runtime=none -Demit-xcframework=true -Dxcframework-target=native -Doptimize=ReleaseFast
+```
+
+### Output
+1. Location: `ghostty-research/macos/GhosttyKit.xcframework/`
+2. Size: 135MB total
+3. Static library: `macos-arm64/libghostty-fat.a` (141MB)
+4. Headers: `ghostty.h` (32KB), `module.modulemap`, `ghostty/` subfolder
+
+### Verification
+1. Framework structure is correct for Xcode integration.
+2. `module.modulemap` enables direct Swift import via `import GhosttyKit`.
+3. All Metal shaders embedded in static library — no runtime dependencies.
+
+### Next Phase: Integration
+1. Copy xcframework to workspace-manager project.
+2. Add to Xcode project as embedded framework.
+3. Create GhosttyTerminalView replacing SwiftTerm.
+4. Implement runtime callbacks for clipboard/window actions.
