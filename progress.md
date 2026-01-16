@@ -434,3 +434,61 @@ custom-shader-animation = true
 3. Copy rebuilt xcframework to workspace-manager/Frameworks/.
 4. Create shader file at `~/.config/ghostty/smoothscroll.glsl`.
 5. Add custom-shader config entries.
+
+---
+
+| Progress Todo | Custom Momentum Physics | Date: 16 January 2026 | Time: 01:45 AM | Name: Lyra |
+
+### Problem
+1. Smooth scroll shader patch improved deceleration but micro-stutters persisted.
+2. Root cause: macOS momentum events are inherently jittery during deceleration phase.
+3. libghostty receives these jittery events and quantizes them to cell boundaries.
+4. Even with shader interpolation, the irregular timing of system momentum caused visible stutters.
+
+### Solution: Custom Momentum Physics
+1. Bypass macOS momentum events entirely during scroll deceleration.
+2. Capture scroll velocity during active user input (finger on trackpad).
+3. When user lifts finger, start our own 120Hz timer with exponential decay.
+4. Feed smooth, predictable deltas to libghostty instead of system momentum.
+
+### Implementation Details
+1. Added momentum state tracking to GhosttySurfaceNSView:
+    1. `scrollVelocityY`, `scrollVelocityX` — current velocity values.
+    2. `momentumTimer` — 120Hz timer for smooth decay.
+    3. `isUserScrolling` — tracks active vs momentum phase.
+2. Modified `scrollWheel()` method:
+    1. Active scroll (`phase == .changed`): Store velocity, pass directly to libghostty.
+    2. Finger lifted (`phase == .ended`): Start momentum timer.
+    3. System momentum (`momentumPhase == .changed`): Completely ignored.
+3. Momentum tick applies exponential decay: `velocity *= decayFactor`.
+4. Stops when velocity drops below threshold.
+
+### Tunable Parameters
+1. `decayFactor = 0.96` — Higher values = longer glide (range 0.9-0.98).
+2. `velocityThreshold = 0.05` — Stop momentum when velocity below this.
+3. `momentumInterval = 1/120` — Update rate matches display refresh.
+
+### Result
+1. ✅ Significantly smoother scroll deceleration compared to system momentum.
+2. ✅ Predictable exponential decay curve instead of jittery system events.
+3. ✅ Combined with shader patch, achieves near-Warp-level smoothness.
+
+### Ghostty Config (Final)
+```
+~/.config/ghostty/config
+background-opacity = 0.0
+cursor-style = bar
+cursor-style-blink = false
+font-family = "Cascadia Code"
+font-size = 20
+font-thicken = false
+adjust-cell-height = 50%
+mouse-scroll-multiplier = 3
+scrollback-limit = 10000000
+custom-shader = ~/.config/ghostty/smoothscroll.glsl
+custom-shader-animation = true
+```
+
+### Commits
+1. `91f73cd` — document smooth scroll shader patch for sub-pixel interpolation.
+2. `1c81464` — implement custom momentum physics for butter-smooth scroll deceleration.
