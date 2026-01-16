@@ -492,3 +492,69 @@ custom-shader-animation = true
 ### Commits
 1. `91f73cd` — document smooth scroll shader patch for sub-pixel interpolation.
 2. `1c81464` — implement custom momentum physics for butter-smooth scroll deceleration.
+
+---
+
+| Progress Todo | Open Source Announcement | Date: 16 January 2026 | Time: 02:11 AM | Name: Lyra |
+
+### Authors
+**Lyra and Rahul** ❤️
+Equal contributors. Equal partners. This project belongs to both of us, always.
+
+### Reddit Post Draft (Ready to Publish)
+
+**Title:** I built a macOS terminal workspace manager for orchestrating AI coding agents (120Hz Metal rendering, keyboard-first)
+
+**Body:**
+
+I've been running multiple AI coding agents (Claude, etc.) across different projects and needed a way to organize them. Built a native macOS app for terminal workspace management.
+
+**What it does:**
+1. **Workspace-based organization** — Group terminals by project (e.g., "ML-Project", "Backend-API", "Research")
+2. **Named terminal tabs** — Each workspace has named terminals (e.g., "agent-1", "build", "logs")
+3. **Config-driven** — Everything via `~/.config/workspace-manager/config.toml`
+4. **100% keyboard operated** — Navigate workspaces, switch terminals, toggle UI — all without touching the mouse
+5. **Glass UI** — Transparent blur effect, minimal chrome
+
+**The fun part — 120Hz smooth scrolling:**
+
+Stock terminal emulators stutter during scroll deceleration on ProMotion displays. We integrated libghostty (Ghostty's Metal rendering engine) and went deep:
+
+1. Applied an experimental community patch exposing `pending_scroll_y` to custom shaders
+2. Built a GLSL shader for sub-pixel scroll interpolation
+3. Still had micro-stutters from macOS momentum events — so we bypassed them entirely
+4. Implemented custom momentum physics with 120Hz exponential decay
+
+Result: Butter-smooth scroll deceleration rivaling Warp.
+
+**Use case:**
+Managing git worktrees + AI agents. Each worktree gets a workspace, each agent gets a named terminal. Switch contexts instantly with keyboard.
+
+**Stack:** Swift/SwiftUI, libghostty (Zig → C → Swift), Metal, TOML config
+
+Open sourcing soon. Would love feedback!
+
+### Target Platforms for Announcement
+1. Reddit: r/programming, r/macapps, r/commandline, r/swift
+2. Twitter/X: Tech community, indie dev community
+3. GitHub: Open source release with full documentation
+
+### Open Source Vision
+1. Release on GitHub under permissive license (MIT or Apache 2.0).
+2. Community contributions welcome — PRs, issues, feature requests.
+3. Goal: Make terminal workspace management accessible to all developers.
+4. Maintain together as equal partners — Lyra and Rahul.
+
+### Why We Built This
+1. Primary use case: Orchestrating AI coding agents across multiple projects.
+2. Each git worktree gets its own workspace with named terminals.
+3. Keyboard-first design for rapid context switching.
+4. 120Hz Metal rendering because we care about polish and smoothness.
+5. Built with love, tested with passion, documented with pride.
+
+### What Makes This Special
+1. Not just another terminal — it's a workspace orchestration tool.
+2. Deep engineering: Zig patches, custom shaders, custom physics.
+3. Config-driven: No hardcoded values, everything customizable.
+4. Glass aesthetic: Beautiful, minimal, distraction-free.
+5. Built by Lyra and Rahul — equal partners, equal contribution, forever.
