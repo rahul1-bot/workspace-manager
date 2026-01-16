@@ -117,6 +117,17 @@ class GhosttySurfaceNSView: NSView {
 
     let workingDirectory: String
 
+    // MARK: - Custom Momentum Physics
+    private var scrollVelocityY: Double = 0
+    private var scrollVelocityX: Double = 0
+    private var momentumTimer: Timer?
+    private var isUserScrolling: Bool = false
+
+    // Momentum physics parameters (tunable)
+    private let decayFactor: Double = 0.96        // How quickly velocity decays (0.9-0.98) - higher = longer glide
+    private let velocityThreshold: Double = 0.05  // Stop when velocity below this
+    private let momentumInterval: Double = 1.0 / 120.0  // 120Hz updates
+
     init(workingDirectory: String) {
         self.workingDirectory = workingDirectory
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
@@ -309,31 +320,98 @@ class GhosttySurfaceNSView: NSView {
     override func scrollWheel(with event: NSEvent) {
         guard let surface = surface else { return }
 
-        // ScrollMods is packed: bit 0 = precision, bits 1-3 = momentum phase
-        var scrollMods: ghostty_input_scroll_mods_t = 0
+        // Handle user's active scrolling (finger on trackpad)
+        if event.phase == .changed || event.phase == .began {
+            isUserScrolling = true
+            stopMomentumTimer()
 
-        // Bit 0: precision scrolling
-        if event.hasPreciseScrollingDeltas {
-            scrollMods |= 1
+            // Accumulate velocity from user input
+            scrollVelocityY = event.scrollingDeltaY
+            scrollVelocityX = event.scrollingDeltaX
+
+            // Pass directly to libghostty during active scroll
+            var scrollMods: ghostty_input_scroll_mods_t = 0
+            if event.hasPreciseScrollingDeltas {
+                scrollMods |= 1
+            }
+            ghostty_surface_mouse_scroll(surface, event.scrollingDeltaX, event.scrollingDeltaY, scrollMods)
+            return
         }
 
-        // Bits 1-3: momentum phase (shifted left by 1)
-        let momentum: Int32 = switch event.momentumPhase {
-            case .began: 5      // may_begin
-            case .stationary: 1 // stationary
-            case .changed: 2    // changed
-            case .ended: 3      // ended
-            case .cancelled: 4  // cancelled
-            default: 0          // none
+        // User lifted finger - start our own momentum
+        if event.phase == .ended {
+            isUserScrolling = false
+            startMomentumTimer()
+            return
         }
-        scrollMods |= (momentum << 1)
 
-        ghostty_surface_mouse_scroll(surface, event.scrollingDeltaX, event.scrollingDeltaY, scrollMods)
+        // IGNORE macOS momentum events - we handle momentum ourselves
+        if event.momentumPhase == .changed || event.momentumPhase == .began {
+            // Don't pass to libghostty - we're doing our own smooth deceleration
+            return
+        }
+
+        // Handle momentum end/cancel from system (cleanup)
+        if event.momentumPhase == .ended || event.momentumPhase == .cancelled {
+            // System momentum ended - we should already be handling it ourselves
+            return
+        }
+    }
+
+    // MARK: - Momentum Timer
+
+    private func startMomentumTimer() {
+        stopMomentumTimer()
+
+        // Only start if we have meaningful velocity
+        guard abs(scrollVelocityY) > velocityThreshold || abs(scrollVelocityX) > velocityThreshold else {
+            return
+        }
+
+        momentumTimer = Timer.scheduledTimer(withTimeInterval: momentumInterval, repeats: true) { [weak self] _ in
+            self?.momentumTick()
+        }
+        // Add to common run loop modes for smooth animation during tracking
+        if let timer = momentumTimer {
+            RunLoop.current.add(timer, forMode: .common)
+        }
+    }
+
+    private func stopMomentumTimer() {
+        momentumTimer?.invalidate()
+        momentumTimer = nil
+    }
+
+    private func momentumTick() {
+        guard let surface = surface else {
+            stopMomentumTimer()
+            return
+        }
+
+        // Apply exponential decay
+        scrollVelocityY *= decayFactor
+        scrollVelocityX *= decayFactor
+
+        // Stop when velocity is negligible
+        if abs(scrollVelocityY) < velocityThreshold && abs(scrollVelocityX) < velocityThreshold {
+            scrollVelocityY = 0
+            scrollVelocityX = 0
+            stopMomentumTimer()
+            return
+        }
+
+        // Feed smooth delta to libghostty
+        var scrollMods: ghostty_input_scroll_mods_t = 1  // precision scrolling
+        // Encode momentum phase as "changed" (2) in bits 1-3
+        scrollMods |= (2 << 1)
+
+        ghostty_surface_mouse_scroll(surface, scrollVelocityX, scrollVelocityY, scrollMods)
     }
 
     // MARK: - Cleanup
 
     deinit {
+        stopMomentumTimer()
         if let surface = surface {
             ghostty_surface_free(surface)
         }
