@@ -358,3 +358,79 @@ scrollback-limit = 1000000
 3. Build: `cd ../ghostty-research && zig build -Dapp-runtime=none -Demit-xcframework=true -Dxcframework-target=native -Doptimize=ReleaseFast`
 4. Copy: `cp -R macos/GhosttyKit.xcframework ../workspace-manager/Frameworks/`
 5. Run release build: `swift build -c release && .build/release/WorkspaceManager`
+
+---
+
+| Progress Todo | Smooth Scroll Shader Patch | Date: 16 January 2026 | Time: 01:10 AM | Name: Lyra |
+
+### Problem
+1. Scroll deceleration exhibited micro-stutters during momentum phase (when scroll slows to stop).
+2. Root cause: libghostty renders by discrete cell rows, not pixels.
+3. During deceleration, `pending_scroll_y` accumulates until exceeding cell height, then jumps.
+4. At 120Hz (8.33ms/frame), these discrete jumps are perceptible.
+
+### Solution: Community Patch + Custom Shader
+1. Applied experimental patch from github.com/ghostty-org/ghostty/discussions/3206 (user pfgithub, Aug 2025).
+2. Patch exposes `pending_scroll_y` (sub-cell offset) to custom shaders via `iPendingScroll` uniform.
+3. Shader offsets rendered frame by fractional pixel amount, creating visual interpolation.
+
+### Files Modified in Ghostty Source
+1. `src/renderer/shadertoy.zig` — Added `pending_scroll: [2]f32 align(8)` to Uniforms struct.
+2. `src/renderer/shaders/shadertoy_prefix.glsl` — Added `uniform vec2 iPendingScroll` declaration.
+3. `src/renderer/generic.zig` — Initialize `pending_scroll = @splat(0)` and update each frame:
+   ```zig
+   const surface: *Surface = @fieldParentPtr("renderer", self);
+   var pending_y = surface.mouse.pending_scroll_y;
+   // ... boundary checks ...
+   uniforms.pending_scroll = .{ 0, @floatCast(pending_y) };
+   ```
+4. `src/terminal/PageList.zig` — Changed `fn pinIsActive` to `pub fn pinIsActive`.
+
+### API Fix Required
+1. Original patch used `surface.io.terminal.screen.pages` (Aug 2025 API).
+2. Current Ghostty uses `surface.io.terminal.screens.active.pages`.
+3. Fixed path in generic.zig for compatibility with latest Ghostty main branch.
+
+### Shader Created
+```glsl
+// ~/.config/ghostty/smoothscroll.glsl
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 pixel = fragCoord;
+    pixel -= iPendingScroll/vec2(2.0);
+    vec2 uv = pixel/iResolution.xy;
+    fragColor = texture(iChannel0, uv);
+}
+```
+
+### Config Added
+```
+custom-shader = ~/.config/ghostty/smoothscroll.glsl
+custom-shader-animation = true
+```
+
+### Result
+1. ✅ Noticeably smoother scroll deceleration compared to unpatched libghostty.
+2. ⚠️ Still has micro-stutters compared to Warp terminal (different architecture).
+3. Warp uses viewport system decoupled from terminal grid — more sophisticated approach.
+
+### Known Patch Limitations (from research)
+1. Scroll speed limited to one line per frame.
+2. Text selection inaccurate when partially scrolled.
+3. Needs extra line render at top/bottom (not implemented).
+4. Should disable during app scroll events (nvim) — partially implemented.
+5. Doesn't use native macOS elastic scrolling.
+6. Uses `@fieldParentPtr` in generic.zig (not ideal pattern).
+
+### Future Optimization Paths
+1. Tune shader divisor (currently `vec2(2.0)`) for smoother interpolation.
+2. Add easing curve to shader for more natural deceleration feel.
+3. Investigate rendering extra row at top/bottom to prevent edge artifacts.
+4. Profile CVDisplayLink timing during momentum phase.
+5. Consider native macOS scroll physics integration (NSScrollView).
+
+### Build Instructions (with patch)
+1. Apply modifications to Ghostty source files as documented above.
+2. Rebuild: `zig build -Dapp-runtime=none -Demit-xcframework=true -Dxcframework-target=native -Doptimize=ReleaseFast`
+3. Copy rebuilt xcframework to workspace-manager/Frameworks/.
+4. Create shader file at `~/.config/ghostty/smoothscroll.glsl`.
+5. Add custom-shader config entries.
