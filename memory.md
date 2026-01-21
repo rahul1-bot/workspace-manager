@@ -142,3 +142,72 @@
 
 ### Implication
 1. Check what SwiftUI provides before adding custom toolbar items.
+
+---
+
+| Memory | Swift-C Interop Pointer Lifetime | Date: 21 January 2026 | Time: 09:23 PM | Name: Lyra |
+
+### Observation
+1. Swift's withCString closure provides a C string pointer valid ONLY within the closure body.
+2. Storing the pointer to a struct field and using it after closure exits is undefined behavior (use-after-free).
+3. This is a common trap when interfacing with C APIs that take configuration structs.
+
+### Pattern
+1. WRONG: Store pointer in closure, use after closure exits.
+    ```swift
+    if !path.isEmpty {
+        path.withCString { cstr in
+            config.working_directory = cstr  // Pointer stored
+        }
+    }
+    let result = c_api_call(&config)  // DANGLING POINTER
+    ```
+2. CORRECT: Make C API call inside the closure.
+    ```swift
+    let result: SomeType?
+    if !path.isEmpty {
+        result = path.withCString { cstr in
+            config.working_directory = cstr
+            return c_api_call(&config)  // Called while pointer valid
+        }
+    } else {
+        result = c_api_call(&config)
+    }
+    ```
+
+### Implication
+1. Always call C APIs that consume temporary pointers inside the closure that provides them.
+2. If the C API needs the pointer to remain valid after the call, allocate persistent memory (strdup pattern).
+3. Review all withCString/withUnsafeBytes patterns for lifetime correctness.
+
+---
+
+| Memory | SwiftUI Event Monitor Lifecycle | Date: 21 January 2026 | Time: 09:23 PM | Name: Lyra |
+
+### Observation
+1. NSEvent.addLocalMonitorForEvents returns an opaque monitor token.
+2. Not storing and removing the token causes duplicate monitors on view recreation.
+3. SwiftUI views can be recreated multiple times (previews, state resets, window recreation).
+
+### Pattern
+1. Store monitor token in @State.
+2. Remove monitor in onDisappear.
+3. Guard against double-registration in onAppear.
+    ```swift
+    @State private var eventMonitor: Any?
+
+    .onAppear {
+        guard eventMonitor == nil else { return }
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ... }
+    }
+    .onDisappear {
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
+    }
+    ```
+
+### Implication
+1. Any global resource acquired in onAppear must be released in onDisappear.
+2. SwiftUI lifecycle is not 1:1 with object lifecycle - views can appear/disappear multiple times.

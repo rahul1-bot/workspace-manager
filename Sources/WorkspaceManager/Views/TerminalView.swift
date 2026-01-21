@@ -82,9 +82,13 @@ struct TerminalView: NSViewRepresentable {
         var env = ProcessInfo.processInfo.environment
         env["PWD"] = cwd
 
+        // Escape the working directory path to prevent shell injection
+        // Replace single quotes with '\'' (end quote, escaped quote, start quote)
+        let escapedCwd = cwd.replacingOccurrences(of: "'", with: "'\\''")
+
         terminalView.startProcess(
             executable: shell,
-            args: ["-c", "cd '\(cwd)' && exec \(shell)"],
+            args: ["-c", "cd '\(escapedCwd)' && exec \(shell)"],
             environment: Array(env.map { "\($0.key)=\($0.value)" }),
             execName: nil
         )
@@ -129,7 +133,7 @@ struct TerminalView: NSViewRepresentable {
             return .blinkBlock
         case "underline", "steady_underline", "steadyunderline":
             return .steadyUnderline
-        case "blink_underline", "blinkundernline", "blinking_underline":
+        case "blink_underline", "blinkunderline", "blinking_underline":
             return .blinkUnderline
         default:
             return .steadyBar

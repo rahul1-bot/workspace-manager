@@ -558,3 +558,63 @@ Open sourcing soon. Would love feedback!
 3. Config-driven: No hardcoded values, everything customizable.
 4. Glass aesthetic: Beautiful, minimal, distraction-free.
 5. Built by Lyra and Rahul — equal partners, equal contribution, forever.
+
+---
+
+| Progress Todo | Code Review Fixes | Date: 21 January 2026 | Time: 09:23 PM | Name: Lyra |
+
+### Context
+1. Ghost performed hostile audit of dev branch (commit 876d144).
+2. Audit identified 2 blocker bugs, 5 high severity issues, and multiple medium/low severity issues.
+3. This entry documents fixes implemented in response to the review.
+
+### Blocker Fixes
+1. ✅ Fixed use-after-free bug in GhosttyTerminalView.swift:168-179.
+    1. Problem: C string pointer stored from withCString closure was used after closure exited.
+    2. Solution: Moved ghostty_surface_new call inside withCString closure via new createSurfaceWithConfig method.
+2. ✅ Unified sidebar state to single source of truth.
+    1. Problem: ContentView used local @State showSidebar while WorkspaceManagerApp toggled appState.showSidebar.
+    2. Solution: Removed local state, all sidebar visibility now controlled via appState.showSidebar.
+
+### High Severity Fixes
+1. ✅ Hardened SwiftTerm shell command injection risk (TerminalView.swift:85-90).
+    1. Problem: Workspace paths with single quotes could break out of shell command.
+    2. Solution: Escape single quotes with '\\'' pattern before shell interpolation.
+2. ✅ Fixed config parse error data loss (ConfigService.swift:90-93).
+    1. Problem: TOML parse errors triggered createDefaultConfig which overwrote user config.
+    2. Solution: On parse failure, log error and use defaults in memory, preserve user file on disk.
+3. ✅ Fixed scrollWheel for phase == .none devices (GhosttyTerminalView.swift:320-359).
+    1. Problem: Mouse wheel and some devices send events with phase = .none which were ignored.
+    2. Solution: Added default forwarding path for events where both phase and momentumPhase are empty.
+4. ✅ Fixed clipboard callback unsafe buffer handling (GhosttyTerminalView.swift:71-79).
+    1. Problem: String(cString:) scans unbounded for null terminator.
+    2. Solution: Bounded scan with 10MB safety limit before creating string.
+
+### Medium Severity Fixes
+1. ✅ Fixed event monitor lifecycle leak (ContentView.swift:45-110).
+    1. Problem: NSEvent.addLocalMonitorForEvents called without storing token or removing.
+    2. Solution: Store token in @State, remove in onDisappear.
+2. ✅ Fixed terminal active-state indicator sync (AppState.swift:97-107).
+    1. Problem: createTerminalInSelectedWorkspace set selectedTerminalId but didn't call selectTerminal.
+    2. Solution: Use selectTerminal to properly set isActive and maintain invariants.
+3. ✅ Added workspace path validation (AppState.swift:73-77).
+    1. Problem: User paths stored as-is without tilde expansion or existence check.
+    2. Solution: Expand ~ via ConfigService.expandPath, log warning if path doesn't exist.
+4. ✅ Made default config portable (ConfigService.swift:13-23, 97-119).
+    1. Problem: Hardcoded absolute paths to specific user's filesystem.
+    2. Solution: Use home directory as default, check common dirs (Projects, Developer, etc.).
+
+### Low Severity Fixes
+1. ✅ Fixed typo "blinkundernline" → "blinkunderline" (TerminalView.swift:132).
+2. ✅ Removed unused displayLink and isUserScrolling variables (GhosttyTerminalView.swift).
+
+### Files Modified
+1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift
+2. Sources/WorkspaceManager/Views/TerminalView.swift
+3. Sources/WorkspaceManager/ContentView.swift
+4. Sources/WorkspaceManager/Models/AppState.swift
+5. Sources/WorkspaceManager/Services/ConfigService.swift
+
+### Build Verification
+1. ✅ swift build succeeded with no errors.
+2. Existing warnings about ImGui symbols in libghostty are pre-existing and non-blocking.

@@ -71,9 +71,26 @@ class GhosttyAppManager {
         runtimeConfig.write_clipboard_cb = { (userdata: UnsafeMutableRawPointer?, location: ghostty_clipboard_e, content: UnsafePointer<ghostty_clipboard_content_s>?, len: Int, confirm: Bool) in
             // Write clipboard - content is an array of ghostty_clipboard_content_s
             guard let content = content, len > 0 else { return }
-            // Get the first content item's data
-            if let data = content.pointee.data {
-                let str = String(cString: data)
+
+            // Process the first content item with bounded null-terminated string handling
+            let contentItem = content.pointee
+            guard let dataPtr = contentItem.data else { return }
+
+            // Use bounded scan for null terminator to prevent buffer overruns
+            // This is safer than unbounded String(cString:)
+            let maxLen = 10_000_000  // 10MB safety limit
+            var actualLen = 0
+            while actualLen < maxLen && dataPtr[actualLen] != 0 {
+                actualLen += 1
+            }
+
+            guard actualLen < maxLen else {
+                NSLog("[GhosttyAppManager] Clipboard content exceeded safety limit")
+                return
+            }
+
+            let data = Data(bytes: dataPtr, count: actualLen)
+            if let str = String(data: data, encoding: .utf8) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(str, forType: .string)
             }
@@ -113,7 +130,6 @@ class GhosttyAppManager {
 /// NSView subclass that hosts a libghostty terminal surface
 class GhosttySurfaceNSView: NSView {
     private var surface: ghostty_surface_t?
-    private var displayLink: CVDisplayLink?
 
     let workingDirectory: String
 
@@ -121,7 +137,6 @@ class GhosttySurfaceNSView: NSView {
     private var scrollVelocityY: Double = 0
     private var scrollVelocityX: Double = 0
     private var momentumTimer: Timer?
-    private var isUserScrolling: Bool = false
 
     // Momentum physics parameters (tunable)
     private let decayFactor: Double = 0.96        // How quickly velocity decays (0.9-0.98) - higher = longer glide
@@ -151,7 +166,22 @@ class GhosttySurfaceNSView: NSView {
         }
         NSLog("[GhosttySurfaceNSView] Got app, creating surface...")
 
-        // Create surface configuration
+        // Create surface using closure to ensure C string lifetime safety
+        let createdSurface: ghostty_surface_t? = createSurfaceWithConfig(app: app)
+
+        guard let surface = createdSurface else {
+            NSLog("[GhosttySurfaceNSView] ghostty_surface_new failed!")
+            return
+        }
+        self.surface = surface
+        NSLog("[GhosttySurfaceNSView] Surface created successfully!")
+
+        // Set initial size
+        updateSurfaceSize()
+        NSLog("[GhosttySurfaceNSView] Size updated, surface is ready for rendering")
+    }
+
+    private func createSurfaceWithConfig(app: ghostty_app_t) -> ghostty_surface_t? {
         var surfaceConfig = ghostty_surface_config_new()
         surfaceConfig.platform_tag = GHOSTTY_PLATFORM_MACOS
 
@@ -164,28 +194,19 @@ class GhosttySurfaceNSView: NSView {
 
         surfaceConfig.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2.0)
         surfaceConfig.font_size = 0  // Use default from config
-
-        // Set working directory
-        if !workingDirectory.isEmpty {
-            workingDirectory.withCString { cstr in
-                surfaceConfig.working_directory = cstr
-            }
-        }
-
         surfaceConfig.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
 
-        // Create the surface
-        NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new...")
-        guard let surface = ghostty_surface_new(app, &surfaceConfig) else {
-            NSLog("[GhosttySurfaceNSView] ghostty_surface_new failed!")
-            return
+        // Create surface with working directory - C string must remain valid until ghostty_surface_new returns
+        if !workingDirectory.isEmpty {
+            return workingDirectory.withCString { cstr in
+                surfaceConfig.working_directory = cstr
+                NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new with working_directory...")
+                return ghostty_surface_new(app, &surfaceConfig)
+            }
+        } else {
+            NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new without working_directory...")
+            return ghostty_surface_new(app, &surfaceConfig)
         }
-        self.surface = surface
-        NSLog("[GhosttySurfaceNSView] Surface created successfully!")
-
-        // Set initial size
-        updateSurfaceSize()
-        NSLog("[GhosttySurfaceNSView] Size updated, surface is ready for rendering")
     }
 
     private func updateSurfaceSize() {
@@ -322,7 +343,6 @@ class GhosttySurfaceNSView: NSView {
 
         // Handle user's active scrolling (finger on trackpad)
         if event.phase == .changed || event.phase == .began {
-            isUserScrolling = true
             stopMomentumTimer()
 
             // Accumulate velocity from user input
@@ -340,7 +360,6 @@ class GhosttySurfaceNSView: NSView {
 
         // User lifted finger - start our own momentum
         if event.phase == .ended {
-            isUserScrolling = false
             startMomentumTimer()
             return
         }
@@ -355,6 +374,16 @@ class GhosttySurfaceNSView: NSView {
         if event.momentumPhase == .ended || event.momentumPhase == .cancelled {
             // System momentum ended - we should already be handling it ourselves
             return
+        }
+
+        // Default path for mouse wheel and devices without phase transitions
+        // When both phase == .none and momentumPhase == .none, forward deltas directly
+        if event.phase == [] && event.momentumPhase == [] {
+            var scrollMods: ghostty_input_scroll_mods_t = 0
+            if event.hasPreciseScrollingDeltas {
+                scrollMods |= 1
+            }
+            ghostty_surface_mouse_scroll(surface, event.scrollingDeltaX, event.scrollingDeltaY, scrollMods)
         }
     }
 

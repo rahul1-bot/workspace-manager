@@ -16,8 +16,8 @@ struct GlassSidebarBackground: NSViewRepresentable {
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
-    @State private var showSidebar = true
     @State private var sidebarFocused = false
+    @State private var eventMonitor: Any?
 
     var body: some View {
         ZStack {
@@ -27,7 +27,8 @@ struct ContentView: View {
 
             HStack(spacing: 0) {
                 // Sidebar - instant toggle, no animation
-                if showSidebar {
+                // Uses appState.showSidebar as single source of truth
+                if appState.showSidebar {
                     WorkspaceSidebar()
                         .frame(width: 240)
                         .overlay(
@@ -43,71 +44,87 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                let cmd = event.modifierFlags.contains(.command)
-                let char = event.charactersIgnoringModifiers ?? ""
+            setupKeyboardMonitor()
+        }
+        .onDisappear {
+            removeKeyboardMonitor()
+        }
+    }
 
-                // ⌘B toggle sidebar visibility (focus stays on terminal)
-                if cmd && char == "b" {
-                    showSidebar.toggle()
-                    if !showSidebar { sidebarFocused = false }
-                    return nil
+    private func setupKeyboardMonitor() {
+        guard eventMonitor == nil else { return }
+
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
+            let cmd = event.modifierFlags.contains(.command)
+            let char = event.charactersIgnoringModifiers ?? ""
+
+            // ⌘B toggle sidebar visibility (focus stays on terminal)
+            if cmd && char == "b" {
+                appState.showSidebar.toggle()
+                if !appState.showSidebar { sidebarFocused = false }
+                return nil
+            }
+
+            // ⌘T new terminal
+            if cmd && char == "t" {
+                if appState.selectedWorkspaceId != nil {
+                    appState.createTerminalInSelectedWorkspace()
                 }
+                return nil
+            }
 
-                // ⌘T new terminal
-                if cmd && char == "t" {
-                    if appState.selectedWorkspaceId != nil {
-                        appState.createTerminalInSelectedWorkspace()
-                    }
-                    return nil
-                }
+            // ⌘I - previous terminal (cycles)
+            if cmd && char == "i" {
+                appState.selectPreviousTerminal()
+                return nil
+            }
 
-                // ⌘I - previous terminal (cycles)
-                if cmd && char == "i" {
+            // ⌘K - next terminal (cycles)
+            if cmd && char == "k" {
+                appState.selectNextTerminal()
+                return nil
+            }
+
+            // ⌘J - focus sidebar (show if hidden)
+            if cmd && char == "j" {
+                appState.showSidebar = true
+                sidebarFocused = true
+                return nil
+            }
+
+            // ⌘L - focus terminal
+            if cmd && char == "l" {
+                sidebarFocused = false
+                return nil
+            }
+
+            // Arrow keys when sidebar is focused
+            if sidebarFocused {
+                // Up arrow - previous terminal
+                if event.keyCode == 126 {
                     appState.selectPreviousTerminal()
                     return nil
                 }
-
-                // ⌘K - next terminal (cycles)
-                if cmd && char == "k" {
+                // Down arrow - next terminal
+                if event.keyCode == 125 {
                     appState.selectNextTerminal()
                     return nil
                 }
-
-                // ⌘J - focus sidebar (show if hidden)
-                if cmd && char == "j" {
-                    showSidebar = true
-                    sidebarFocused = true
-                    return nil
-                }
-
-                // ⌘L - focus terminal
-                if cmd && char == "l" {
+                // Enter/Return - focus terminal
+                if event.keyCode == 36 {
                     sidebarFocused = false
                     return nil
                 }
-
-                // Arrow keys when sidebar is focused
-                if sidebarFocused {
-                    // Up arrow - previous terminal
-                    if event.keyCode == 126 {
-                        appState.selectPreviousTerminal()
-                        return nil
-                    }
-                    // Down arrow - next terminal
-                    if event.keyCode == 125 {
-                        appState.selectNextTerminal()
-                        return nil
-                    }
-                    // Enter/Return - focus terminal
-                    if event.keyCode == 36 {
-                        sidebarFocused = false
-                        return nil
-                    }
-                }
-
-                return event
             }
+
+            return event
+        }
+    }
+
+    private func removeKeyboardMonitor() {
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
         }
     }
 }

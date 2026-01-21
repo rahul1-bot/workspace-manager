@@ -10,17 +10,10 @@ class ConfigService {
     /// Path to the configuration file
     private let configPath: URL
 
-    /// Study root path for default workspaces
-    private static let studyRoot = "/Users/rahulsawhney/Library/CloudStorage/OneDrive-Personal/Documents/StudyDocuments/Rahul"
-
-    /// Default course folders
-    private static let defaultCourses = [
-        "10) AI-2 Project (Majors-2)(10 ETCS)(Coding Project)",
-        "38) Computational Imaging Project (Applications-12)(10 ETCS)(Coding Project)",
-        "19) Project-Representation-Learning (Minor-5)(10 ETCS)(Coding Project)",
-        "39) Research Movement Analysis (Seminar-3)(5 ETCS)(Report-Presentation)",
-        "16) ML in MRI (Majors-3 OR Seminar-1)(5 ETCS)(Presentation-Exam)",
-    ]
+    /// Default workspace uses user's home directory for portability
+    private static var defaultWorkspaceRoot: String {
+        FileManager.default.homeDirectoryForCurrentUser.path
+    }
 
     private init() {
         // Expand ~ to home directory
@@ -46,7 +39,7 @@ class ConfigService {
     func loadConfig() {
         // Check if config file exists
         guard FileManager.default.fileExists(atPath: configPath.path) else {
-            // Create default config
+            // Create default config only when no config exists
             createDefaultConfig()
             return
         }
@@ -88,24 +81,30 @@ class ConfigService {
             self.config = AppConfig(terminal: terminalConfig, workspaces: workspaces)
 
         } catch {
-            print("Failed to load config.toml: \(error)")
-            createDefaultConfig()
+            // IMPORTANT: Do NOT overwrite user config on parse failure
+            // Keep existing config in memory and log the error clearly
+            print("[ConfigService] ERROR: Failed to parse config.toml: \(error)")
+            print("[ConfigService] Using default configuration in memory. User config at \(configPath.path) is preserved.")
+            print("[ConfigService] Please fix the TOML syntax and restart the app.")
+            // Keep default config in memory but don't overwrite the user's file
+            self.config = AppConfig()
         }
     }
 
     /// Create default configuration file
     private func createDefaultConfig() {
-        // Build default workspaces
+        // Build default workspaces using portable paths
         var workspaces: [WorkspaceConfig] = []
 
-        // Add root workspace
-        workspaces.append(WorkspaceConfig(name: "Root", path: Self.studyRoot))
+        // Add home directory as default workspace
+        workspaces.append(WorkspaceConfig(name: "Home", path: Self.defaultWorkspaceRoot))
 
-        // Add course workspaces that exist
-        for courseName in Self.defaultCourses {
-            let coursePath = "\(Self.studyRoot)/\(courseName)"
-            if FileManager.default.fileExists(atPath: coursePath) {
-                workspaces.append(WorkspaceConfig(name: courseName, path: coursePath))
+        // Add common directories if they exist
+        let commonDirs = ["Projects", "Developer", "Code", "Documents"]
+        for dirName in commonDirs {
+            let dirPath = "\(Self.defaultWorkspaceRoot)/\(dirName)"
+            if FileManager.default.fileExists(atPath: dirPath) {
+                workspaces.append(WorkspaceConfig(name: dirName, path: dirPath))
             }
         }
 

@@ -71,7 +71,16 @@ class AppState: ObservableObject {
     // MARK: - Workspace Operations
 
     func addWorkspace(name: String, path: String) {
-        let workspace = Workspace(name: name, path: path)
+        // Expand tilde and normalize the path
+        let expandedPath = ConfigService.shared.expandPath(path)
+
+        // Log warning if path doesn't exist (terminal will fall back to home)
+        if !FileManager.default.fileExists(atPath: expandedPath) {
+            print("[AppState] Warning: Workspace path does not exist: \(expandedPath)")
+            print("[AppState] Terminals will fall back to home directory.")
+        }
+
+        let workspace = Workspace(name: name, path: expandedPath)
         workspaces.append(workspace)
         save()
     }
@@ -102,8 +111,9 @@ class AppState: ObservableObject {
 
         let terminalCount = workspaces[index].terminals.count + 1
         let terminal = workspaces[index].addTerminal(name: "Terminal \(terminalCount)")
-        selectedTerminalId = terminal.id
-        save()
+
+        // Use selectTerminal to properly set isActive and maintain invariants
+        selectTerminal(id: terminal.id, in: workspaceId)
     }
 
     func addTerminal(to workspaceId: UUID, name: String) {
