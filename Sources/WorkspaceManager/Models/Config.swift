@@ -2,29 +2,49 @@ import Foundation
 
 // MARK: - Configuration Models
 
-/// Root configuration structure matching config.toml format
 struct AppConfig: Codable {
     var terminal: TerminalConfig
+    var appearance: AppearanceConfig
     var workspaces: [WorkspaceConfig]
 
-    init(terminal: TerminalConfig = TerminalConfig(), workspaces: [WorkspaceConfig] = []) {
+    init(
+        terminal: TerminalConfig = TerminalConfig(),
+        appearance: AppearanceConfig = AppearanceConfig(),
+        workspaces: [WorkspaceConfig] = []
+    ) {
         self.terminal = terminal
+        self.appearance = appearance
         self.workspaces = workspaces
     }
 }
 
-/// Terminal appearance and behavior configuration
 struct TerminalConfig: Codable {
     var font: String
     var font_size: Int
     var scrollback: Int
     var cursor_style: String
+    var use_gpu_renderer: Bool
 
-    init(font: String = "Cascadia Code", font_size: Int = 14, scrollback: Int = 1_000_000, cursor_style: String = "bar") {
+    init(
+        font: String = "Cascadia Code",
+        font_size: Int = 14,
+        scrollback: Int = 1_000_000,
+        cursor_style: String = "bar",
+        use_gpu_renderer: Bool = true
+    ) {
         self.font = font
         self.font_size = font_size
         self.scrollback = scrollback
         self.cursor_style = cursor_style
+        self.use_gpu_renderer = use_gpu_renderer
+    }
+}
+
+struct AppearanceConfig: Codable {
+    var show_sidebar: Bool
+
+    init(show_sidebar: Bool = true) {
+        self.show_sidebar = show_sidebar
     }
 }
 

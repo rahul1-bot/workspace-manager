@@ -55,18 +55,29 @@ A simple terminal orchestration app for macOS. The goal is to provide a better w
 ~/.config/workspace-manager/config.toml
 ```
 
-### Config Structure
+### Config Structure (Source of Truth)
 ```toml
 [terminal]
 font = "Cascadia Code"
 font_size = 14
 scrollback = 1000000
 cursor_style = "bar"
+use_gpu_renderer = true  # true = libghostty Metal, false = SwiftTerm CPU
+
+[appearance]
+show_sidebar = true
 
 [[workspaces]]
-name = "Root"
+name = "Project Name"
 path = "~/path/to/workspace"
 ```
+
+### Architecture: Config-Driven Design
+1. config.toml is the ONLY source of truth for workspaces
+2. No workspaces.json - removed entirely
+3. Terminals are runtime-only (shell processes, not persisted)
+4. UI adds/removes workspaces directly to config.toml
+5. Restart app or implement hot-reload to pick up manual config edits
 
 ---
 

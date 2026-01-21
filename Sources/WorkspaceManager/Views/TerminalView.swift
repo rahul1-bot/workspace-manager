@@ -141,17 +141,15 @@ struct TerminalView: NSViewRepresentable {
     }
 }
 
-/// Feature flag to switch between SwiftTerm and libghostty rendering
-let useGhosttyRenderer = true
-
-/// A container view that manages multiple terminal instances
-/// All terminals stay alive in a ZStack - we show/hide based on selection
 struct TerminalContainer: View {
     @EnvironmentObject var appState: AppState
 
+    private var useGpuRenderer: Bool {
+        ConfigService.shared.config.terminal.use_gpu_renderer
+    }
+
     var body: some View {
         ZStack {
-            // Render ALL terminals, keep them alive, show/hide based on selection
             ForEach(appState.workspaces) { workspace in
                 ForEach(workspace.terminals) { terminal in
                     let isSelected = terminal.id == appState.selectedTerminal?.id
@@ -159,15 +157,13 @@ struct TerminalContainer: View {
                     VStack(spacing: 0) {
                         TerminalHeader(terminal: terminal, workspace: workspace)
 
-                        if useGhosttyRenderer {
-                            // Use libghostty Metal renderer (120hz)
+                        if useGpuRenderer {
                             GhosttyTerminalView(
                                 workingDirectory: terminal.workingDirectory,
                                 terminalId: terminal.id,
                                 isSelected: isSelected
                             )
                         } else {
-                            // Use SwiftTerm CPU renderer
                             TerminalView(
                                 workingDirectory: terminal.workingDirectory,
                                 terminalId: terminal.id,
@@ -180,7 +176,6 @@ struct TerminalContainer: View {
                 }
             }
 
-            // Show empty view only when nothing is selected
             if appState.selectedTerminal == nil {
                 EmptyTerminalView()
             }

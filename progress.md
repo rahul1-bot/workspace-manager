@@ -618,3 +618,62 @@ Open sourcing soon. Would love feedback!
 ### Build Verification
 1. ✅ swift build succeeded with no errors.
 2. Existing warnings about ImGui symbols in libghostty are pre-existing and non-blocking.
+
+---
+
+| Progress Todo | Config-Driven Architecture Refactor | Date: 21 January 2026 | Time: 09:34 PM | Name: Lyra |
+
+### Context
+1. Review item 3 required decision on config.toml being source of truth vs bootstrap-only.
+2. Rahul decided: config.toml is the ONLY source of truth. No workspaces.json.
+3. This entry documents the architectural refactor to make config.toml authoritative.
+
+### Architecture Changes
+1. ✅ Removed workspaces.json persistence entirely from AppState.
+    1. Deleted saveURL, load(), save() methods related to JSON persistence.
+    2. AppState now ONLY reads/writes through ConfigService.
+2. ✅ ConfigService now supports workspace mutations.
+    1. Added addWorkspace(name:path:) method.
+    2. Added removeWorkspace(name:) method.
+    3. Added updateWorkspace(oldName:newName:newPath:) method.
+    4. All mutations save back to config.toml immediately.
+3. ✅ Added new config options to replace hardcoded flags.
+    1. [terminal] use_gpu_renderer = true/false (was hardcoded useGhosttyRenderer flag).
+    2. [appearance] show_sidebar = true/false (UI preference).
+4. ✅ Updated Config.swift model.
+    1. Added AppearanceConfig struct.
+    2. Added use_gpu_renderer field to TerminalConfig.
+5. ✅ Updated TerminalContainer to read use_gpu_renderer from config.
+    1. Removed hardcoded `let useGhosttyRenderer = true` flag.
+    2. Now reads ConfigService.shared.config.terminal.use_gpu_renderer.
+6. ✅ Updated AppState to read show_sidebar from config on init.
+
+### Files Modified
+1. Sources/WorkspaceManager/Models/AppState.swift
+2. Sources/WorkspaceManager/Models/Config.swift
+3. Sources/WorkspaceManager/Services/ConfigService.swift
+4. Sources/WorkspaceManager/Views/TerminalView.swift
+
+### New Config Structure
+```toml
+[terminal]
+font = "Cascadia Code"
+font_size = 14
+scrollback = 1000000
+cursor_style = "bar"
+use_gpu_renderer = true
+
+[appearance]
+show_sidebar = true
+
+[[workspaces]]
+name = "Project"
+path = "~/path/to/project"
+```
+
+### What This Means
+1. User edits config.toml to define workspaces.
+2. App reads config.toml on startup.
+3. UI can add/remove workspaces which writes back to config.toml.
+4. Terminals are runtime-only (shell processes, ephemeral).
+5. No separate state file - config.toml is the single source of truth.

@@ -63,6 +63,17 @@ class ConfigService {
                 if let cursorStyle = terminalTable["cursor_style"] as? String {
                     terminalConfig.cursor_style = cursorStyle
                 }
+                if let useGpuRenderer = terminalTable["use_gpu_renderer"] as? Bool {
+                    terminalConfig.use_gpu_renderer = useGpuRenderer
+                }
+            }
+
+            // Parse appearance config
+            var appearanceConfig = AppearanceConfig()
+            if let appearanceTable = tomlTable["appearance"] as? TOMLTable {
+                if let showSidebar = appearanceTable["show_sidebar"] as? Bool {
+                    appearanceConfig.show_sidebar = showSidebar
+                }
             }
 
             // Parse workspaces array
@@ -78,7 +89,7 @@ class ConfigService {
                 }
             }
 
-            self.config = AppConfig(terminal: terminalConfig, workspaces: workspaces)
+            self.config = AppConfig(terminal: terminalConfig, appearance: appearanceConfig, workspaces: workspaces)
 
         } catch {
             // IMPORTANT: Do NOT overwrite user config on parse failure
@@ -118,13 +129,10 @@ class ConfigService {
         saveConfig()
     }
 
-    /// Save current configuration to TOML file
     func saveConfig() {
-        // Create config directory if needed
         let configDir = configPath.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
 
-        // Build TOML content manually for clean formatting
         var toml = """
         # Workspace Manager Configuration
 
@@ -133,15 +141,17 @@ class ConfigService {
         font_size = \(config.terminal.font_size)
         scrollback = \(config.terminal.scrollback)
         cursor_style = "\(config.terminal.cursor_style)"
+        use_gpu_renderer = \(config.terminal.use_gpu_renderer)
 
-        # Workspaces
-        # Each workspace needs a name and path
+        [appearance]
+        show_sidebar = \(config.appearance.show_sidebar)
+
+        # Workspaces - each needs a name and path
         # Use ~ for home directory
 
         """
 
         for workspace in config.workspaces {
-            // Convert path back to use ~ for cleaner config
             let displayPath = workspace.path.replacingOccurrences(
                 of: FileManager.default.homeDirectoryForCurrentUser.path,
                 with: "~"
@@ -159,12 +169,32 @@ class ConfigService {
         do {
             try toml.write(to: configPath, atomically: true, encoding: .utf8)
         } catch {
-            print("Failed to save config.toml: \(error)")
+            print("[ConfigService] Failed to save config.toml: \(error)")
         }
     }
 
     /// Reload configuration from disk
     func reloadConfig() {
         loadConfig()
+    }
+
+    // MARK: - Workspace Mutations
+
+    func addWorkspace(name: String, path: String) {
+        let newWorkspace = WorkspaceConfig(name: name, path: path)
+        config.workspaces.append(newWorkspace)
+        saveConfig()
+    }
+
+    func removeWorkspace(name: String) {
+        config.workspaces.removeAll { $0.name == name }
+        saveConfig()
+    }
+
+    func updateWorkspace(oldName: String, newName: String, newPath: String) {
+        if let index = config.workspaces.firstIndex(where: { $0.name == oldName }) {
+            config.workspaces[index] = WorkspaceConfig(name: newName, path: newPath)
+            saveConfig()
+        }
     }
 }
