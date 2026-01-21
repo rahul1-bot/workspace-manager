@@ -25,7 +25,9 @@ class AppState: ObservableObject {
 
         for wsConfig in workspaceConfigs {
             let expandedPath = configService.expandPath(wsConfig.path)
-            let workspace = Workspace(name: wsConfig.name, path: expandedPath)
+            // Use stable ID from config, converting from string to UUID
+            let stableId = UUID(uuidString: wsConfig.id) ?? UUID()
+            let workspace = Workspace(id: stableId, name: wsConfig.name, path: expandedPath)
             workspaces.append(workspace)
         }
     }
@@ -35,6 +37,9 @@ class AppState: ObservableObject {
         let previousSelectedWorkspace = selectedWorkspaceId
 
         loadWorkspacesFromConfig()
+
+        // Sync appearance settings from config
+        showSidebar = configService.config.appearance.show_sidebar
 
         selectedWorkspaceId = nil
         selectedTerminalId = nil
@@ -47,35 +52,59 @@ class AppState: ObservableObject {
 
     // MARK: - Workspace Operations
 
-    func addWorkspace(name: String, path: String) {
-        let expandedPath = configService.expandPath(path)
+    @discardableResult
+    func addWorkspace(name: String, path: String) -> Bool {
+        // Enforce unique workspace names
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else {
+            print("[AppState] Error: Workspace name cannot be empty")
+            return false
+        }
+        guard !workspaces.contains(where: { $0.name == trimmedName }) else {
+            print("[AppState] Error: Workspace with name '\(trimmedName)' already exists")
+            return false
+        }
 
+        let expandedPath = configService.expandPath(path)
         if !FileManager.default.fileExists(atPath: expandedPath) {
             print("[AppState] Warning: Workspace path does not exist: \(expandedPath)")
         }
 
-        let workspace = Workspace(name: name, path: expandedPath)
+        // Generate stable ID that will be saved to config
+        let stableId = UUID()
+        let workspace = Workspace(id: stableId, name: trimmedName, path: expandedPath)
         workspaces.append(workspace)
 
-        configService.addWorkspace(name: name, path: path)
+        configService.addWorkspace(id: stableId.uuidString, name: trimmedName, path: path)
+        return true
     }
 
     func removeWorkspace(id: UUID) {
-        guard let workspace = workspaces.first(where: { $0.id == id }) else { return }
-
         workspaces.removeAll { $0.id == id }
         if selectedWorkspaceId == id {
             selectedWorkspaceId = nil
             selectedTerminalId = nil
         }
 
-        configService.removeWorkspace(name: workspace.name)
+        configService.removeWorkspace(id: id.uuidString)
     }
 
     func toggleWorkspaceExpanded(id: UUID) {
         if let index = workspaces.firstIndex(where: { $0.id == id }) {
             workspaces[index].isExpanded.toggle()
         }
+    }
+
+    // MARK: - Sidebar Operations (Persisted to Config)
+
+    func toggleSidebar() {
+        showSidebar.toggle()
+        configService.setShowSidebar(showSidebar)
+    }
+
+    func setSidebar(visible: Bool) {
+        showSidebar = visible
+        configService.setShowSidebar(showSidebar)
     }
 
     // MARK: - Terminal Operations (Runtime Only)

@@ -27,11 +27,17 @@ class ConfigService {
     }
 
     /// Expand tilde in paths to full home directory path
+    /// Only expands "~" or "~/" - rejects invalid patterns like "~foo"
     func expandPath(_ path: String) -> String {
-        if path.hasPrefix("~") {
-            let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-            return path.replacingCharacters(in: path.startIndex..<path.index(after: path.startIndex), with: homeDir)
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+
+        if path == "~" {
+            return homeDir
         }
+        if path.hasPrefix("~/") {
+            return homeDir + path.dropFirst(1)
+        }
+        // Reject ~foo patterns - return as-is and let it fail at path validation
         return path
     }
 
@@ -78,18 +84,32 @@ class ConfigService {
 
             // Parse workspaces array
             var workspaces: [WorkspaceConfig] = []
+            var needsSave = false
             if let workspacesArray = tomlTable["workspaces"] as? TOMLArray {
                 for item in workspacesArray {
                     if let wsTable = item as? TOMLTable,
                        let name = wsTable["name"] as? String,
                        let path = wsTable["path"] as? String {
                         let expandedPath = expandPath(path)
-                        workspaces.append(WorkspaceConfig(name: name, path: expandedPath))
+                        // Use existing id or generate a stable one
+                        let id: String
+                        if let existingId = wsTable["id"] as? String, !existingId.isEmpty {
+                            id = existingId
+                        } else {
+                            id = UUID().uuidString
+                            needsSave = true  // Save to persist the generated id
+                        }
+                        workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath))
                     }
                 }
             }
 
             self.config = AppConfig(terminal: terminalConfig, appearance: appearanceConfig, workspaces: workspaces)
+
+            // Save config if we generated new workspace IDs
+            if needsSave {
+                saveConfig()
+            }
 
         } catch {
             // IMPORTANT: Do NOT overwrite user config on parse failure
@@ -137,16 +157,16 @@ class ConfigService {
         # Workspace Manager Configuration
 
         [terminal]
-        font = "\(config.terminal.font)"
+        font = \(escapeTomlString(config.terminal.font))
         font_size = \(config.terminal.font_size)
         scrollback = \(config.terminal.scrollback)
-        cursor_style = "\(config.terminal.cursor_style)"
+        cursor_style = \(escapeTomlString(config.terminal.cursor_style))
         use_gpu_renderer = \(config.terminal.use_gpu_renderer)
 
         [appearance]
         show_sidebar = \(config.appearance.show_sidebar)
 
-        # Workspaces - each needs a name and path
+        # Workspaces - each needs id, name and path
         # Use ~ for home directory
 
         """
@@ -159,8 +179,9 @@ class ConfigService {
             toml += """
 
             [[workspaces]]
-            name = "\(workspace.name)"
-            path = "\(displayPath)"
+            id = \(escapeTomlString(workspace.id))
+            name = \(escapeTomlString(workspace.name))
+            path = \(escapeTomlString(displayPath))
             """
         }
 
@@ -173,6 +194,16 @@ class ConfigService {
         }
     }
 
+    private func escapeTomlString(_ value: String) -> String {
+        var escaped = value
+        escaped = escaped.replacingOccurrences(of: "\\", with: "\\\\")
+        escaped = escaped.replacingOccurrences(of: "\"", with: "\\\"")
+        escaped = escaped.replacingOccurrences(of: "\n", with: "\\n")
+        escaped = escaped.replacingOccurrences(of: "\r", with: "\\r")
+        escaped = escaped.replacingOccurrences(of: "\t", with: "\\t")
+        return "\"\(escaped)\""
+    }
+
     /// Reload configuration from disk
     func reloadConfig() {
         loadConfig()
@@ -180,21 +211,33 @@ class ConfigService {
 
     // MARK: - Workspace Mutations
 
-    func addWorkspace(name: String, path: String) {
-        let newWorkspace = WorkspaceConfig(name: name, path: path)
+    func addWorkspace(id: String, name: String, path: String) {
+        // Enforce unique names
+        guard !config.workspaces.contains(where: { $0.name == name }) else {
+            print("[ConfigService] Error: Workspace with name '\(name)' already exists")
+            return
+        }
+        let newWorkspace = WorkspaceConfig(id: id, name: name, path: path)
         config.workspaces.append(newWorkspace)
         saveConfig()
     }
 
-    func removeWorkspace(name: String) {
-        config.workspaces.removeAll { $0.name == name }
+    func removeWorkspace(id: String) {
+        config.workspaces.removeAll { $0.id == id }
         saveConfig()
     }
 
-    func updateWorkspace(oldName: String, newName: String, newPath: String) {
-        if let index = config.workspaces.firstIndex(where: { $0.name == oldName }) {
-            config.workspaces[index] = WorkspaceConfig(name: newName, path: newPath)
+    func updateWorkspace(id: String, newName: String, newPath: String) {
+        if let index = config.workspaces.firstIndex(where: { $0.id == id }) {
+            config.workspaces[index] = WorkspaceConfig(id: id, name: newName, path: newPath)
             saveConfig()
         }
+    }
+
+    // MARK: - Appearance Mutations
+
+    func setShowSidebar(_ show: Bool) {
+        config.appearance.show_sidebar = show
+        saveConfig()
     }
 }

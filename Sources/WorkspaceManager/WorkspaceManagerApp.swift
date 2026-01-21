@@ -134,7 +134,7 @@ struct WorkspaceManagerApp: App {
             CommandGroup(after: .sidebar) {
                 Button("Toggle Sidebar") {
                     withAnimation {
-                        appState.showSidebar.toggle()
+                        appState.toggleSidebar()
                     }
                 }
                 .keyboardShortcut("s", modifiers: [.command, .control])

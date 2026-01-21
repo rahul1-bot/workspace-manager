@@ -73,21 +73,11 @@ path = "~/path/to/workspace"
 ```
 
 ### Architecture: Config-Driven Design
-1. config.toml is the ONLY source of truth for workspaces and app settings
+1. config.toml is the ONLY source of truth for workspaces
 2. No workspaces.json - removed entirely
 3. Terminals are runtime-only (shell processes, not persisted)
 4. UI adds/removes workspaces directly to config.toml
-5. Workspaces have stable UUIDs preserved across restarts
-6. Workspace names must be unique
-
-### Terminal Renderer Configuration
-1. When `use_gpu_renderer = true` (default):
-   - Uses libghostty Metal renderer (120Hz smooth scrolling)
-   - Terminal appearance (font, colors) configured via `~/.config/ghostty/config`
-   - The `[terminal]` settings in config.toml (font, font_size, etc.) do NOT apply
-2. When `use_gpu_renderer = false`:
-   - Uses SwiftTerm CPU renderer (fallback)
-   - The `[terminal]` settings in config.toml fully apply
+5. Restart app or implement hot-reload to pick up manual config edits
 
 ---
 

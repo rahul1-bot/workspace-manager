@@ -60,7 +60,7 @@ struct ContentView: View {
 
             // ⌘B toggle sidebar visibility (focus stays on terminal)
             if cmd && char == "b" {
-                appState.showSidebar.toggle()
+                appState.toggleSidebar()
                 if !appState.showSidebar { sidebarFocused = false }
                 return nil
             }
@@ -87,7 +87,7 @@ struct ContentView: View {
 
             // ⌘J - focus sidebar (show if hidden)
             if cmd && char == "j" {
-                appState.showSidebar = true
+                appState.setSidebar(visible: true)
                 sidebarFocused = true
                 return nil
             }

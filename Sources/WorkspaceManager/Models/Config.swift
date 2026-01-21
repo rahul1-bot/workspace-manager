@@ -50,10 +50,12 @@ struct AppearanceConfig: Codable {
 
 /// Workspace configuration from TOML
 struct WorkspaceConfig: Codable {
+    var id: String
     var name: String
     var path: String
 
-    init(name: String, path: String) {
+    init(id: String = UUID().uuidString, name: String, path: String) {
+        self.id = id
         self.name = name
         self.path = path
     }

@@ -21,11 +21,11 @@ A simple terminal orchestration app for macOS. The goal is to provide a better w
 
 ## Current Status
 
-| Status | Focus | Date: 21 January 2026 | Time: 09:23 PM | Name: Lyra |
+| Status | Focus | Date: 14 January 2026 | Time: 11:10 PM | Name: Lyra |
 
 ### What WORKS
 1. Native macOS app with SwiftUI interface.
-2. Embedded terminal using SwiftTerm with full PTY support (fallback) or libghostty Metal renderer (default).
+2. Embedded terminal using SwiftTerm with full PTY support.
 3. Glass/transparent UI with blur effect (NSVisualEffectView).
 4. Workspace sidebar with expandable workspace trees.
 5. Multiple terminal sessions per workspace.
@@ -36,58 +36,24 @@ A simple terminal orchestration app for macOS. The goal is to provide a better w
 10. **Zed-style sidebar**: Seamless glass panel with ⌘B toggle, no NavigationSplitView chrome.
 11. **Minimal window**: No title bar, no traffic lights, unified glass background everywhere.
 12. **Keyboard navigation**: ⌘I/K for terminal cycling, ⌘J/L for sidebar/terminal focus, arrow keys in sidebar.
-13. **120Hz Metal rendering**: libghostty integration with custom momentum physics for butter-smooth scrolling.
-
-### Recent Fixes (21 January 2026)
-1. Fixed use-after-free bug in C-interop for working_directory pointer lifetime.
-2. Unified sidebar state to single source of truth (AppState.showSidebar).
-3. Fixed event monitor lifecycle leak in ContentView (proper cleanup on disappear).
-4. Hardened SwiftTerm shell command path to prevent injection via quote escaping.
-5. Fixed config parse error handling - no longer destroys user config on failure.
-6. Added scroll wheel support for non-trackpad devices (phase == .none handling).
-7. Fixed clipboard callback with bounded buffer handling for safety.
-8. Fixed terminal active-state indicator sync when creating new terminals.
-9. Added workspace path validation and tilde expansion.
-10. Made default config portable (uses home directory, not hardcoded paths).
 
 ### Config File Location
 ```
 ~/.config/workspace-manager/config.toml
 ```
 
-### Config Structure (Source of Truth)
+### Config Structure
 ```toml
 [terminal]
 font = "Cascadia Code"
 font_size = 14
 scrollback = 1000000
 cursor_style = "bar"
-use_gpu_renderer = true  # true = libghostty Metal, false = SwiftTerm CPU
-
-[appearance]
-show_sidebar = true
 
 [[workspaces]]
-name = "Project Name"
+name = "Root"
 path = "~/path/to/workspace"
 ```
-
-### Architecture: Config-Driven Design
-1. config.toml is the ONLY source of truth for workspaces and app settings
-2. No workspaces.json - removed entirely
-3. Terminals are runtime-only (shell processes, not persisted)
-4. UI adds/removes workspaces directly to config.toml
-5. Workspaces have stable UUIDs preserved across restarts
-6. Workspace names must be unique
-
-### Terminal Renderer Configuration
-1. When `use_gpu_renderer = true` (default):
-   - Uses libghostty Metal renderer (120Hz smooth scrolling)
-   - Terminal appearance (font, colors) configured via `~/.config/ghostty/config`
-   - The `[terminal]` settings in config.toml (font, font_size, etc.) do NOT apply
-2. When `use_gpu_renderer = false`:
-   - Uses SwiftTerm CPU renderer (fallback)
-   - The `[terminal]` settings in config.toml fully apply
 
 ---
 
