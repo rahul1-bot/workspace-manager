@@ -919,3 +919,43 @@ path = "~/path/to/project"
 2. ✅ Frame-rate independent animation works correctly on variable refresh displays.
 3. ⚠️ Some residual stutter may remain due to libghostty's line-by-line scrolling.
 4. Parameters can be further tuned for optimal feel.
+
+---
+
+| Progress Todo | Final Scroll Solution: Timer + High Velocity Threshold | Date: 22 January 2026 | Time: 08:55 AM | Name: Lyra |
+
+### Context
+1. Tested both Timer-based and CADisplayLink-based momentum implementations.
+2. Compared feel and smoothness between both approaches.
+3. Made final decision on which approach to use going forward.
+
+### Testing Results
+1. Timer + velocityThreshold=5.5 + decayFactor=0.96: Felt smoother and more natural.
+2. CADisplayLink + velocityThreshold=3.5 + decayFactor=0.94: More complex, similar or worse feel.
+
+### Final Decision
+1. ✅ Reverted to Timer-based momentum with high velocity threshold.
+2. ✅ velocityThreshold = 5.5 (110x increase from original 0.05)
+3. ✅ decayFactor = 0.96 (standard exponential decay)
+4. ✅ momentumInterval = 1/120 (120Hz Timer updates)
+
+### Why Timer Won
+1. The velocity threshold is the dominant factor in eliminating stutter.
+2. At velocities above 5.5, Timer's timing jitter is imperceptible.
+3. CADisplayLink's precision only helps at low velocities — which we skip entirely.
+4. Simpler code, easier to maintain, same or better results.
+
+### Final Parameters
+```swift
+decayFactor = 0.96        // Exponential decay rate
+velocityThreshold = 5.5   // Stop momentum early to avoid stutter
+momentumInterval = 1/120  // 120Hz updates
+```
+
+### Files
+1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift
+
+### Commits
+1. ad5f7d6: Initial velocity threshold fix (0.05 → 5.5)
+2. 1b9935e: CADisplayLink experiment (preserved in history)
+3. Current: Reverted to Timer-based approach as final solution

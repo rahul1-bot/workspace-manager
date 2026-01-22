@@ -297,7 +297,36 @@
 3. This ensures consistent animation speed regardless of actual frame rate.
 
 ### Implication
-1. CADisplayLink is the proper way to do display-synchronized animation on macOS.
-2. Combined with higher velocity threshold, provides smoother momentum than Timer-based approach.
+1. CADisplayLink is theoretically the proper way to do display-synchronized animation on macOS.
+2. However, in practice, Timer + high velocity threshold felt smoother in our testing.
 3. The fundamental limitation remains: libghostty scrolls line-by-line, not pixel-by-pixel.
 4. For truly Warp-level smoothness, would need custom renderer with sub-pixel scrolling support.
+
+---
+
+| Memory | Timer vs CADisplayLink Comparison Results | Date: 22 January 2026 | Time: 08:55 AM | Name: Lyra |
+
+### Observation
+1. We tested both Timer-based and CADisplayLink-based momentum implementations.
+2. Surprisingly, the simpler Timer + high velocity threshold approach felt smoother in practice.
+3. CADisplayLink added complexity but did not provide noticeable improvement.
+
+### Comparison Results
+1. Timer + velocityThreshold=5.5: Smooth, simple, works well.
+2. CADisplayLink + velocityThreshold=3.5: More complex, similar or slightly worse feel.
+
+### Analysis
+1. The velocity threshold is the key factor in eliminating low-velocity stutter.
+2. At velocities above 5.5, even Timer's timing jitter is not perceptible.
+3. CADisplayLink's precision is only beneficial at very low velocities — which we skip entirely.
+4. The extra complexity of CADisplayLink (frame timestamps, decay normalization) adds overhead without benefit.
+
+### Decision
+1. Stick with Timer-based momentum + high velocity threshold (5.5).
+2. This is the simpler, more maintainable solution that works well in practice.
+3. CADisplayLink implementation preserved in git history (commit 1b9935e) for future reference.
+
+### Implication
+1. Sometimes simpler solutions outperform theoretically "correct" approaches.
+2. The key insight: eliminating problematic low-velocity region is more effective than precise timing.
+3. Practical testing > theoretical optimization.
