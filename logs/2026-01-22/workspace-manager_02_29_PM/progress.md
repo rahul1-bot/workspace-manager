@@ -1055,29 +1055,3 @@ momentumInterval = 1/120  // 120Hz updates
         1. ✅ swift build
         2. ✅ swift build -c release
         3. ✅ scripts/build_app_bundle.sh
-
----
-
-| Progress Todo | Arrow-Key Input Fix, Run Script, and Font Size | Date: 22 January 2026 | Time: 02:29 PM | Name: Ghost |
-
-    1. Snapshot reference:
-        1. logs/2026-01-22/workspace-manager_02_29_PM
-    2. Problems addressed:
-        1. Arrow keys still produced visible glyphs in some interactive terminal UIs instead of behaving as navigation keys.
-        2. Repeated manual commands were required to rebuild and open the app.
-        3. Terminal font size was too small for the GPU renderer configuration.
-    3. Changes implemented:
-        1. Aligned libghostty keyboard event encoding with Ghostty’s upstream AppKit implementation:
-            1. Do not forward arrow keys as text; route via keycode/modifiers only.
-            2. Populate consumed_mods and unshifted_codepoint fields.
-            3. Respect key repeat by using GHOSTTY_ACTION_REPEAT when applicable.
-            4. Filter macOS function-key private Unicode and control characters from the text path.
-        2. Added a single entrypoint script for build-and-run:
-            1. scripts/run.sh supports debug and release modes.
-        3. Increased Ghostty config font size for the GPU renderer to 18 (user config file, not stored in git).
-        4. Added zsh aliases (user shell config, not stored in git):
-            1. wm: build and open (debug).
-            2. wmr: build and open (release).
-    4. Verification:
-        1. ✅ swift build
-        2. ✅ scripts/build_app_bundle.sh

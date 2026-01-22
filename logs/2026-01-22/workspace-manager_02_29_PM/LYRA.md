@@ -126,17 +126,3 @@ App Launch → ConfigService.loadConfig() → Parse TOML → AppState initialize
 4. Arrow-key glyph issue:
    1. Observed arrow keys rendering as literal glyphs (left/right/up/down) in the terminal.
    2. Fixed by ignoring macOS function-key Unicode scalars (U+F700-U+F8FF) in the text path so those keys are routed via keycode/modifiers only.
-
----
-
-| Status | Focus | Date: 22 January 2026 | Time: 02:29 PM | Name: Ghost |
-
-### Follow-up Fixes
-1. Arrow keys:
-   1. Issue persisted in certain interactive UIs, indicating key event encoding needed to more closely match upstream Ghostty macOS behavior.
-   2. Updated keyboard event encoding to set consumed_mods and unshifted_codepoint, respect repeat events, and explicitly route arrow keys via keycode/modifiers only.
-2. Developer ergonomics:
-   1. Added scripts/run.sh as a single build-and-open entrypoint (debug or release).
-   2. Added user aliases (wm, wmr) in ~/.zshrc to run the script without manual cd/build/open steps.
-3. Readability:
-   1. Increased Ghostty font size to 18 via ~/.config/ghostty/config.

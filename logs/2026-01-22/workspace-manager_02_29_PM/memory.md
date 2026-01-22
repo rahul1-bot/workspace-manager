@@ -356,19 +356,3 @@
         2. Forward only the keycode and modifiers for these keys.
     3. Implication:
         1. Arrow keys behave correctly for shell navigation (history, cursor movement) and no longer insert glyphs into the terminal buffer.
-
----
-
-| Memory | Key Event Encoding Should Match Upstream Ghostty | Date: 22 January 2026 | Time: 02:29 PM | Name: Ghost |
-
-    1. Observation:
-        1. libghostty key handling expects a consistent contract: keycode/modifier fields must be set for all keys, and text must be reserved for printable UTF-8.
-        2. If text is sent for non-text keys, interactive TUIs can display “random glyphs” because macOS function-key Unicode lives in a private range and patched fonts map those codepoints to icons.
-    2. Decision:
-        1. Encode keyboard input using the same rules as Ghostty’s macOS SurfaceView implementation:
-            1. Use keycode for navigation keys and avoid forwarding them as text.
-            2. Do not forward control characters as text; let Ghostty’s encoder handle them.
-            3. Populate consumed_mods and unshifted_codepoint for correct downstream behavior.
-            4. Use repeat action for event.isARepeat.
-    3. Implication:
-        1. Arrow keys and other non-text keys behave consistently across shell prompts and full-screen TUIs.

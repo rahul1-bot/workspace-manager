@@ -279,13 +279,25 @@ class GhosttySurfaceNSView: NSView {
         }
 
         var keyEvent = ghostty_input_key_s()
-        keyEvent.action = GHOSTTY_ACTION_PRESS
+        keyEvent.action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
         keyEvent.mods = translateModifiers(event.modifierFlags)
+        keyEvent.consumed_mods = consumedMods(event.modifierFlags)
         keyEvent.keycode = UInt32(event.keyCode)
+        keyEvent.unshifted_codepoint = unshiftedCodepoint(for: event)
+        keyEvent.text = nil
+        keyEvent.composing = false
 
-        if let chars = event.characters,
+        // Arrow keys must never be forwarded as text (they can appear as PUA glyphs).
+        // Always route via keycode/modifiers only.
+        if event.keyCode == 123 || event.keyCode == 124 || event.keyCode == 125 || event.keyCode == 126 {
+            _ = ghostty_surface_key(surface, keyEvent)
+            return
+        }
+
+        if let chars = ghosttyCharacters(for: event),
            !chars.isEmpty,
-           !chars.unicodeScalars.contains(where: { $0.value >= 0xF700 && $0.value <= 0xF8FF }) {
+           let firstByte = chars.utf8.first,
+           firstByte >= 0x20 {
             chars.withCString { cstr in
                 keyEvent.text = cstr
                 _ = ghostty_surface_key(surface, keyEvent)
@@ -304,7 +316,11 @@ class GhosttySurfaceNSView: NSView {
         var keyEvent = ghostty_input_key_s()
         keyEvent.action = GHOSTTY_ACTION_RELEASE
         keyEvent.mods = translateModifiers(event.modifierFlags)
+        keyEvent.consumed_mods = consumedMods(event.modifierFlags)
         keyEvent.keycode = UInt32(event.keyCode)
+        keyEvent.unshifted_codepoint = unshiftedCodepoint(for: event)
+        keyEvent.text = nil
+        keyEvent.composing = false
 
         _ = ghostty_surface_key(surface, keyEvent)
     }
@@ -318,7 +334,11 @@ class GhosttySurfaceNSView: NSView {
         var keyEvent = ghostty_input_key_s()
         keyEvent.action = GHOSTTY_ACTION_PRESS
         keyEvent.mods = translateModifiers(event.modifierFlags)
+        keyEvent.consumed_mods = consumedMods(event.modifierFlags)
         keyEvent.keycode = UInt32(event.keyCode)
+        keyEvent.unshifted_codepoint = unshiftedCodepoint(for: event)
+        keyEvent.text = nil
+        keyEvent.composing = false
 
         _ = ghostty_surface_key(surface, keyEvent)
     }
@@ -331,6 +351,40 @@ class GhosttySurfaceNSView: NSView {
         if flags.contains(.command) { mods |= GHOSTTY_MODS_SUPER.rawValue }
         if flags.contains(.capsLock) { mods |= GHOSTTY_MODS_CAPS.rawValue }
         return ghostty_input_mods_e(rawValue: mods)
+    }
+
+    private func consumedMods(_ flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {
+        var raw = translateModifiers(flags).rawValue
+        raw &= ~(GHOSTTY_MODS_CTRL.rawValue | GHOSTTY_MODS_SUPER.rawValue)
+        return ghostty_input_mods_e(rawValue: raw)
+    }
+
+    private func unshiftedCodepoint(for event: NSEvent) -> UInt32 {
+        if event.type == .keyDown || event.type == .keyUp {
+            if let chars = event.characters(byApplyingModifiers: []),
+               let codepoint = chars.unicodeScalars.first {
+                return codepoint.value
+            }
+        }
+        return 0
+    }
+
+    private func ghosttyCharacters(for event: NSEvent) -> String? {
+        guard let characters = event.characters else { return nil }
+
+        if characters.count == 1, let scalar = characters.unicodeScalars.first {
+            // Control characters are encoded by Ghostty itself.
+            if scalar.value < 0x20 {
+                return event.characters(byApplyingModifiers: event.modifierFlags.subtracting(.control))
+            }
+
+            // macOS function keys (including arrows) are in the PUA range. Never forward as text.
+            if scalar.value >= 0xF700 && scalar.value <= 0xF8FF {
+                return nil
+            }
+        }
+
+        return characters
     }
 
     // MARK: - Mouse Input
