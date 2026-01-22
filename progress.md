@@ -825,3 +825,28 @@ path = "~/path/to/project"
 | ⌘L | Focus terminal |
 | ⌘R | Hot reload config.toml |
 | ⌃⌘S | Toggle sidebar (menu command) |
+
+---
+
+| Progress Todo | Product Specification Documentation | Date: 22 January 2026 | Time: 04:14 AM | Name: Ghost |
+
+### Objective
+    1. Define a dead-simple v1 product scope for Workspace Manager focused on AI agent orchestration.
+    2. Capture the Workspaces/Agents/Tasks model and the Claude↔Codex verification loop without adding a task-manager abstraction.
+
+### Work Completed
+    1. Created a single authoritative product specification document.
+    2. Documented:
+        1. Core concepts (Workspaces, Agents, Tasks as labels).
+        2. Verification-first constraints (all work must remain observable in a terminal).
+        3. Keyboard-first navigation model (workspace switching + agent switching).
+        4. UI-level handoff concept for Worker/Reviewer pairing.
+        5. Explicit v1 non-goals (no runnable jobs engine, no kanban, no nested workspaces).
+
+### Decision Summary
+    1. Tasks are labels only; they are not executed as jobs by Workspace Manager.
+    2. Auto-spawn vs lazy-spawn is config-controlled, not hardcoded.
+    3. The Claude↔Codex loop is supported via navigation and labeling, not by re-implementing CLI hooks.
+
+### Paths
+    1. docs/product.md

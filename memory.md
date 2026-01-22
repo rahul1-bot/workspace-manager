@@ -211,3 +211,27 @@
 ### Implication
 1. Any global resource acquired in onAppear must be released in onDisappear.
 2. SwiftUI lifecycle is not 1:1 with object lifecycle - views can appear/disappear multiple times.
+
+---
+
+| Memory | Product Direction: Workspaces Agents Tasks (Labels) | Date: 22 January 2026 | Time: 04:14 AM | Name: Ghost |
+
+### Observation
+1. AI agent orchestration is primarily a navigation and verification problem, not a task management problem.
+2. Users want to switch quickly across:
+    1. Workspaces (projects/folders).
+    2. Agents (persistent terminal slots inside a workspace).
+3. Users do not want UI clutter or implementation plumbing in the primary surface; they want intent.
+4. The Claude↔Codex workflow loop is common:
+    1. Claude acts as an implementation worker.
+    2. Codex acts as a strict reviewer.
+    3. The user remains responsible for verification and direction changes.
+
+### Implication
+1. “Handoff” should be UI-level (focus switch and optional label copy), not an automation engine competing with CLI hooks.
+2. Tasks should be labels attached to agents, not runnable jobs in v1.
+3. A Focus Mode vs Squad Mode toggle can support both user archetypes:
+    1. Single-thread deep work.
+    2. Parallel multi-agent orchestration.
+4. The product spec must remain centralized and auditable to prevent scope bloat and reinvention:
+    1. docs/product.md
