@@ -4,6 +4,7 @@ struct WorkspaceSidebar: View {
     @EnvironmentObject var appState: AppState
     @State private var newWorkspaceName: String = ""
     @State private var newWorkspacePath: String = ""
+    @State private var newWorkspaceError: String?
     @State private var newTerminalName: String = ""
     @State private var workspaceForNewTerminal: Workspace?
 
@@ -61,20 +62,43 @@ struct WorkspaceSidebar: View {
             NewWorkspaceSheet(
                 name: $newWorkspaceName,
                 path: $newWorkspacePath,
+                errorMessage: $newWorkspaceError,
                 onCancel: {
                     appState.showNewWorkspaceSheet = false
                     newWorkspaceName = ""
                     newWorkspacePath = ""
+                    newWorkspaceError = nil
                 },
                 onCreate: {
+                    let trimmedName = newWorkspaceName.trimmingCharacters(in: .whitespaces)
+
+                    // Validate name
+                    if trimmedName.isEmpty {
+                        newWorkspaceError = "Workspace name cannot be empty"
+                        return
+                    }
+
+                    // Check for duplicate name
+                    if appState.workspaces.contains(where: { $0.name == trimmedName }) {
+                        newWorkspaceError = "A workspace with this name already exists"
+                        return
+                    }
+
                     // Use first workspace path from config as default, or home directory
                     let defaultPath = ConfigService.shared.config.workspaces.first?.path
                         ?? FileManager.default.homeDirectoryForCurrentUser.path
                     let path = newWorkspacePath.isEmpty ? defaultPath : newWorkspacePath
-                    appState.addWorkspace(name: newWorkspaceName, path: path)
-                    appState.showNewWorkspaceSheet = false
-                    newWorkspaceName = ""
-                    newWorkspacePath = ""
+
+                    // Try to add workspace
+                    let success = appState.addWorkspace(name: trimmedName, path: path)
+                    if success {
+                        appState.showNewWorkspaceSheet = false
+                        newWorkspaceName = ""
+                        newWorkspacePath = ""
+                        newWorkspaceError = nil
+                    } else {
+                        newWorkspaceError = "Failed to create workspace"
+                    }
                 }
             )
         }
@@ -207,6 +231,7 @@ struct TerminalRow: View {
 struct NewWorkspaceSheet: View {
     @Binding var name: String
     @Binding var path: String
+    @Binding var errorMessage: String?
     let onCancel: () -> Void
     let onCreate: () -> Void
 
@@ -217,9 +242,18 @@ struct NewWorkspaceSheet: View {
 
             TextField("Workspace name", text: $name)
                 .textFieldStyle(.roundedBorder)
+                .onChange(of: name) {
+                    errorMessage = nil  // Clear error when user types
+                }
 
             TextField("Path (optional)", text: $path)
                 .textFieldStyle(.roundedBorder)
+
+            if let error = errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
 
             HStack {
                 Button("Cancel", action: onCancel)
@@ -227,7 +261,7 @@ struct NewWorkspaceSheet: View {
 
                 Button("Create", action: onCreate)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(name.isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .padding(20)

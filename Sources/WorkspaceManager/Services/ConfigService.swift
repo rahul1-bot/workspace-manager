@@ -82,23 +82,42 @@ class ConfigService {
                 }
             }
 
-            // Parse workspaces array
+            // Parse workspaces array with ID validation and duplicate detection
             var workspaces: [WorkspaceConfig] = []
+            var seenIds: Set<String> = []
             var needsSave = false
+
             if let workspacesArray = tomlTable["workspaces"] as? TOMLArray {
                 for item in workspacesArray {
                     if let wsTable = item as? TOMLTable,
                        let name = wsTable["name"] as? String,
                        let path = wsTable["path"] as? String {
                         let expandedPath = expandPath(path)
-                        // Use existing id or generate a stable one
-                        let id: String
-                        if let existingId = wsTable["id"] as? String, !existingId.isEmpty {
+
+                        // Validate and normalize the workspace ID
+                        var id: String
+                        if let existingId = wsTable["id"] as? String,
+                           !existingId.isEmpty,
+                           UUID(uuidString: existingId) != nil {
+                            // Valid UUID string
                             id = existingId
                         } else {
+                            // Invalid or missing ID - generate a new valid UUID
                             id = UUID().uuidString
-                            needsSave = true  // Save to persist the generated id
+                            needsSave = true
+                            if let existingId = wsTable["id"] as? String, !existingId.isEmpty {
+                                print("[ConfigService] Warning: Invalid workspace ID '\(existingId)' for '\(name)', regenerating")
+                            }
                         }
+
+                        // Check for duplicate IDs and regenerate if needed
+                        if seenIds.contains(id) {
+                            print("[ConfigService] Warning: Duplicate workspace ID '\(id)' for '\(name)', regenerating")
+                            id = UUID().uuidString
+                            needsSave = true
+                        }
+                        seenIds.insert(id)
+
                         workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath))
                     }
                 }
@@ -106,7 +125,7 @@ class ConfigService {
 
             self.config = AppConfig(terminal: terminalConfig, appearance: appearanceConfig, workspaces: workspaces)
 
-            // Save config if we generated new workspace IDs
+            // Save config if we fixed any IDs
             if needsSave {
                 saveConfig()
             }
@@ -215,6 +234,11 @@ class ConfigService {
         // Enforce unique names
         guard !config.workspaces.contains(where: { $0.name == name }) else {
             print("[ConfigService] Error: Workspace with name '\(name)' already exists")
+            return
+        }
+        // Enforce unique IDs
+        guard !config.workspaces.contains(where: { $0.id == id }) else {
+            print("[ConfigService] Error: Workspace with ID '\(id)' already exists")
             return
         }
         let newWorkspace = WorkspaceConfig(id: id, name: name, path: path)

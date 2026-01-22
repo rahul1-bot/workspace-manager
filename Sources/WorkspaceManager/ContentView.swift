@@ -98,6 +98,13 @@ struct ContentView: View {
                 return nil
             }
 
+            // ⌘R - hot reload config.toml
+            if cmd && char == "r" {
+                appState.reloadFromConfig()
+                print("[ContentView] Config reloaded via Cmd+R")
+                return nil
+            }
+
             // Arrow keys when sidebar is focused
             if sidebarFocused {
                 // Up arrow - previous terminal

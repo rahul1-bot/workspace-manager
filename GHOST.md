@@ -2,23 +2,28 @@
 
 ## Mission
     1. Deliver a workspace orchestrator with an embedded terminal.
-    2. Maintain a stable, responsive CPU-based terminal while GPU rendering is unresolved.
-    3. Keep documentation, performance rationale, and technical decisions aligned.
+    2. Keep configuration as the single source of truth for workspaces and core UI behavior.
+    3. Preserve a stable terminal experience with a GPU renderer by default and a CPU fallback when needed.
 
 ## Architecture
     1. SwiftUI app with AppState models for workspaces and terminals.
-    2. Terminal pipeline: SwiftTerm (LocalProcessTerminalView) for CPU-based rendering.
-    3. Metal renderer prototypes live on the metal-renderer branch only.
+    2. Config pipeline: ConfigService loads and persists ~/.config/workspace-manager/config.toml.
+    3. Terminal pipeline:
+        1. Default: libghostty (GhosttyKit) Metal renderer (use_gpu_renderer = true).
+        2. Fallback: SwiftTerm (LocalProcessTerminalView) CPU renderer (use_gpu_renderer = false).
 
 ## Decisions
-    1. Metal renderer prototyping failed to produce correct glyph output; work is paused.
-    2. Production behavior returns to SwiftTerm CPU rendering for stability and usability.
-    3. Preserve the metal-renderer branch and stash for future research.
+    1. config.toml is the single source of truth for workspaces.
+    2. Workspaces have stable ids persisted in config.toml to preserve identity across restarts.
+    3. Sidebar visibility is persisted to config.toml (appearance.show_sidebar).
+    4. Terminal renderer selection is controlled by config.toml (terminal.use_gpu_renderer).
 
 ## Next Steps
-    1. Stabilize CPU-based terminal behavior and performance in release builds.
-    2. Only resume GPU renderer work after a clear atlas/shader debugging plan.
+    1. Validate workspace ids on load (reject or repair invalid ids) and detect duplicate ids.
+    2. Improve UX for failed workspace creation (duplicate/empty names should not silently dismiss the sheet).
+    3. Optional: add hot reload for config.toml with stable selection preservation.
 
 ## Paths
-    1. Primary: SwiftTerm CPU renderer (current main branch).
-    2. Research: Metal renderer experiments on metal-renderer branch.
+    1. Primary: Config-driven app with libghostty Metal renderer.
+    2. Fallback: SwiftTerm CPU renderer when GPU renderer is disabled.
+    3. Research: Ghostty renderer tuning (input/scroll/clipboard) and performance profiling.
