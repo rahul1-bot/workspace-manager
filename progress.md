@@ -850,3 +850,37 @@ path = "~/path/to/project"
 
 ### Paths
     1. docs/product.md
+
+---
+
+| Progress Todo | Low-Velocity Scroll Stutter Fix | Date: 22 January 2026 | Time: 08:31 AM | Name: Lyra |
+
+### Problem
+1. Scroll stuttering occurred during slow scrolling and at the end of momentum deceleration.
+2. Fast scrolling was perfectly smooth; issue only visible at low velocities.
+3. Users reported visible jitter when scroll was about to stop.
+
+### Root Cause Analysis
+1. Timer-based momentum (Timer.scheduledTimer at 1/120s) is NOT synchronized with display vsync.
+2. At high velocities, timing jitter is negligible relative to scroll distance.
+3. At low velocities (< 0.5), the Timer's ±1-2ms jitter becomes the dominant visual signal.
+4. Original velocityThreshold of 0.05 meant momentum continued until velocity was nearly zero.
+5. These micro-movements with inconsistent timing created visible stutter.
+
+### Solution
+1. ✅ Increased velocityThreshold from 0.05 to 5.5.
+2. Momentum now stops earlier while velocity is still high enough for smooth rendering.
+3. Trade-off: slightly shorter glide duration, but eliminates low-velocity stutter completely.
+
+### Testing Process
+1. Iteratively tested thresholds: 0.05 → 0.4 → 0.6 → 1.0 → 1.5 → 2.3 → 4.0 → 10.0 → 6.0 → 5.5.
+2. 10.0 was too aggressive (almost no momentum).
+3. 5.5 found to be the sweet spot: enough glide to feel natural, stops before stutter begins.
+
+### Files Modified
+1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift (line 143)
+
+### Future Work
+1. Replace Timer with CVDisplayLink for proper display-synchronized momentum.
+2. This would allow lower velocity threshold while maintaining smoothness.
+3. CVDisplayLink fires exactly at vsync, eliminating timing jitter entirely.

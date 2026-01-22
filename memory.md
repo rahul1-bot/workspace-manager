@@ -235,3 +235,41 @@
     2. Parallel multi-agent orchestration.
 4. The product spec must remain centralized and auditable to prevent scope bloat and reinvention:
     1. docs/product.md
+
+---
+
+| Memory | Velocity Threshold Tuning for Low-Velocity Stutter | Date: 22 January 2026 | Time: 08:31 AM | Name: Lyra |
+
+### Observation
+1. Scroll stuttering was occurring specifically during slow scrolling and momentum deceleration phase.
+2. Fast scrolling was smooth; the stutter only appeared when velocity dropped to low values.
+3. Root cause identified: Timer-based momentum at low velocities creates visible jitter.
+4. At low velocity (0.05-0.5), the Timer's timing imprecision (not synced to vsync) becomes perceptible.
+5. Small scroll deltas combined with inconsistent frame timing creates visible stutter.
+
+### Technical Analysis
+1. Original velocityThreshold was 0.05 — momentum continued until near-zero velocity.
+2. At velocities like 0.1, 0.08, 0.06, the scroll movements are so tiny that Timer jitter dominates.
+3. Timer fires at approximate intervals (not exact 8.33ms), causing uneven frame delivery.
+4. At high velocity, this jitter is negligible relative to movement size.
+5. At low velocity, the jitter becomes the dominant visual signal — hence stuttering.
+
+### Solution
+1. Increased velocityThreshold from 0.05 to 5.5 (110x increase).
+2. This stops momentum earlier while velocity is still high enough for smooth rendering.
+3. The trade-off: slightly shorter glide, but completely eliminates low-velocity stutter.
+4. Sweet spot found through iterative testing: 0.05 → 0.4 → 0.6 → 1.0 → 1.5 → 2.3 → 4.0 → 10.0 → 6.0 → 5.5.
+
+### Implication
+1. For Timer-based animation, stopping before velocity gets too low is critical.
+2. The proper fix is CVDisplayLink (display-synced timing), but velocity threshold is an effective workaround.
+3. This is a general principle: Timer-based animation degrades at low velocities due to timing jitter.
+4. For truly butter-smooth scrolling like Warp, need: GPU rendering + CVDisplayLink + proper delta time.
+
+### Research Context: Why Warp Terminal is So Smooth
+1. Warp uses Rust + Metal with custom UI framework built from scratch.
+2. Renders only 3 primitives: rectangles, glyphs, images (~200 lines of shader code).
+3. Uses display-synchronized rendering (CVDisplayLink/CAMetalDisplayLink on macOS).
+4. Average screen redraw time: 1.9ms, achieving >144 FPS even with large terminal output.
+5. Partnered with Nathan Sobo (Atom editor co-founder) to build their Rust UI framework.
+6. GPU rendering alone is NOT sufficient — display-synchronized timing is what makes it FEEL smooth.

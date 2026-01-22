@@ -140,7 +140,7 @@ class GhosttySurfaceNSView: NSView {
 
     // Momentum physics parameters (tunable)
     private let decayFactor: Double = 0.96        // How quickly velocity decays (0.9-0.98) - higher = longer glide
-    private let velocityThreshold: Double = 0.05  // Stop when velocity below this
+    private let velocityThreshold: Double = 5.5   // Stop when velocity below this (higher = stops earlier, avoids low-velocity stutter)
     private let momentumInterval: Double = 1.0 / 120.0  // 120Hz updates
 
     init(workingDirectory: String) {
