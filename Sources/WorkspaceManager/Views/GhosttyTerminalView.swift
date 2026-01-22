@@ -133,15 +133,16 @@ class GhosttySurfaceNSView: NSView {
 
     let workingDirectory: String
 
-    // MARK: - Custom Momentum Physics
+    // MARK: - Custom Momentum Physics (CVDisplayLink-synced)
     private var scrollVelocityY: Double = 0
     private var scrollVelocityX: Double = 0
-    private var momentumTimer: Timer?
+    private var displayLink: CADisplayLink?
+    private var lastFrameTimestamp: CFTimeInterval = 0
 
     // Momentum physics parameters (tunable)
-    private let decayFactor: Double = 0.96        // How quickly velocity decays (0.9-0.98) - higher = longer glide
-    private let velocityThreshold: Double = 5.5   // Stop when velocity below this (higher = stops earlier, avoids low-velocity stutter)
-    private let momentumInterval: Double = 1.0 / 120.0  // 120Hz updates
+    private let decayFactor: Double = 0.94        // How quickly velocity decays (0.9-0.98) - lower = faster stop, less stutter
+    private let velocityThreshold: Double = 3.5   // Stop when velocity below this (balance between glide and stutter)
+    private let targetFrameRate: Double = 120.0   // Target frame rate for decay calculation
 
     init(workingDirectory: String) {
         self.workingDirectory = workingDirectory
@@ -343,7 +344,7 @@ class GhosttySurfaceNSView: NSView {
 
         // Handle user's active scrolling (finger on trackpad)
         if event.phase == .changed || event.phase == .began {
-            stopMomentumTimer()
+            stopDisplayLink()
 
             // Accumulate velocity from user input
             scrollVelocityY = event.scrollingDeltaY
@@ -360,7 +361,7 @@ class GhosttySurfaceNSView: NSView {
 
         // User lifted finger - start our own momentum
         if event.phase == .ended {
-            startMomentumTimer()
+            startDisplayLink()
             return
         }
 
@@ -387,45 +388,61 @@ class GhosttySurfaceNSView: NSView {
         }
     }
 
-    // MARK: - Momentum Timer
+    // MARK: - Display-Synced Momentum (CADisplayLink)
 
-    private func startMomentumTimer() {
-        stopMomentumTimer()
+    private func startDisplayLink() {
+        stopDisplayLink()
 
         // Only start if we have meaningful velocity
         guard abs(scrollVelocityY) > velocityThreshold || abs(scrollVelocityX) > velocityThreshold else {
             return
         }
 
-        momentumTimer = Timer.scheduledTimer(withTimeInterval: momentumInterval, repeats: true) { [weak self] _ in
-            self?.momentumTick()
+        // Use macOS 14+ CADisplayLink from NSView - fires exactly at vsync
+        displayLink = self.displayLink(target: self, selector: #selector(displayLinkTick(_:)))
+
+        // Explicitly request 120Hz on ProMotion displays
+        if #available(macOS 14.0, *) {
+            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 80, maximum: 120, preferred: 120)
         }
-        // Add to common run loop modes for smooth animation during tracking
-        if let timer = momentumTimer {
-            RunLoop.current.add(timer, forMode: .common)
-        }
+
+        displayLink?.add(to: .current, forMode: .common)
+        lastFrameTimestamp = 0  // Reset timestamp
     }
 
-    private func stopMomentumTimer() {
-        momentumTimer?.invalidate()
-        momentumTimer = nil
+    private func stopDisplayLink() {
+        displayLink?.invalidate()
+        displayLink = nil
     }
 
-    private func momentumTick() {
+    @objc private func displayLinkTick(_ link: CADisplayLink) {
         guard let surface = surface else {
-            stopMomentumTimer()
+            stopDisplayLink()
             return
         }
 
-        // Apply exponential decay
-        scrollVelocityY *= decayFactor
-        scrollVelocityX *= decayFactor
+        // Calculate delta time from actual frame timestamps
+        let currentTimestamp = link.targetTimestamp
+        let deltaTime: Double
+        if lastFrameTimestamp == 0 {
+            // First frame - use expected frame duration
+            deltaTime = 1.0 / targetFrameRate
+        } else {
+            deltaTime = currentTimestamp - lastFrameTimestamp
+        }
+        lastFrameTimestamp = currentTimestamp
+
+        // Apply frame-rate-independent exponential decay
+        // decayFactor is tuned for 120Hz, so we adjust for actual frame time
+        let normalizedDecay = pow(decayFactor, deltaTime * targetFrameRate)
+        scrollVelocityY *= normalizedDecay
+        scrollVelocityX *= normalizedDecay
 
         // Stop when velocity is negligible
         if abs(scrollVelocityY) < velocityThreshold && abs(scrollVelocityX) < velocityThreshold {
             scrollVelocityY = 0
             scrollVelocityX = 0
-            stopMomentumTimer()
+            stopDisplayLink()
             return
         }
 
@@ -440,7 +457,7 @@ class GhosttySurfaceNSView: NSView {
     // MARK: - Cleanup
 
     deinit {
-        stopMomentumTimer()
+        stopDisplayLink()
         if let surface = surface {
             ghostty_surface_free(surface)
         }

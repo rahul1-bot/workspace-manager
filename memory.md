@@ -273,3 +273,31 @@
 4. Average screen redraw time: 1.9ms, achieving >144 FPS even with large terminal output.
 5. Partnered with Nathan Sobo (Atom editor co-founder) to build their Rust UI framework.
 6. GPU rendering alone is NOT sufficient — display-synchronized timing is what makes it FEEL smooth.
+
+---
+
+| Memory | CADisplayLink vs Timer for Animation | Date: 22 January 2026 | Time: 08:51 AM | Name: Lyra |
+
+### Observation
+1. Timer-based animation has inherent timing jitter — fires at approximate intervals, not synced to display.
+2. CADisplayLink fires exactly at vsync, eliminating timing jitter completely.
+3. macOS 14+ provides `NSView.displayLink(target:selector:)` — simpler than old CVDisplayLink API.
+4. Must explicitly request 120Hz with `preferredFrameRateRange` on ProMotion displays.
+
+### Implementation Pattern
+1. Create display link from NSView: `self.displayLink(target:selector:)`
+2. Set frame rate range: `displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 80, maximum: 120, preferred: 120)`
+3. Add to run loop: `displayLink?.add(to: .current, forMode: .common)`
+4. Use `link.targetTimestamp` (not `timestamp`) for frame timing calculations.
+5. Invalidate when done: `displayLink?.invalidate()`
+
+### Frame-Rate Independent Decay
+1. Store last timestamp and calculate actual delta time each frame.
+2. Normalize decay factor to actual frame duration: `pow(decayFactor, deltaTime * targetFrameRate)`
+3. This ensures consistent animation speed regardless of actual frame rate.
+
+### Implication
+1. CADisplayLink is the proper way to do display-synchronized animation on macOS.
+2. Combined with higher velocity threshold, provides smoother momentum than Timer-based approach.
+3. The fundamental limitation remains: libghostty scrolls line-by-line, not pixel-by-pixel.
+4. For truly Warp-level smoothness, would need custom renderer with sub-pixel scrolling support.

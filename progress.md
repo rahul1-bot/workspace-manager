@@ -881,6 +881,41 @@ path = "~/path/to/project"
 1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift (line 143)
 
 ### Future Work
-1. Replace Timer with CVDisplayLink for proper display-synchronized momentum.
-2. This would allow lower velocity threshold while maintaining smoothness.
-3. CVDisplayLink fires exactly at vsync, eliminating timing jitter entirely.
+1. ✅ Replaced Timer with CADisplayLink for proper display-synchronized momentum (see below).
+2. Further tuning of decay parameters may improve feel.
+3. For truly Warp-level smoothness, would need custom renderer with sub-pixel scrolling.
+
+---
+
+| Progress Todo | CADisplayLink Implementation | Date: 22 January 2026 | Time: 08:51 AM | Name: Lyra |
+
+### Problem
+1. Timer-based momentum still had some stutter due to timing jitter.
+2. Timer fires at approximate intervals, not synchronized with display refresh.
+3. Even with high velocity threshold, the timing inconsistency was noticeable.
+
+### Solution
+1. ✅ Replaced Timer with CADisplayLink using macOS 14+ API.
+2. ✅ Used `NSView.displayLink(target:selector:)` for display-synced callbacks.
+3. ✅ Added explicit 120Hz request with `preferredFrameRateRange`.
+4. ✅ Implemented frame-rate independent decay using actual timestamps.
+
+### Implementation Details
+1. CADisplayLink fires exactly at vsync — no timing jitter.
+2. Uses `link.targetTimestamp` for calculating actual frame duration.
+3. Decay factor normalized to actual delta time: `pow(decayFactor, deltaTime * targetFrameRate)`.
+4. Explicit 120Hz request: `CAFrameRateRange(minimum: 80, maximum: 120, preferred: 120)`.
+
+### Parameters (Current)
+1. `decayFactor = 0.94` — faster decay than before (was 0.96)
+2. `velocityThreshold = 3.5` — balanced between glide length and stutter avoidance
+3. `targetFrameRate = 120.0` — for decay normalization calculation
+
+### Files Modified
+1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift
+
+### Result
+1. ✅ Smoother momentum scrolling with proper vsync timing.
+2. ✅ Frame-rate independent animation works correctly on variable refresh displays.
+3. ⚠️ Some residual stutter may remain due to libghostty's line-by-line scrolling.
+4. Parameters can be further tuned for optimal feel.
