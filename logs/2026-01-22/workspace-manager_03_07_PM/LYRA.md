@@ -140,14 +140,3 @@ App Launch → ConfigService.loadConfig() → Parse TOML → AppState initialize
    2. Added user aliases (wm, wmr) in ~/.zshrc to run the script without manual cd/build/open steps.
 3. Readability:
    1. Increased Ghostty font size to 18 via ~/.config/ghostty/config.
-
----
-
-| Status | Focus | Date: 22 January 2026 | Time: 03:07 PM | Name: Ghost |
-
-### Verified Outcome
-1. Confirmed arrow keys now behave correctly (no glyph artifacts) in the running app.
-2. Confirmed terminal readability improvement with font-size 18.
-3. Confirmed workflow is now one-command:
-   1. Repo: scripts/run.sh (debug/release).
-   2. Shell: wm/wmr aliases (user-local).

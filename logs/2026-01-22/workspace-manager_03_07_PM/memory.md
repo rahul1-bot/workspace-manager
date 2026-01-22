@@ -372,14 +372,3 @@
             4. Use repeat action for event.isARepeat.
     3. Implication:
         1. Arrow keys and other non-text keys behave consistently across shell prompts and full-screen TUIs.
-
----
-
-| Memory | Verification: Arrow Keys and Readability | Date: 22 January 2026 | Time: 03:07 PM | Name: Ghost |
-
-    1. Observation:
-        1. After aligning key event encoding to upstream Ghostty and blocking arrow keys from the text path, the arrow glyph artifact disappeared in practice.
-        2. Readability for prolonged sessions improved after setting Ghostty font-size to 18.
-    2. Implication:
-        1. Input correctness should be validated using full-screen TUIs, not only a plain shell prompt.
-        2. Font size is operationally a user preference and should remain a config-level knob rather than hardcoded.

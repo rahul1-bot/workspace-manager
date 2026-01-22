@@ -1081,17 +1081,3 @@ momentumInterval = 1/120  // 120Hz updates
     4. Verification:
         1. ✅ swift build
         2. ✅ scripts/build_app_bundle.sh
-
----
-
-| Progress Todo | Phase Verification and Workflow Hardening | Date: 22 January 2026 | Time: 03:07 PM | Name: Ghost |
-
-    1. Snapshot reference:
-        1. logs/2026-01-22/workspace-manager_03_07_PM
-    2. User-visible verification:
-        1. Confirmed arrow keys behave as navigation keys and no longer render as glyphs in interactive terminal UIs.
-        2. Confirmed terminal readability improved after increasing Ghostty font size to 18 via ~/.config/ghostty/config.
-        3. Confirmed Cmd+T creates terminals reliably and terminals default into the study workspace root when it exists.
-    3. Workflow hardening:
-        1. scripts/run.sh is the canonical build-and-open entrypoint for this repo.
-        2. User shell aliases (wm/wmr) wrap scripts/run.sh for zero-friction iteration; these changes live in ~/.zshrc and are not tracked in git.

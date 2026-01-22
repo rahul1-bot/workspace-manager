@@ -28,7 +28,6 @@
     7. Preferred root is the study workspace root when it exists; otherwise home. A Study workspace is ensured and prioritized on load.
     8. Ghostty keyboard input must not forward macOS function-key Unicode (U+F700-U+F8FF) as text; these keys are handled via keycode/modifiers only.
     9. scripts/run.sh is the single entrypoint for build-and-open in debug or release; user shell aliases may wrap it.
-    10. Ghostty renderer appearance (including font size) remains controlled by ~/.config/ghostty/config and is not persisted in this repo.
 
 ## Next Steps
     1. Implement Workspaces/Agents/Tasks labeling UX without adding clutter.
