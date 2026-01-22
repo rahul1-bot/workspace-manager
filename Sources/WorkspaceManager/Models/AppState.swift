@@ -35,18 +35,49 @@ class AppState: ObservableObject {
     func reloadFromConfig() {
         configService.reloadConfig()
         let previousSelectedWorkspace = selectedWorkspaceId
+        let previousSelectedTerminal = selectedTerminalId
 
-        loadWorkspacesFromConfig()
+        // Merge-style reload: preserve existing terminals while updating workspace metadata
+        mergeWorkspacesFromConfig()
 
         // Sync appearance settings from config
         showSidebar = configService.config.appearance.show_sidebar
 
-        selectedWorkspaceId = nil
-        selectedTerminalId = nil
-
+        // Restore selection if still valid
         if let prevWsId = previousSelectedWorkspace,
            workspaces.contains(where: { $0.id == prevWsId }) {
             selectedWorkspaceId = prevWsId
+            // Also restore terminal selection if still valid
+            if let prevTermId = previousSelectedTerminal,
+               let ws = workspaces.first(where: { $0.id == prevWsId }),
+               ws.terminals.contains(where: { $0.id == prevTermId }) {
+                selectedTerminalId = prevTermId
+            }
+        }
+    }
+
+    /// Merge config changes while preserving running terminals
+    private func mergeWorkspacesFromConfig() {
+        let workspaceConfigs = configService.config.workspaces
+        let configIds = Set(workspaceConfigs.compactMap { UUID(uuidString: $0.id) })
+
+        // Remove workspaces that no longer exist in config
+        workspaces.removeAll { !configIds.contains($0.id) }
+
+        // Update existing workspaces and add new ones
+        for wsConfig in workspaceConfigs {
+            guard let stableId = UUID(uuidString: wsConfig.id) else { continue }
+            let expandedPath = configService.expandPath(wsConfig.path)
+
+            if let existingIndex = workspaces.firstIndex(where: { $0.id == stableId }) {
+                // Update existing workspace metadata (preserve terminals!)
+                workspaces[existingIndex].name = wsConfig.name
+                workspaces[existingIndex].path = expandedPath
+            } else {
+                // Add new workspace from config
+                let workspace = Workspace(id: stableId, name: wsConfig.name, path: expandedPath)
+                workspaces.append(workspace)
+            }
         }
     }
 
@@ -168,46 +199,95 @@ class AppState: ObservableObject {
         return workspace.terminals.first { $0.id == tId }
     }
 
-    // MARK: - Terminal Navigation
+    // MARK: - Terminal Navigation (Within Selected Workspace)
 
-    var allTerminals: [(workspaceId: UUID, terminal: Terminal)] {
-        var result: [(UUID, Terminal)] = []
-        for workspace in workspaces {
-            for terminal in workspace.terminals {
-                result.append((workspace.id, terminal))
-            }
+    /// Get terminals in the currently selected workspace only
+    var currentWorkspaceTerminals: [Terminal] {
+        guard let wsId = selectedWorkspaceId,
+              let workspace = workspaces.first(where: { $0.id == wsId }) else {
+            return []
         }
-        return result
+        return workspace.terminals
     }
 
     func selectPreviousTerminal() {
-        let terminals = allTerminals
+        guard let wsId = selectedWorkspaceId else { return }
+        let terminals = currentWorkspaceTerminals
         guard !terminals.isEmpty else { return }
 
         if let currentId = selectedTerminalId,
-           let currentIndex = terminals.firstIndex(where: { $0.terminal.id == currentId }) {
+           let currentIndex = terminals.firstIndex(where: { $0.id == currentId }) {
             let previousIndex = currentIndex == 0 ? terminals.count - 1 : currentIndex - 1
-            let prev = terminals[previousIndex]
-            selectTerminal(id: prev.terminal.id, in: prev.workspaceId)
+            selectTerminal(id: terminals[previousIndex].id, in: wsId)
         } else {
-            if let last = terminals.last {
-                selectTerminal(id: last.terminal.id, in: last.workspaceId)
-            }
+            // No terminal selected, select last in workspace
+            selectTerminal(id: terminals[terminals.count - 1].id, in: wsId)
         }
     }
 
     func selectNextTerminal() {
-        let terminals = allTerminals
+        guard let wsId = selectedWorkspaceId else { return }
+        let terminals = currentWorkspaceTerminals
         guard !terminals.isEmpty else { return }
 
         if let currentId = selectedTerminalId,
-           let currentIndex = terminals.firstIndex(where: { $0.terminal.id == currentId }) {
+           let currentIndex = terminals.firstIndex(where: { $0.id == currentId }) {
             let nextIndex = (currentIndex + 1) % terminals.count
-            let next = terminals[nextIndex]
-            selectTerminal(id: next.terminal.id, in: next.workspaceId)
+            selectTerminal(id: terminals[nextIndex].id, in: wsId)
         } else {
-            if let first = terminals.first {
-                selectTerminal(id: first.terminal.id, in: first.workspaceId)
+            // No terminal selected, select first in workspace
+            selectTerminal(id: terminals[0].id, in: wsId)
+        }
+    }
+
+    // MARK: - Workspace Navigation
+
+    func selectPreviousWorkspace() {
+        guard !workspaces.isEmpty else { return }
+
+        if let currentId = selectedWorkspaceId,
+           let currentIndex = workspaces.firstIndex(where: { $0.id == currentId }) {
+            let previousIndex = currentIndex == 0 ? workspaces.count - 1 : currentIndex - 1
+            let prevWorkspace = workspaces[previousIndex]
+            selectedWorkspaceId = prevWorkspace.id
+            // Auto-select first terminal in new workspace if any exist
+            if let firstTerminal = prevWorkspace.terminals.first {
+                selectTerminal(id: firstTerminal.id, in: prevWorkspace.id)
+            } else {
+                selectedTerminalId = nil
+            }
+        } else {
+            // No workspace selected, select last
+            if let last = workspaces.last {
+                selectedWorkspaceId = last.id
+                if let firstTerminal = last.terminals.first {
+                    selectTerminal(id: firstTerminal.id, in: last.id)
+                }
+            }
+        }
+    }
+
+    func selectNextWorkspace() {
+        guard !workspaces.isEmpty else { return }
+
+        if let currentId = selectedWorkspaceId,
+           let currentIndex = workspaces.firstIndex(where: { $0.id == currentId }) {
+            let nextIndex = (currentIndex + 1) % workspaces.count
+            let nextWorkspace = workspaces[nextIndex]
+            selectedWorkspaceId = nextWorkspace.id
+            // Auto-select first terminal in new workspace if any exist
+            if let firstTerminal = nextWorkspace.terminals.first {
+                selectTerminal(id: firstTerminal.id, in: nextWorkspace.id)
+            } else {
+                selectedTerminalId = nil
+            }
+        } else {
+            // No workspace selected, select first
+            if let first = workspaces.first {
+                selectedWorkspaceId = first.id
+                if let firstTerminal = first.terminals.first {
+                    selectTerminal(id: firstTerminal.id, in: first.id)
+                }
             }
         }
     }

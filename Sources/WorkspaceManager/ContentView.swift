@@ -105,6 +105,18 @@ struct ContentView: View {
                 return nil
             }
 
+            // ⌘[ - previous workspace
+            if cmd && char == "[" {
+                appState.selectPreviousWorkspace()
+                return nil
+            }
+
+            // ⌘] - next workspace
+            if cmd && char == "]" {
+                appState.selectNextWorkspace()
+                return nil
+            }
+
             // Arrow keys when sidebar is focused
             if sidebarFocused {
                 // Up arrow - previous terminal

@@ -958,4 +958,75 @@ momentumInterval = 1/120  // 120Hz updates
 ### Commits
 1. ad5f7d6: Initial velocity threshold fix (0.05 → 5.5)
 2. 1b9935e: CADisplayLink experiment (preserved in history)
-3. Current: Reverted to Timer-based approach as final solution
+3. 8eaf373: Reverted to Timer-based approach as final solution
+
+---
+
+| Progress Todo | Review Fixes: Hot Reload and Navigation | Date: 22 January 2026 | Time: 09:34 AM | Name: Lyra |
+
+### Context
+1. Ghost audit (review.md) identified two high-severity issues.
+2. This entry documents fixes implemented in response.
+
+### High Severity Fix 1: Cmd+R Hot Reload Preserves Terminals
+1. Problem: reloadFromConfig() called loadWorkspacesFromConfig() which cleared all workspaces and destroyed running terminals.
+2. Solution: Implemented merge-style reload via new mergeWorkspacesFromConfig() method.
+3. Behavior change:
+    1. Workspaces removed from config are removed from runtime.
+    2. Existing workspaces have name/path updated but TERMINALS PRESERVED.
+    3. New workspaces in config are added.
+    4. Selection is restored if still valid.
+
+### High Severity Fix 2: Terminal Navigation Within Workspace
+1. Problem: Cmd+I/Cmd+K cycled across ALL terminals in ALL workspaces.
+2. Solution: Changed to cycle only within the currently selected workspace.
+3. Added new workspace navigation:
+    1. Cmd+[ — Previous workspace (cycles).
+    2. Cmd+] — Next workspace (cycles).
+    3. Auto-selects first terminal when switching workspaces.
+
+### Files Modified
+1. Sources/WorkspaceManager/Models/AppState.swift
+    1. Added mergeWorkspacesFromConfig() for non-destructive reload.
+    2. Changed reloadFromConfig() to use merge instead of full rebuild.
+    3. Changed selectPreviousTerminal/selectNextTerminal to use currentWorkspaceTerminals.
+    4. Added selectPreviousWorkspace/selectNextWorkspace methods.
+2. Sources/WorkspaceManager/ContentView.swift
+    1. Added Cmd+[ and Cmd+] keymaps for workspace navigation.
+
+### Updated Keymaps Summary
+| Shortcut | Action |
+|----------|--------|
+| ⌘B | Toggle sidebar |
+| ⌘T | New terminal in selected workspace |
+| ⌘I | Previous terminal (within workspace) |
+| ⌘K | Next terminal (within workspace) |
+| ⌘[ | Previous workspace |
+| ⌘] | Next workspace |
+| ⌘J | Focus sidebar (show if hidden) |
+| ⌘L | Focus terminal |
+| ⌘R | Hot reload config.toml (preserves terminals)
+
+---
+
+| Progress Todo | Review Update After Scroll Finalization | Date: 22 January 2026 | Time: 09:05 AM | Name: Ghost |
+
+### Objective
+    1. Re-read ledgers and re-audit the current dev branch after the latest scroll momentum commits.
+    2. Update review.md to remove resolved findings and record only remaining risks.
+
+### Verification Actions
+    1. Confirmed HEAD is 8eaf373 on dev.
+    2. Build verification executed:
+        1. swift build
+        2. swift build -c release
+        3. scripts/build_app_bundle.sh
+    3. Re-checked that momentum/velocity tuning is treated as final for now and is not being modified further.
+
+### Results
+    1. review.md updated with snapshot time 22 January 2026, 09:05 AM.
+    2. Previously reported config risks (workspace id validation, duplicate ids, workspace creation error feedback) are verified as resolved in code.
+    3. Remaining high-severity risk identified:
+        1. Cmd+R hot reload currently rebuilds workspaces and drops runtime terminals, which can destroy live agent sessions.
+    4. Navigation behavior remains misaligned with the Workspaces/Agents/Tasks product model:
+        1. Cmd+I/Cmd+K cycles across all terminals across all workspaces.
