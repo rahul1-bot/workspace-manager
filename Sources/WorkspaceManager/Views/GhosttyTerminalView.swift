@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import GhosttyKit
+import Darwin
 
 // MARK: - Ghostty App Singleton
 /// Manages the global ghostty_app_t instance
@@ -132,6 +133,7 @@ class GhosttySurfaceNSView: NSView {
     private var surface: ghostty_surface_t?
 
     let workingDirectory: String
+    private var workingDirectoryCString: UnsafeMutablePointer<CChar>?
 
     // MARK: - Custom Momentum Physics
     private var scrollVelocityY: Double = 0
@@ -144,7 +146,10 @@ class GhosttySurfaceNSView: NSView {
     private let momentumInterval: Double = 1.0 / 120.0  // 120Hz updates
 
     init(workingDirectory: String) {
-        self.workingDirectory = workingDirectory
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let preferredRoot = ConfigService.preferredWorkspaceRoot
+        let cwdCandidates = [workingDirectory, preferredRoot, homeDir]
+        self.workingDirectory = cwdCandidates.first(where: { !$0.isEmpty && FileManager.default.fileExists(atPath: $0) }) ?? homeDir
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
 
         // Make layer-backed for Metal
@@ -196,17 +201,29 @@ class GhosttySurfaceNSView: NSView {
         surfaceConfig.font_size = 0  // Use default from config
         surfaceConfig.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
 
-        // Create surface with working directory - C string must remain valid until ghostty_surface_new returns
+        // Create surface with working directory.
+        // Keep a stable C string pointer for the lifetime of the surface view in case libghostty
+        // defers usage beyond ghostty_surface_new.
         if !workingDirectory.isEmpty {
-            return workingDirectory.withCString { cstr in
-                surfaceConfig.working_directory = cstr
-                NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new with working_directory...")
+            let cstr = strdup(workingDirectory)
+            guard let cstr else {
+                NSLog("[GhosttySurfaceNSView] strdup failed for working_directory")
+                NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new without working_directory...")
                 return ghostty_surface_new(app, &surfaceConfig)
             }
-        } else {
-            NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new without working_directory...")
-            return ghostty_surface_new(app, &surfaceConfig)
+            workingDirectoryCString = cstr
+            surfaceConfig.working_directory = UnsafePointer(cstr)
+            NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new with working_directory...")
+            let created = ghostty_surface_new(app, &surfaceConfig)
+            if created == nil {
+                free(cstr)
+                workingDirectoryCString = nil
+            }
+            return created
         }
+
+        NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new without working_directory...")
+        return ghostty_surface_new(app, &surfaceConfig)
     }
 
     private func updateSurfaceSize() {
@@ -266,7 +283,9 @@ class GhosttySurfaceNSView: NSView {
         keyEvent.mods = translateModifiers(event.modifierFlags)
         keyEvent.keycode = UInt32(event.keyCode)
 
-        if let chars = event.characters, !chars.isEmpty {
+        if let chars = event.characters,
+           !chars.isEmpty,
+           !chars.unicodeScalars.contains(where: { $0.value >= 0xF700 && $0.value <= 0xF8FF }) {
             chars.withCString { cstr in
                 keyEvent.text = cstr
                 _ = ghostty_surface_key(surface, keyEvent)
@@ -443,6 +462,10 @@ class GhosttySurfaceNSView: NSView {
         stopMomentumTimer()
         if let surface = surface {
             ghostty_surface_free(surface)
+        }
+        if let workingDirectoryCString {
+            free(workingDirectoryCString)
+            self.workingDirectoryCString = nil
         }
     }
 }

@@ -10,9 +10,21 @@ class ConfigService {
     /// Path to the configuration file
     private let configPath: URL
 
-    /// Default workspace uses user's home directory for portability
-    private static var defaultWorkspaceRoot: String {
-        FileManager.default.homeDirectoryForCurrentUser.path
+    /// Preferred workspace root for this machine.
+    /// Falls back to the user's home directory if the study root does not exist.
+    static var preferredWorkspaceRoot: String {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let studyRoot = "\(homeDir)/Library/CloudStorage/OneDrive-Personal/Documents/StudyDocuments/Rahul"
+        if FileManager.default.fileExists(atPath: studyRoot) {
+            return studyRoot
+        }
+        return homeDir
+    }
+
+    /// Default workspace name for the preferred root.
+    static var preferredWorkspaceName: String {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        return preferredWorkspaceRoot == homeDir ? "Home" : "Study"
     }
 
     private init() {
@@ -43,12 +55,15 @@ class ConfigService {
 
     /// Load configuration from TOML file
     func loadConfig() {
+        print("[ConfigService] Loading config from: \(configPath.path)")
         // Check if config file exists
         guard FileManager.default.fileExists(atPath: configPath.path) else {
+            print("[ConfigService] Config file does not exist, creating default")
             // Create default config only when no config exists
             createDefaultConfig()
             return
         }
+        print("[ConfigService] Config file exists, parsing...")
 
         do {
             let tomlString = try String(contentsOf: configPath, encoding: .utf8)
@@ -123,6 +138,55 @@ class ConfigService {
                 }
             }
 
+            // If the config exists but contains no workspaces, bootstrap a sane default.
+            if workspaces.isEmpty {
+                let defaultId = UUID().uuidString
+                workspaces.append(
+                    WorkspaceConfig(
+                        id: defaultId,
+                        name: Self.preferredWorkspaceName,
+                        path: Self.preferredWorkspaceRoot
+                    )
+                )
+                needsSave = true
+            }
+
+            // Ensure the Study root is always present and prioritized when it exists.
+            // This keeps the app's default "landing" directory stable for this machine.
+            if Self.preferredWorkspaceName == "Study" {
+                if let studyIndex = workspaces.firstIndex(where: { $0.name == "Study" }) {
+                    if workspaces[studyIndex].path != Self.preferredWorkspaceRoot {
+                        workspaces[studyIndex].path = Self.preferredWorkspaceRoot
+                        needsSave = true
+                    }
+                    if studyIndex != 0 {
+                        let studyWorkspace = workspaces.remove(at: studyIndex)
+                        workspaces.insert(studyWorkspace, at: 0)
+                        needsSave = true
+                    }
+                } else {
+                    workspaces.insert(
+                        WorkspaceConfig(
+                            id: UUID().uuidString,
+                            name: "Study",
+                            path: Self.preferredWorkspaceRoot
+                        ),
+                        at: 0
+                    )
+                    needsSave = true
+                }
+
+                // Migrate older configs that defaulted new workspaces to "~" (home).
+                // Keep an explicit Home workspace pointing to home, but move other "~" workspaces to Study.
+                let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+                for i in workspaces.indices {
+                    if workspaces[i].path == homeDir && workspaces[i].name != "Home" {
+                        workspaces[i].path = Self.preferredWorkspaceRoot
+                        needsSave = true
+                    }
+                }
+            }
+
             self.config = AppConfig(terminal: terminalConfig, appearance: appearanceConfig, workspaces: workspaces)
 
             // Save config if we fixed any IDs
@@ -136,8 +200,19 @@ class ConfigService {
             print("[ConfigService] ERROR: Failed to parse config.toml: \(error)")
             print("[ConfigService] Using default configuration in memory. User config at \(configPath.path) is preserved.")
             print("[ConfigService] Please fix the TOML syntax and restart the app.")
-            // Keep default config in memory but don't overwrite the user's file
-            self.config = AppConfig()
+            // Keep defaults in memory but don't overwrite the user's file.
+            // Ensure the app still has a usable workspace even when the user's TOML is broken.
+            self.config = AppConfig(
+                terminal: TerminalConfig(),
+                appearance: AppearanceConfig(),
+                workspaces: [
+                    WorkspaceConfig(
+                        id: UUID().uuidString,
+                        name: Self.preferredWorkspaceName,
+                        path: Self.preferredWorkspaceRoot
+                    )
+                ]
+            )
         }
     }
 
@@ -146,17 +221,8 @@ class ConfigService {
         // Build default workspaces using portable paths
         var workspaces: [WorkspaceConfig] = []
 
-        // Add home directory as default workspace
-        workspaces.append(WorkspaceConfig(name: "Home", path: Self.defaultWorkspaceRoot))
-
-        // Add common directories if they exist
-        let commonDirs = ["Projects", "Developer", "Code", "Documents"]
-        for dirName in commonDirs {
-            let dirPath = "\(Self.defaultWorkspaceRoot)/\(dirName)"
-            if FileManager.default.fileExists(atPath: dirPath) {
-                workspaces.append(WorkspaceConfig(name: dirName, path: dirPath))
-            }
-        }
+        // Add preferred root as default workspace
+        workspaces.append(WorkspaceConfig(name: Self.preferredWorkspaceName, path: Self.preferredWorkspaceRoot))
 
         // Create default config object
         self.config = AppConfig(

@@ -330,29 +330,3 @@
 1. Sometimes simpler solutions outperform theoretically "correct" approaches.
 2. The key insight: eliminating problematic low-velocity region is more effective than precise timing.
 3. Practical testing > theoretical optimization.
-
----
-
-| Memory | libghostty working_directory Lifetime Safety | Date: 22 January 2026 | Time: 12:03 PM | Name: Ghost |
-
-    1. Problem:
-        1. The working directory string passed to libghostty is provided via a C pointer in ghostty_surface_config_s.
-        2. Without an explicit contract that libghostty copies the string immediately, passing a temporary pointer risks undefined behavior.
-    2. Decision:
-        1. Allocate a stable C string with strdup and keep it alive for the lifetime of the terminal surface view.
-        2. Free the buffer on view deinitialization.
-    3. Implication:
-        1. This removes pointer lifetime ambiguity and stabilizes working directory behavior across releases/build modes.
-
----
-
-| Memory | macOS Arrow Keys Produce Function-Key Unicode | Date: 22 January 2026 | Time: 12:03 PM | Name: Ghost |
-
-    1. Observation:
-        1. NSEvent.characters for arrow keys can contain Unicode scalars in the function-key private range (U+F700-U+F8FF).
-        2. If these scalars are forwarded as text to the terminal engine, they can render as literal glyphs instead of behaving as navigation keys.
-    2. Decision:
-        1. Do not pass text to libghostty when characters contain U+F700-U+F8FF scalars.
-        2. Forward only the keycode and modifiers for these keys.
-    3. Implication:
-        1. Arrow keys behave correctly for shell navigation (history, cursor movement) and no longer insert glyphs into the terminal buffer.

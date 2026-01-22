@@ -25,8 +25,6 @@
     4. Terminal renderer selection is controlled by config.toml (terminal.use_gpu_renderer).
     5. Tasks are labels only; no task/job execution engine is introduced in v1.
     6. “Handoff” is UI-level navigation (focus switch and optional label copy), not automation.
-    7. Preferred root is the study workspace root when it exists; otherwise home. A Study workspace is ensured and prioritized on load.
-    8. Ghostty keyboard input must not forward macOS function-key Unicode (U+F700-U+F8FF) as text; these keys are handled via keycode/modifiers only.
 
 ## Next Steps
     1. Implement Workspaces/Agents/Tasks labeling UX without adding clutter.

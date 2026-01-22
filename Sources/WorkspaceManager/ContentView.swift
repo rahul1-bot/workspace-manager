@@ -56,7 +56,7 @@ struct ContentView: View {
 
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
             let cmd = event.modifierFlags.contains(.command)
-            let char = event.charactersIgnoringModifiers ?? ""
+            let char = (event.charactersIgnoringModifiers ?? "").lowercased()
 
             // ⌘B toggle sidebar visibility (focus stays on terminal)
             if cmd && char == "b" {
@@ -67,9 +67,7 @@ struct ContentView: View {
 
             // ⌘T new terminal
             if cmd && char == "t" {
-                if appState.selectedWorkspaceId != nil {
-                    appState.createTerminalInSelectedWorkspace()
-                }
+                appState.createTerminalViaShortcut()
                 return nil
             }
 

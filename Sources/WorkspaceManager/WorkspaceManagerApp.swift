@@ -121,7 +121,7 @@ struct WorkspaceManagerApp: App {
             // Custom keyboard commands
             CommandGroup(after: .newItem) {
                 Button("New Terminal") {
-                    appState.createTerminalInSelectedWorkspace()
+                    appState.createTerminalViaShortcut()
                 }
                 .keyboardShortcut("t", modifiers: .command)
 

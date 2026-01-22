@@ -109,20 +109,3 @@ App Launch → ConfigService.loadConfig() → Parse TOML → AppState initialize
 ## Future Watch Items
 1. libghostty Swift framework release (monitor Ghostty releases).
 2. SwiftTerm Metal renderer (monitor issue #202).
-
----
-
-## Status Update
-
-| Status | Focus | Date: 22 January 2026 | Time: 12:03 PM | Name: Ghost |
-
-### Fixes and Verification
-1. Verified config bootstrap behavior: the app no longer launches into an empty sidebar when config.toml exists but contains no workspaces.
-2. Verified preferred root behavior:
-   1. The study workspace root is used as the default landing directory when it exists.
-   2. Terminals fall back to the study root before falling back to home.
-3. Verified shortcut reliability:
-   1. Cmd+T is handled case-insensitively and can create a terminal even when no workspace is selected (bootstraps selection/workspace as needed).
-4. Arrow-key glyph issue:
-   1. Observed arrow keys rendering as literal glyphs (left/right/up/down) in the terminal.
-   2. Fixed by ignoring macOS function-key Unicode scalars (U+F700-U+F8FF) in the text path so those keys are routed via keycode/modifiers only.

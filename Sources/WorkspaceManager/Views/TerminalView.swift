@@ -74,9 +74,11 @@ struct TerminalView: NSViewRepresentable {
         // Start the shell process
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let preferredRoot = ConfigService.preferredWorkspaceRoot
 
-        // Use working directory or fall back to home
-        let cwd = FileManager.default.fileExists(atPath: workingDirectory) ? workingDirectory : homeDir
+        // Use working directory, fall back to preferred root, then home.
+        let cwdCandidates = [workingDirectory, preferredRoot, homeDir]
+        let cwd = cwdCandidates.first(where: { !$0.isEmpty && FileManager.default.fileExists(atPath: $0) }) ?? homeDir
 
         // Set environment with working directory
         var env = ProcessInfo.processInfo.environment

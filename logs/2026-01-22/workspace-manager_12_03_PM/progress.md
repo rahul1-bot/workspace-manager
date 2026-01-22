@@ -1030,28 +1030,3 @@ momentumInterval = 1/120  // 120Hz updates
         1. Cmd+R hot reload currently rebuilds workspaces and drops runtime terminals, which can destroy live agent sessions.
     4. Navigation behavior remains misaligned with the Workspaces/Agents/Tasks product model:
         1. Cmd+I/Cmd+K cycles across all terminals across all workspaces.
-
----
-
-| Progress Todo | Default Root, Config Bootstrap, Shortcut Reliability | Date: 22 January 2026 | Time: 12:03 PM | Name: Ghost |
-
-    1. Snapshot reference:
-        1. logs/2026-01-22/workspace-manager_12_03_PM
-    2. Problems addressed:
-        1. The app could launch with zero workspaces if config.toml existed but contained no workspace entries.
-        2. Cmd+T could appear non-functional on a fresh install because no workspace was selected or available.
-        3. New workspaces defaulted to the home directory; desired default is the study root.
-        4. Terminal working directory fallback behavior preferred the home directory even when the study root should be the default.
-        5. Arrow keys (left/right/up/down) could render as literal glyphs in the terminal instead of behaving as navigation keys.
-    3. Changes implemented:
-        1. Added a preferred workspace root that resolves to the study workspace root when it exists, otherwise the user home directory.
-        2. On config load, when the workspace list is empty, a default workspace is bootstrapped instead of leaving the UI empty.
-        3. On config load, a Study workspace is ensured and moved to the first position when the study root exists; its path is corrected to the preferred root and persisted.
-        4. On config load, older configs that defaulted non-Home workspaces to "~" are migrated to the study root and persisted.
-        5. Cmd+T handling is now case-insensitive and routed through a single AppState helper that bootstraps a default workspace and selection when needed.
-        6. Terminal views now prefer the study root as the fallback working directory before falling back to home.
-        7. Ghostty keyboard input ignores function-key Unicode scalars (U+F700-U+F8FF) in the text path so arrow keys do not insert glyphs.
-    4. Verification:
-        1. ✅ swift build
-        2. ✅ swift build -c release
-        3. ✅ scripts/build_app_bundle.sh

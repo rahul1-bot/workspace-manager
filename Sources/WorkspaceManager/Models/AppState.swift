@@ -15,6 +15,17 @@ class AppState: ObservableObject {
         self.configService = configService
         self.showSidebar = configService.config.appearance.show_sidebar
         loadWorkspacesFromConfig()
+
+        // Auto-select first workspace and create a terminal on startup
+        if let firstWorkspace = workspaces.first {
+            selectedWorkspaceId = firstWorkspace.id
+            // Auto-create first terminal
+            if firstWorkspace.terminals.isEmpty {
+                let terminal = workspaces[0].addTerminal(name: "Terminal 1")
+                selectedTerminalId = terminal.id
+                workspaces[0].terminals[0].isActive = true
+            }
+        }
     }
 
     // MARK: - Config-Driven Loading
@@ -139,6 +150,21 @@ class AppState: ObservableObject {
     }
 
     // MARK: - Terminal Operations (Runtime Only)
+
+    /// Create a new terminal, bootstrapping a default workspace if the user has none yet.
+    func createTerminalViaShortcut() {
+        if workspaces.isEmpty {
+            _ = addWorkspace(name: ConfigService.preferredWorkspaceName, path: ConfigService.preferredWorkspaceRoot)
+        }
+
+        if selectedWorkspaceId == nil, let first = workspaces.first {
+            selectedWorkspaceId = first.id
+        }
+
+        if selectedWorkspaceId != nil {
+            createTerminalInSelectedWorkspace()
+        }
+    }
 
     func createTerminalInSelectedWorkspace() {
         guard let workspaceId = selectedWorkspaceId,

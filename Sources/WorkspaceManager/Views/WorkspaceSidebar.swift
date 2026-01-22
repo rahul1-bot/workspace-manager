@@ -85,8 +85,7 @@ struct WorkspaceSidebar: View {
                     }
 
                     // Use first workspace path from config as default, or home directory
-                    let defaultPath = ConfigService.shared.config.workspaces.first?.path
-                        ?? FileManager.default.homeDirectoryForCurrentUser.path
+                    let defaultPath = ConfigService.preferredWorkspaceRoot
                     let path = newWorkspacePath.isEmpty ? defaultPath : newWorkspacePath
 
                     // Try to add workspace
