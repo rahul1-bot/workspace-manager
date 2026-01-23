@@ -408,27 +408,3 @@
         2. Trigger rename via double click gesture and Cmd+R; commit via Enter; cancel via Escape.
     3. Implication:
         1. Rename is fast, keyboard-first, and does not require modal UI.
-
----
-
-| Memory | SwiftUI Views Can Display Stale Model Snapshots Without Direct Observation | Date: 23 January 2026 | Time: 02:03 PM | Name: Ghost |
-
-    1. Observation:
-        1. Some UI elements (e.g., terminal header) can keep rendering previous model values even when the underlying model changes, depending on how values are passed through view hierarchies.
-        2. This is especially visible in multi-view stacks where multiple child views are instantiated and only visibility is toggled.
-    2. Decision:
-        1. For critical UI labels that must reflect runtime mutations (rename), resolve the label from the single source of truth (AppState) using stable IDs.
-        2. Prefer direct observation of AppState in those leaf views rather than relying on propagated struct snapshots.
-    3. Implication:
-        1. Rename operations become consistent across sidebar and header surfaces.
-
----
-
-| Memory | Template Rendering Tints PNG Assets | Date: 23 January 2026 | Time: 02:03 PM | Name: Ghost |
-
-    1. Observation:
-        1. Treating an NSImage as a template and using SwiftUI .renderingMode(.template) will tint the asset via foregroundColor, overriding the original black/white colors.
-    2. Decision:
-        1. Render the terminal icon as an original image to preserve the provided black background and white glyphs.
-    3. Implication:
-        1. Sidebar icon appearance matches the intended design and does not inherit theme tints.

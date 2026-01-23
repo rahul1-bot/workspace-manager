@@ -96,6 +96,48 @@ struct ContentView: View {
                 return nil
             }
 
+            // ⌘E - toggle workspace expand/collapse
+            if cmd && char == "e" {
+                if let wsId = appState.selectedWorkspaceId {
+                    appState.toggleWorkspaceExpanded(id: wsId)
+                }
+                appState.setSidebar(visible: true)
+                sidebarFocused = true
+                return nil
+            }
+
+            // ⌘O - open workspace in Finder
+            if cmd && char == "o" {
+                if let ws = appState.selectedWorkspace {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: ws.path))
+                }
+                return nil
+            }
+
+            // ⌥⌘C - copy workspace path
+            if cmd && char == "c" && event.modifierFlags.contains(.option) {
+                if let ws = appState.selectedWorkspace {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(ws.path, forType: .string)
+                }
+                return nil
+            }
+
+            // ⌘1..⌘9 - jump to workspace index
+            if cmd, let digit = Int(char), digit >= 1 {
+                let index = digit - 1
+                if appState.workspaces.indices.contains(index) {
+                    let ws = appState.workspaces[index]
+                    appState.selectedWorkspaceId = ws.id
+                    if let firstTerminal = ws.terminals.first {
+                        appState.selectTerminal(id: firstTerminal.id, in: ws.id)
+                    } else {
+                        appState.selectedTerminalId = nil
+                    }
+                }
+                return nil
+            }
+
             // ⌘R - rename (inline)
             if cmd && char == "r" && !event.modifierFlags.contains(.shift) {
                 appState.setSidebar(visible: true)

@@ -31,9 +31,6 @@
     10. Ghostty renderer appearance (including font size) remains controlled by ~/.config/ghostty/config and is not persisted in this repo.
     11. Default workspace roster is auto-bootstrapped for this machine: Root plus selected course folders are added to config.toml when present on disk.
     12. Rename is inline only (no dialogs): double click or Cmd+R enters rename mode; Enter commits; Escape cancels; Shift+Cmd+R is reserved for hot reload.
-    13. Terminal header resolves names by stable IDs from AppState to guarantee rename propagation across all surfaces.
-    14. Sidebar terminal icon renders as original PNG (no template tinting).
-    15. Keymaps are keyboard-first and additive; destructive actions remain unbound until guarded by explicit confirmation design.
 
 ## Next Steps
     1. Implement Workspaces/Agents/Tasks labeling UX without adding clutter.

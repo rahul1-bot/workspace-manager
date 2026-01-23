@@ -170,18 +170,3 @@ App Launch → ConfigService.loadConfig() → Parse TOML → AppState initialize
 4. Keymap adjustments:
    1. Cmd+[ and Cmd+] cycle across workspaces.
    2. Shift+Cmd+R performs config reload (Cmd+R reserved for rename).
-
----
-
-| Status | Focus | Date: 23 January 2026 | Time: 02:03 PM | Name: Ghost |
-
-### Follow-up Fixes
-1. Rename propagation:
-   1. Fixed terminal header staying on the pre-rename name by resolving header labels from AppState by ID.
-2. Terminal icon rendering:
-   1. Switched terminal icon rendering to preserve original PNG colors (removed template tinting).
-3. Keymap expansion:
-   1. Cmd+E toggles workspace expand/collapse.
-   2. Cmd+O opens selected workspace in Finder.
-   3. Option+Cmd+C copies selected workspace path.
-   4. Cmd+1..Cmd+9 jumps to workspace by index.

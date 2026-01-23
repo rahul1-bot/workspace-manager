@@ -157,7 +157,7 @@ struct TerminalContainer: View {
                     let isSelected = terminal.id == appState.selectedTerminal?.id
 
                     VStack(spacing: 0) {
-                        TerminalHeader(terminal: terminal, workspace: workspace)
+                        TerminalHeader(terminalId: terminal.id, workspaceId: workspace.id)
 
                         if useGpuRenderer {
                             GhosttyTerminalView(
@@ -186,8 +186,17 @@ struct TerminalContainer: View {
 }
 
 struct TerminalHeader: View {
-    let terminal: Terminal
-    let workspace: Workspace
+    @EnvironmentObject var appState: AppState
+    let terminalId: UUID
+    let workspaceId: UUID
+
+    private var workspace: Workspace? {
+        appState.workspaces.first(where: { $0.id == workspaceId })
+    }
+
+    private var terminal: Terminal? {
+        workspace?.terminals.first(where: { $0.id == terminalId })
+    }
 
     var body: some View {
         HStack {
@@ -195,7 +204,7 @@ struct TerminalHeader: View {
                 .fill(Color.green)
                 .frame(width: 8, height: 8)
 
-            Text(terminal.name)
+            Text(terminal?.name ?? "Terminal")
                 .font(.system(.body, design: .monospaced))
                 .fontWeight(.medium)
                 .foregroundColor(.white)
@@ -203,7 +212,7 @@ struct TerminalHeader: View {
             Text("—")
                 .foregroundColor(.white.opacity(0.6))
 
-            Text(workspace.name)
+            Text(workspace?.name ?? "")
                 .font(.system(.callout, design: .default))
                 .foregroundColor(.white.opacity(0.8))
                 .lineLimit(1)
@@ -211,7 +220,7 @@ struct TerminalHeader: View {
 
             Spacer()
 
-            Text(shortenedPath(workspace.path))
+            Text(shortenedPath(workspace?.path ?? ""))
                 .font(.system(.caption, design: .monospaced))
                 .foregroundColor(.white.opacity(0.6))
         }

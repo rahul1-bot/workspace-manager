@@ -1126,30 +1126,3 @@ momentumInterval = 1/120  // 120Hz updates
     6. Verification:
         1. ✅ swift build
         2. ✅ scripts/run.sh
-
----
-
-| Progress Todo | Rename Propagation, Icon Rendering, and Keymap Expansion | Date: 23 January 2026 | Time: 02:03 PM | Name: Ghost |
-
-    1. Snapshot reference:
-        1. logs/2026-01-23/workspace-manager_02_03_PM
-    2. Problem 1: Rename did not propagate to the terminal header.
-        1. Symptom: Sidebar rename reflected the new terminal name, but the top terminal header continued displaying the pre-rename name.
-        2. Root cause: Header view was receiving a stale model snapshot and did not observe AppState changes directly.
-    3. Solution 1:
-        1. TerminalHeader now observes AppState and resolves terminal/workspace name and path by IDs.
-        2. Result: Header text always reflects the latest renamed values.
-    4. Problem 2: Terminal icon rendered grey.
-        1. Root cause: The PNG was treated as a template image and tinted via .secondary.
-    5. Solution 2:
-        1. Render the bundled PNG icon in original mode (no template rendering, no tint).
-        2. Result: Sidebar icon matches the provided black/white asset.
-    6. Problem 3: Keymap coverage was too limited for keyboard-first workflow.
-    7. Solution 3: Added additional keymaps.
-        1. Cmd+E toggles expand/collapse for the selected workspace.
-        2. Cmd+O opens the selected workspace folder in Finder.
-        3. Option+Cmd+C copies the selected workspace path to clipboard.
-        4. Cmd+1..Cmd+9 jumps to a workspace by index.
-    8. Verification:
-        1. ✅ swift build
-        2. ✅ scripts/run.sh

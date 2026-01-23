@@ -381,11 +381,10 @@ struct TerminalRow: View {
 
 private struct TerminalIcon: View {
     var body: some View {
-        if let image = templateImage {
+        if let image = iconImage {
             Image(nsImage: image)
                 .resizable()
-                .renderingMode(.template)
-                .foregroundColor(.secondary)
+                .renderingMode(.original)
                 .aspectRatio(contentMode: .fit)
         } else {
             Image(systemName: "terminal")
@@ -394,15 +393,11 @@ private struct TerminalIcon: View {
         }
     }
 
-    private var templateImage: NSImage? {
+    private var iconImage: NSImage? {
         guard let url = Bundle.module.url(forResource: "terminal-icon", withExtension: "png") else {
             return nil
         }
-        guard let image = NSImage(contentsOf: url) else {
-            return nil
-        }
-        image.isTemplate = true
-        return image
+        return NSImage(contentsOf: url)
     }
 }
 
