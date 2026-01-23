@@ -1,4 +1,10 @@
 import SwiftUI
+import AppKit
+
+enum RenameField: Hashable {
+    case workspace(UUID)
+    case terminal(UUID)
+}
 
 struct WorkspaceSidebar: View {
     @EnvironmentObject var appState: AppState
@@ -7,6 +13,9 @@ struct WorkspaceSidebar: View {
     @State private var newWorkspaceError: String?
     @State private var newTerminalName: String = ""
     @State private var workspaceForNewTerminal: Workspace?
+    @State private var renameText: String = ""
+    @State private var renameError: String?
+    @FocusState private var renameFocus: RenameField?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -38,11 +47,32 @@ struct WorkspaceSidebar: View {
                         WorkspaceRow(
                             workspace: workspace,
                             isSelected: appState.selectedWorkspaceId == workspace.id,
+                            renamingWorkspaceId: appState.renamingWorkspaceId,
+                            renamingTerminalId: appState.renamingTerminalId,
+                            renameText: $renameText,
+                            renameError: $renameError,
+                            renameFocus: $renameFocus,
                             onToggleExpand: {
                                 appState.toggleWorkspaceExpanded(id: workspace.id)
                             },
                             onSelect: {
                                 appState.selectedWorkspaceId = workspace.id
+                            },
+                            onBeginRenameWorkspace: {
+                                appState.beginRenameWorkspace(id: workspace.id)
+                            },
+                            onCommitRenameWorkspace: {
+                                let success = appState.renameWorkspace(id: workspace.id, newName: renameText)
+                                if success {
+                                    renameError = nil
+                                    appState.cancelRenaming()
+                                } else {
+                                    renameError = "Workspace name must be unique and non-empty"
+                                }
+                            },
+                            onCancelRename: {
+                                renameError = nil
+                                appState.cancelRenaming()
                             },
                             onNewTerminal: {
                                 workspaceForNewTerminal = workspace
@@ -51,12 +81,34 @@ struct WorkspaceSidebar: View {
                             onSelectTerminal: { terminal in
                                 appState.selectTerminal(id: terminal.id, in: workspace.id)
                             },
+                            onBeginRenameTerminal: { terminal in
+                                appState.selectTerminal(id: terminal.id, in: workspace.id)
+                                appState.beginRenameTerminal(id: terminal.id)
+                            },
+                            onCommitRenameTerminal: { terminal in
+                                let success = appState.renameTerminal(id: terminal.id, newName: renameText)
+                                if success {
+                                    renameError = nil
+                                    appState.cancelRenaming()
+                                } else {
+                                    renameError = "Terminal name cannot be empty"
+                                }
+                            },
                             selectedTerminalId: appState.selectedTerminalId
                         )
                     }
                 }
                 .padding(.vertical, 4)
             }
+        }
+        .onAppear {
+            syncRenameStateFromApp()
+        }
+        .onChange(of: appState.renamingWorkspaceId) {
+            syncRenameStateFromApp()
+        }
+        .onChange(of: appState.renamingTerminalId) {
+            syncRenameStateFromApp()
         }
         .sheet(isPresented: $appState.showNewWorkspaceSheet) {
             NewWorkspaceSheet(
@@ -120,15 +172,46 @@ struct WorkspaceSidebar: View {
             )
         }
     }
+
+    private func syncRenameStateFromApp() {
+        if let wsId = appState.renamingWorkspaceId,
+           let ws = appState.workspaces.first(where: { $0.id == wsId }) {
+            renameText = ws.name
+            renameError = nil
+            renameFocus = .workspace(wsId)
+            return
+        }
+
+        if let tId = appState.renamingTerminalId,
+           let ws = appState.workspaces.first(where: { $0.terminals.contains(where: { $0.id == tId }) }),
+           let terminal = ws.terminals.first(where: { $0.id == tId }) {
+            renameText = terminal.name
+            renameError = nil
+            renameFocus = .terminal(tId)
+            return
+        }
+
+        renameFocus = nil
+    }
 }
 
 struct WorkspaceRow: View {
     let workspace: Workspace
     let isSelected: Bool
+    let renamingWorkspaceId: UUID?
+    let renamingTerminalId: UUID?
+    @Binding var renameText: String
+    @Binding var renameError: String?
+    let renameFocus: FocusState<RenameField?>.Binding
     let onToggleExpand: () -> Void
     let onSelect: () -> Void
+    let onBeginRenameWorkspace: () -> Void
+    let onCommitRenameWorkspace: () -> Void
+    let onCancelRename: () -> Void
     let onNewTerminal: () -> Void
     let onSelectTerminal: (Terminal) -> Void
+    let onBeginRenameTerminal: (Terminal) -> Void
+    let onCommitRenameTerminal: (Terminal) -> Void
     let selectedTerminalId: UUID?
 
     var body: some View {
@@ -147,10 +230,22 @@ struct WorkspaceRow: View {
                     .font(.caption)
                     .foregroundColor(.blue)
 
-                Text(displayName)
-                    .font(.system(.body, design: .default))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                if isRenamingWorkspace {
+                    TextField("", text: $renameText)
+                        .textFieldStyle(.plain)
+                        .font(.system(.body, design: .default))
+                        .focused(renameFocus, equals: .workspace(workspace.id))
+                        .onSubmit { onCommitRenameWorkspace() }
+                        .onExitCommand { onCancelRename() }
+                        .onChange(of: renameText) {
+                            renameError = nil
+                        }
+                } else {
+                    Text(displayName)
+                        .font(.system(.body, design: .default))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
 
                 Spacer()
 
@@ -167,6 +262,11 @@ struct WorkspaceRow: View {
             .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
             .cornerRadius(4)
             .contentShape(Rectangle())
+            .highPriorityGesture(
+                TapGesture(count: 2).onEnded {
+                    onBeginRenameWorkspace()
+                }
+            )
             .onTapGesture {
                 onSelect()
             }
@@ -177,12 +277,31 @@ struct WorkspaceRow: View {
                     TerminalRow(
                         terminal: terminal,
                         isSelected: selectedTerminalId == terminal.id,
-                        onSelect: { onSelectTerminal(terminal) }
+                        isRenaming: renamingTerminalId == terminal.id,
+                        renameText: $renameText,
+                        renameError: $renameError,
+                        renameFocus: renameFocus,
+                        onSelect: { onSelectTerminal(terminal) },
+                        onBeginRename: { onBeginRenameTerminal(terminal) },
+                        onCommitRename: { onCommitRenameTerminal(terminal) },
+                        onCancelRename: { onCancelRename() }
                     )
                 }
             }
+
+            if isRenamingWorkspace, let error = renameError {
+                Text(error)
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .padding(.leading, 28)
+                    .padding(.top, 2)
+            }
         }
         .padding(.horizontal, 4)
+    }
+
+    private var isRenamingWorkspace: Bool {
+        renamingWorkspaceId == workspace.id
     }
 
     var displayName: String {
@@ -197,33 +316,93 @@ struct WorkspaceRow: View {
 struct TerminalRow: View {
     let terminal: Terminal
     let isSelected: Bool
+    let isRenaming: Bool
+    @Binding var renameText: String
+    @Binding var renameError: String?
+    let renameFocus: FocusState<RenameField?>.Binding
     let onSelect: () -> Void
+    let onBeginRename: () -> Void
+    let onCommitRename: () -> Void
+    let onCancelRename: () -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(terminal.isActive ? Color.green : Color.gray.opacity(0.5))
-                .frame(width: 8, height: 8)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(terminal.isActive ? Color.green : Color.gray.opacity(0.5))
+                    .frame(width: 8, height: 8)
 
+                TerminalIcon()
+                    .frame(width: 14, height: 14)
+
+                if isRenaming {
+                    TextField("", text: $renameText)
+                        .textFieldStyle(.plain)
+                        .font(.system(.callout, design: .default))
+                        .focused(renameFocus, equals: .terminal(terminal.id))
+                        .onSubmit { onCommitRename() }
+                        .onExitCommand { onCancelRename() }
+                        .onChange(of: renameText) {
+                            renameError = nil
+                        }
+                } else {
+                    Text(terminal.name)
+                        .font(.system(.callout, design: .default))
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.leading, 28)
+            .padding(.trailing, 8)
+            .padding(.vertical, 4)
+            .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+            .cornerRadius(4)
+            .contentShape(Rectangle())
+            .highPriorityGesture(
+                TapGesture(count: 2).onEnded {
+                    onBeginRename()
+                }
+            )
+            .onTapGesture {
+                onSelect()
+            }
+
+            if isRenaming, let error = renameError {
+                Text(error)
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .padding(.leading, 28)
+                    .padding(.top, 2)
+            }
+        }
+    }
+}
+
+private struct TerminalIcon: View {
+    var body: some View {
+        if let image = templateImage {
+            Image(nsImage: image)
+                .resizable()
+                .renderingMode(.template)
+                .foregroundColor(.secondary)
+                .aspectRatio(contentMode: .fit)
+        } else {
             Image(systemName: "terminal")
                 .font(.caption2)
                 .foregroundColor(.secondary)
-
-            Text(terminal.name)
-                .font(.system(.callout, design: .default))
-                .lineLimit(1)
-
-            Spacer()
         }
-        .padding(.leading, 28)
-        .padding(.trailing, 8)
-        .padding(.vertical, 4)
-        .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
-        .cornerRadius(4)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            onSelect()
+    }
+
+    private var templateImage: NSImage? {
+        guard let url = Bundle.module.url(forResource: "terminal-icon", withExtension: "png") else {
+            return nil
         }
+        guard let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+        image.isTemplate = true
+        return image
     }
 }
 

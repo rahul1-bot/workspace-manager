@@ -24,7 +24,23 @@ class ConfigService {
     /// Default workspace name for the preferred root.
     static var preferredWorkspaceName: String {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-        return preferredWorkspaceRoot == homeDir ? "Home" : "Study"
+        return preferredWorkspaceRoot == homeDir ? "Home" : "Root"
+    }
+
+    private static func existingCourseWorkspaces(root: String) -> [(name: String, path: String)] {
+        let candidates: [(name: String, relativeFolder: String)] = [
+            ("AI-2 Project", "10) AI-2 Project (Majors-2)(10 ETCS)(Coding Project)"),
+            ("Computational Imaging", "38) Computational Imaging Project (Applications-12)(10 ETCS)(Coding Project)"),
+            ("Representation Learning", "19) Project-Representation-Learning (Minor-5)(10 ETCS)(Coding Project)"),
+            ("ML in MRI", "16) ML in MRI (Majors-3 OR Seminar-1)(5 ETCS)(Presentation-Exam)"),
+            ("Movement Analysis", "39) Research Movement Analysis (Seminar-3)(5 ETCS)(Report-Presentation)")
+        ]
+
+        return candidates.compactMap { spec in
+            let path = URL(fileURLWithPath: root).appendingPathComponent(spec.relativeFolder).path
+            guard FileManager.default.fileExists(atPath: path) else { return nil }
+            return (name: spec.name, path: path)
+        }
     }
 
     private init() {
@@ -151,40 +167,56 @@ class ConfigService {
                 needsSave = true
             }
 
-            // Ensure the Study root is always present and prioritized when it exists.
-            // This keeps the app's default "landing" directory stable for this machine.
-            if Self.preferredWorkspaceName == "Study" {
-                if let studyIndex = workspaces.firstIndex(where: { $0.name == "Study" }) {
-                    if workspaces[studyIndex].path != Self.preferredWorkspaceRoot {
-                        workspaces[studyIndex].path = Self.preferredWorkspaceRoot
+            func ensureWorkspace(named name: String, path: String, at targetIndex: Int?) {
+                if let existingIndex = workspaces.firstIndex(where: { $0.name == name }) {
+                    if workspaces[existingIndex].path != path {
+                        workspaces[existingIndex].path = path
                         needsSave = true
                     }
-                    if studyIndex != 0 {
-                        let studyWorkspace = workspaces.remove(at: studyIndex)
-                        workspaces.insert(studyWorkspace, at: 0)
+                    if let targetIndex, existingIndex != targetIndex {
+                        let ws = workspaces.remove(at: existingIndex)
+                        let boundedIndex = min(targetIndex, workspaces.count)
+                        workspaces.insert(ws, at: boundedIndex)
                         needsSave = true
                     }
                 } else {
-                    workspaces.insert(
-                        WorkspaceConfig(
-                            id: UUID().uuidString,
-                            name: "Study",
-                            path: Self.preferredWorkspaceRoot
-                        ),
-                        at: 0
-                    )
+                    let ws = WorkspaceConfig(id: UUID().uuidString, name: name, path: path)
+                    let insertIndex = min(targetIndex ?? workspaces.count, workspaces.count)
+                    workspaces.insert(ws, at: insertIndex)
+                    needsSave = true
+                }
+            }
+
+            // Ensure the preferred root workspace exists and is prioritized.
+            // This keeps the app's default "landing" directory stable for this machine.
+            let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+
+            if Self.preferredWorkspaceName == "Root" {
+                // Migrate older configs where the root workspace was called "Study".
+                if workspaces.contains(where: { $0.name == "Root" }) == false,
+                   let studyIndex = workspaces.firstIndex(where: { $0.name == "Study" && $0.path == Self.preferredWorkspaceRoot }) {
+                    workspaces[studyIndex].name = "Root"
                     needsSave = true
                 }
 
+                ensureWorkspace(named: "Root", path: Self.preferredWorkspaceRoot, at: 0)
+
                 // Migrate older configs that defaulted new workspaces to "~" (home).
-                // Keep an explicit Home workspace pointing to home, but move other "~" workspaces to Study.
-                let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+                // Keep an explicit Home workspace pointing to home, but move other "~" workspaces to Root.
                 for i in workspaces.indices {
-                    if workspaces[i].path == homeDir && workspaces[i].name != "Home" {
+                    if workspaces[i].path == homeDir && workspaces[i].name != "Home" && workspaces[i].name != "Root" {
                         workspaces[i].path = Self.preferredWorkspaceRoot
                         needsSave = true
                     }
                 }
+
+                // Ensure course workspaces exist (only if their folders exist on disk).
+                let courseWorkspaces = Self.existingCourseWorkspaces(root: Self.preferredWorkspaceRoot)
+                for (idx, course) in courseWorkspaces.enumerated() {
+                    ensureWorkspace(named: course.name, path: course.path, at: idx + 1)
+                }
+            } else {
+                ensureWorkspace(named: "Home", path: homeDir, at: 0)
             }
 
             self.config = AppConfig(terminal: terminalConfig, appearance: appearanceConfig, workspaces: workspaces)
@@ -223,6 +255,14 @@ class ConfigService {
 
         // Add preferred root as default workspace
         workspaces.append(WorkspaceConfig(name: Self.preferredWorkspaceName, path: Self.preferredWorkspaceRoot))
+
+        // For the study workspace, pre-populate common course folders if they exist.
+        if Self.preferredWorkspaceName == "Root" {
+            let courseWorkspaces = Self.existingCourseWorkspaces(root: Self.preferredWorkspaceRoot)
+            for course in courseWorkspaces {
+                workspaces.append(WorkspaceConfig(name: course.name, path: course.path))
+            }
+        }
 
         // Create default config object
         self.config = AppConfig(

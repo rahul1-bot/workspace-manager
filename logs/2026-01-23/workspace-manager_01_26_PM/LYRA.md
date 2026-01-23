@@ -151,22 +151,3 @@ App Launch → ConfigService.loadConfig() → Parse TOML → AppState initialize
 3. Confirmed workflow is now one-command:
    1. Repo: scripts/run.sh (debug/release).
    2. Shell: wm/wmr aliases (user-local).
-
----
-
-| Status | Focus | Date: 23 January 2026 | Time: 01:26 PM | Name: Ghost |
-
-### New Capabilities
-1. Workspace roster now matches the study workflow:
-   1. Root workspace points to the study root and is persisted as "Root" in config.toml.
-   2. Course workspaces are auto-added (AI-2 Project, Computational Imaging, Representation Learning, ML in MRI, Movement Analysis) when their folders exist.
-2. Inline rename:
-   1. Double click workspace/terminal name to rename inline.
-   2. Cmd+R renames the selected workspace/terminal inline (no dialog).
-   3. Enter commits, Escape cancels; workspace renames persist to config.toml.
-3. Sidebar terminal icon:
-   1. Switched terminal row icon to a bundled PNG resource (terminal-icon.png).
-   2. Updated app bundling script to include the SwiftPM resource bundle so icons load in Build/WorkspaceManager.app.
-4. Keymap adjustments:
-   1. Cmd+[ and Cmd+] cycle across workspaces.
-   2. Shift+Cmd+R performs config reload (Cmd+R reserved for rename).

@@ -96,10 +96,18 @@ struct ContentView: View {
                 return nil
             }
 
-            // ⌘R - hot reload config.toml
-            if cmd && char == "r" {
+            // ⌘R - rename (inline)
+            if cmd && char == "r" && !event.modifierFlags.contains(.shift) {
+                appState.setSidebar(visible: true)
+                sidebarFocused = true
+                appState.beginRenameSelectedItem()
+                return nil
+            }
+
+            // ⇧⌘R - hot reload config.toml
+            if cmd && char == "r" && event.modifierFlags.contains(.shift) {
                 appState.reloadFromConfig()
-                print("[ContentView] Config reloaded via Cmd+R")
+                print("[ContentView] Config reloaded via Shift+Cmd+R")
                 return nil
             }
 
@@ -117,6 +125,12 @@ struct ContentView: View {
 
             // Arrow keys when sidebar is focused
             if sidebarFocused {
+                // Escape - cancel rename
+                if event.keyCode == 53 {
+                    appState.cancelRenaming()
+                    return nil
+                }
+
                 // Up arrow - previous terminal
                 if event.keyCode == 126 {
                     appState.selectPreviousTerminal()

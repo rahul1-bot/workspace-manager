@@ -22,6 +22,9 @@ let package = Package(
                 "GhosttyKit"
             ],
             path: "Sources/WorkspaceManager",
+            resources: [
+                .process("Resources")
+            ],
             linkerSettings: [
                 .linkedFramework("Metal"),
                 .linkedFramework("MetalKit"),

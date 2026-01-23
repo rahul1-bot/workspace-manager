@@ -1095,34 +1095,3 @@ momentumInterval = 1/120  // 120Hz updates
     3. Workflow hardening:
         1. scripts/run.sh is the canonical build-and-open entrypoint for this repo.
         2. User shell aliases (wm/wmr) wrap scripts/run.sh for zero-friction iteration; these changes live in ~/.zshrc and are not tracked in git.
-
----
-
-| Progress Todo | Default Course Workspaces, Inline Rename, and Terminal Icon | Date: 23 January 2026 | Time: 01:26 PM | Name: Ghost |
-
-    1. Snapshot reference:
-        1. logs/2026-01-23/workspace-manager_01_26_PM
-    2. Requirement implemented: Course workspace roster.
-        1. Root workspace is now named "Root" and points to the study workspace root when it exists.
-        2. Course workspaces are automatically added when their folders exist on disk:
-            1. AI-2 Project
-            2. Computational Imaging
-            3. Representation Learning
-            4. ML in MRI
-            5. Movement Analysis
-        3. These entries are persisted into ~/.config/workspace-manager/config.toml to keep startup deterministic.
-    3. Requirement implemented: Inline rename UX (no dialog box).
-        1. Double click on a workspace or terminal enters inline rename mode.
-        2. Cmd+R enters inline rename mode for the currently selected workspace/terminal.
-        3. Enter commits the rename; Escape cancels.
-        4. Workspace rename is persisted back to config.toml; terminal rename remains runtime-only.
-        5. Name validation is enforced for workspaces (non-empty and unique).
-    4. Requirement implemented: Modern terminal icon.
-        1. Added Sources/WorkspaceManager/Resources/terminal-icon.png and switched sidebar terminal rows to use it.
-        2. Updated scripts/build_app_bundle.sh to copy the SwiftPM resource bundle into Build/WorkspaceManager.app so Bundle.module resources resolve at runtime.
-    5. Keymaps verified/updated:
-        1. Cmd+[ and Cmd+] cycle across workspaces.
-        2. Cmd+R is now rename (hot reload moved to Shift+Cmd+R).
-    6. Verification:
-        1. ✅ swift build
-        2. ✅ scripts/run.sh

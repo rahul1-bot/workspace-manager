@@ -29,8 +29,6 @@
     8. Ghostty keyboard input must not forward macOS function-key Unicode (U+F700-U+F8FF) as text; these keys are handled via keycode/modifiers only.
     9. scripts/run.sh is the single entrypoint for build-and-open in debug or release; user shell aliases may wrap it.
     10. Ghostty renderer appearance (including font size) remains controlled by ~/.config/ghostty/config and is not persisted in this repo.
-    11. Default workspace roster is auto-bootstrapped for this machine: Root plus selected course folders are added to config.toml when present on disk.
-    12. Rename is inline only (no dialogs): double click or Cmd+R enters rename mode; Enter commits; Escape cancels; Shift+Cmd+R is reserved for hot reload.
 
 ## Next Steps
     1. Implement Workspaces/Agents/Tasks labeling UX without adding clutter.

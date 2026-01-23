@@ -17,6 +17,13 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$ROOT_DIR/.build/$CONFIG/WorkspaceManager" "$MACOS_DIR/WorkspaceManager"
 chmod +x "$MACOS_DIR/WorkspaceManager"
 
+# Copy SwiftPM resource bundle (Bundle.module) if present
+RESOURCE_BUNDLE="$ROOT_DIR/.build/$CONFIG/WorkspaceManager_WorkspaceManager.bundle"
+if [ -d "$RESOURCE_BUNDLE" ]; then
+  rm -rf "$RESOURCES_DIR/$(basename "$RESOURCE_BUNDLE")"
+  cp -R "$RESOURCE_BUNDLE" "$RESOURCES_DIR/"
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

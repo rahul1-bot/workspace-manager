@@ -383,28 +383,3 @@
     2. Implication:
         1. Input correctness should be validated using full-screen TUIs, not only a plain shell prompt.
         2. Font size is operationally a user preference and should remain a config-level knob rather than hardcoded.
-
----
-
-| Memory | SwiftPM Resources Require Bundle Copy in App Packaging | Date: 23 January 2026 | Time: 01:26 PM | Name: Ghost |
-
-    1. Observation:
-        1. When using SwiftPM resources, Bundle.module resolves assets from a generated *.bundle alongside the executable.
-        2. A manually assembled .app that only copies the binary will not include the resource bundle by default, causing resources to silently fail to load.
-    2. Decision:
-        1. scripts/build_app_bundle.sh now copies WorkspaceManager_WorkspaceManager.bundle into Build/WorkspaceManager.app/Contents/Resources.
-    3. Implication:
-        1. Resource-backed UI elements (e.g., terminal-icon.png) render correctly in the bundled app, not only when running from the build directory.
-
----
-
-| Memory | Inline Rename Needs Shared Selection State + Focus Control | Date: 23 January 2026 | Time: 01:26 PM | Name: Ghost |
-
-    1. Observation:
-        1. Inline rename without dialogs requires a stable rename target and deterministic focus control.
-        2. If rename state lives only in a row view, a Cmd+R global trigger cannot reliably focus the correct TextField.
-    2. Decision:
-        1. Store rename target IDs in AppState (renamingWorkspaceId / renamingTerminalId) and drive focus using a FocusState in WorkspaceSidebar.
-        2. Trigger rename via double click gesture and Cmd+R; commit via Enter; cancel via Escape.
-    3. Implication:
-        1. Rename is fast, keyboard-first, and does not require modal UI.

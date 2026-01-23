@@ -8,6 +8,8 @@ class AppState: ObservableObject {
     @Published var showSidebar: Bool
     @Published var showNewWorkspaceSheet: Bool = false
     @Published var showNewTerminalSheet: Bool = false
+    @Published var renamingWorkspaceId: UUID?
+    @Published var renamingTerminalId: UUID?
 
     private let configService: ConfigService
 
@@ -135,6 +137,60 @@ class AppState: ObservableObject {
         if let index = workspaces.firstIndex(where: { $0.id == id }) {
             workspaces[index].isExpanded.toggle()
         }
+    }
+
+    // MARK: - Rename Operations
+
+    func beginRenameWorkspace(id: UUID) {
+        renamingTerminalId = nil
+        renamingWorkspaceId = id
+        selectedWorkspaceId = id
+        selectedTerminalId = nil
+    }
+
+    func beginRenameTerminal(id: UUID) {
+        renamingWorkspaceId = nil
+        renamingTerminalId = id
+    }
+
+    func beginRenameSelectedItem() {
+        if let terminalId = selectedTerminalId {
+            beginRenameTerminal(id: terminalId)
+        } else if let workspaceId = selectedWorkspaceId {
+            beginRenameWorkspace(id: workspaceId)
+        }
+    }
+
+    func cancelRenaming() {
+        renamingWorkspaceId = nil
+        renamingTerminalId = nil
+    }
+
+    @discardableResult
+    func renameWorkspace(id: UUID, newName: String) -> Bool {
+        let trimmedName = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return false }
+        guard !workspaces.contains(where: { $0.name == trimmedName && $0.id != id }) else { return false }
+        guard let index = workspaces.firstIndex(where: { $0.id == id }) else { return false }
+
+        workspaces[index].name = trimmedName
+        configService.updateWorkspace(id: id.uuidString, newName: trimmedName, newPath: workspaces[index].path)
+        return true
+    }
+
+    @discardableResult
+    func renameTerminal(id: UUID, newName: String) -> Bool {
+        let trimmedName = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return false }
+
+        for wsIndex in workspaces.indices {
+            if let tIndex = workspaces[wsIndex].terminals.firstIndex(where: { $0.id == id }) {
+                workspaces[wsIndex].terminals[tIndex].name = trimmedName
+                return true
+            }
+        }
+
+        return false
     }
 
     // MARK: - Sidebar Operations (Persisted to Config)
