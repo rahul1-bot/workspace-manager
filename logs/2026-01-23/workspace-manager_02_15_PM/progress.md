@@ -1153,23 +1153,3 @@ momentumInterval = 1/120  // 120Hz updates
     8. Verification:
         1. ✅ swift build
         2. ✅ scripts/run.sh
-
----
-
-| Progress Todo | Default Ghost/Lyra Terminals per Workspace | Date: 23 January 2026 | Time: 02:15 PM | Name: Ghost |
-
-    1. Snapshot reference:
-        1. logs/2026-01-23/workspace-manager_02_15_PM
-    2. Requirement:
-        1. Every workspace/course must spawn two default terminals on startup: "Ghost" and "Lyra".
-    3. Implementation:
-        1. AppState now bootstraps the default terminal pair for every workspace when the app starts.
-        2. Newly added workspaces (UI creation) receive the default terminal pair immediately.
-        3. New workspaces added via config reload also receive the default terminal pair.
-        4. The first workspace auto-selects its first terminal for a deterministic starting focus.
-    4. Notes:
-        1. Terminals remain runtime-only; they are not persisted in config.toml.
-        2. This is intentional for now: terminal processes should not be resurrected by name alone.
-    5. Verification:
-        1. ✅ swift build -c release
-        2. ✅ scripts/run.sh

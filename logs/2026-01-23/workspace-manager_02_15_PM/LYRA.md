@@ -185,13 +185,3 @@ App Launch → ConfigService.loadConfig() → Parse TOML → AppState initialize
    2. Cmd+O opens selected workspace in Finder.
    3. Option+Cmd+C copies selected workspace path.
    4. Cmd+1..Cmd+9 jumps to workspace by index.
-
----
-
-| Status | Focus | Date: 23 January 2026 | Time: 02:15 PM | Name: Ghost |
-
-### Default Terminals per Workspace
-1. Implemented default terminal pair creation:
-   1. Every workspace/course spawns two terminals by default: "Ghost" and "Lyra".
-   2. Applied at startup and for any newly created workspace.
-2. Verified behavior in the running app after rebuild and restart.

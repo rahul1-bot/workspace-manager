@@ -432,16 +432,3 @@
         1. Render the terminal icon as an original image to preserve the provided black background and white glyphs.
     3. Implication:
         1. Sidebar icon appearance matches the intended design and does not inherit theme tints.
-
----
-
-| Memory | Default Terminals Are Runtime-Only, Not Config | Date: 23 January 2026 | Time: 02:15 PM | Name: Ghost |
-
-    1. Observation:
-        1. Workspaces are config-driven and persisted, but terminals are runtime-only and represent live processes.
-        2. Persisting terminal names without persisting process state can create a false expectation of continuity.
-    2. Decision:
-        1. Bootstrap a default terminal pair ("Ghost", "Lyra") for each workspace at runtime.
-        2. Keep terminal persistence out of config.toml until we have a clear contract for process lifecycle and restoration.
-    3. Implication:
-        1. Startup is deterministic and aligned with the workflow, while avoiding misleading “fake persistence”.

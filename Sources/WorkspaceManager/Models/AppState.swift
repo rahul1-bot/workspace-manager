@@ -12,20 +12,21 @@ class AppState: ObservableObject {
     @Published var renamingTerminalId: UUID?
 
     private let configService: ConfigService
+    private let defaultTerminalNames = ["Ghost", "Lyra"]
 
     init(configService: ConfigService = ConfigService.shared) {
         self.configService = configService
         self.showSidebar = configService.config.appearance.show_sidebar
         loadWorkspacesFromConfig()
 
+        // Ensure every workspace has the default terminal pair.
+        bootstrapDefaultTerminals()
+
         // Auto-select first workspace and create a terminal on startup
         if let firstWorkspace = workspaces.first {
             selectedWorkspaceId = firstWorkspace.id
-            // Auto-create first terminal
-            if firstWorkspace.terminals.isEmpty {
-                let terminal = workspaces[0].addTerminal(name: "Terminal 1")
-                selectedTerminalId = terminal.id
-                workspaces[0].terminals[0].isActive = true
+            if let firstTerminal = workspaces[0].terminals.first {
+                selectTerminal(id: firstTerminal.id, in: firstWorkspace.id)
             }
         }
     }
@@ -42,6 +43,14 @@ class AppState: ObservableObject {
             let stableId = UUID(uuidString: wsConfig.id) ?? UUID()
             let workspace = Workspace(id: stableId, name: wsConfig.name, path: expandedPath)
             workspaces.append(workspace)
+        }
+    }
+
+    private func bootstrapDefaultTerminals() {
+        for index in workspaces.indices where workspaces[index].terminals.isEmpty {
+            for name in defaultTerminalNames {
+                _ = workspaces[index].addTerminal(name: name)
+            }
         }
     }
 
@@ -88,7 +97,11 @@ class AppState: ObservableObject {
                 workspaces[existingIndex].path = expandedPath
             } else {
                 // Add new workspace from config
-                let workspace = Workspace(id: stableId, name: wsConfig.name, path: expandedPath)
+                var workspace = Workspace(id: stableId, name: wsConfig.name, path: expandedPath)
+                // Default terminal pair for new workspaces added via config reload.
+                for name in defaultTerminalNames {
+                    _ = workspace.addTerminal(name: name)
+                }
                 workspaces.append(workspace)
             }
         }
@@ -118,6 +131,12 @@ class AppState: ObservableObject {
         let stableId = UUID()
         let workspace = Workspace(id: stableId, name: trimmedName, path: expandedPath)
         workspaces.append(workspace)
+
+        if let index = workspaces.firstIndex(where: { $0.id == stableId }) {
+            for name in defaultTerminalNames {
+                _ = workspaces[index].addTerminal(name: name)
+            }
+        }
 
         configService.addWorkspace(id: stableId.uuidString, name: trimmedName, path: path)
         return true
