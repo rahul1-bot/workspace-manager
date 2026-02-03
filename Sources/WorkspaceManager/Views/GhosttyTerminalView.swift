@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import GhosttyKit
 import Darwin
+import os
 
 // MARK: - Ghostty App Singleton
 /// Manages the global ghostty_app_t instance
@@ -11,6 +12,11 @@ class GhosttyAppManager {
     private(set) var app: ghostty_app_t?
     private(set) var config: ghostty_config_t?
     private var initialized = false
+    private struct TickState {
+        var scheduled: Bool = false
+        var needsAnotherTick: Bool = false
+    }
+    private let tickState = OSAllocatedUnfairLock(initialState: TickState())
 
     private init() {}
 
@@ -52,9 +58,7 @@ class GhosttyAppManager {
         runtimeConfig.userdata = Unmanaged.passUnretained(self).toOpaque()
         runtimeConfig.supports_selection_clipboard = true
         runtimeConfig.wakeup_cb = { userdata in
-            DispatchQueue.main.async {
-                GhosttyAppManager.shared.tick()
-            }
+            GhosttyAppManager.shared.requestTick()
         }
         runtimeConfig.action_cb = { app, target, action in
             // Handle actions (title changes, notifications, etc.)
@@ -117,6 +121,42 @@ class GhosttyAppManager {
         ghostty_app_tick(app)
     }
 
+    /// Coalesce wakeups so multiple surfaces don't spam the main thread.
+    func requestTick() {
+        let shouldSchedule = tickState.withLock { state in
+            if state.scheduled {
+                state.needsAnotherTick = true
+                return false
+            }
+            state.scheduled = true
+            return true
+        }
+
+        guard shouldSchedule else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.runTick()
+        }
+    }
+
+    private func runTick() {
+        tick()
+
+        let shouldReschedule = tickState.withLock { state in
+            if state.needsAnotherTick {
+                state.needsAnotherTick = false
+                return true
+            }
+            state.scheduled = false
+            return false
+        }
+
+        if shouldReschedule {
+            DispatchQueue.main.async { [weak self] in
+                self?.runTick()
+            }
+        }
+    }
+
     deinit {
         if let app = app {
             ghostty_app_free(app)
@@ -134,6 +174,7 @@ class GhosttySurfaceNSView: NSView {
 
     let workingDirectory: String
     private var workingDirectoryCString: UnsafeMutablePointer<CChar>?
+    private var isCurrentlySelected: Bool = false
 
     // MARK: - Custom Momentum Physics
     private var scrollVelocityY: Double = 0
@@ -247,6 +288,15 @@ class GhosttySurfaceNSView: NSView {
         super.viewDidMoveToWindow()
         updateSurfaceSize()
 
+        // If we are not attached to a window, we are not displayable. Occlude immediately.
+        // When reattached, reapply the last known selection/visibility state.
+        if window == nil {
+            applyVisibility(selected: false)
+            return
+        } else {
+            applyVisibility(selected: isCurrentlySelected)
+        }
+
         // Set display ID for Metal
         if let screen = window?.screen, let surface = surface {
             let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID ?? 0
@@ -270,6 +320,33 @@ class GhosttySurfaceNSView: NSView {
         return super.resignFirstResponder()
     }
 
+    func applyVisibility(selected: Bool) {
+        let wasSelected = isCurrentlySelected
+        isCurrentlySelected = selected
+        guard let surface = surface else { return }
+
+        // Focus routes input behavior.
+        ghostty_surface_set_focus(surface, selected)
+
+        // NOTE: ghostty_surface_set_occlusion is intentionally NOT used.
+        // Testing revealed that enabling occlusion causes severe input lag (40-50 seconds)
+        // even for the selected/visible terminal. The occlusion state appears to interfere
+        // with libghostty's internal rendering pipeline in ways that prevent timely
+        // Metal layer updates. Until this is resolved upstream or a workaround is found,
+        // all surfaces remain non-occluded and rely on SwiftUI opacity for visibility control.
+
+        // If we are becoming visible again, force a refresh
+        if selected && !wasSelected {
+            ghostty_surface_refresh(surface)
+            GhosttyAppManager.shared.tick()
+        }
+
+        // If we are being hidden while momentum scrolling is active, stop the timer
+        if !selected && wasSelected {
+            stopMomentumTimer()
+        }
+    }
+
     // MARK: - Keyboard Input
 
     override func keyDown(with event: NSEvent) {
@@ -291,6 +368,7 @@ class GhosttySurfaceNSView: NSView {
         // Always route via keycode/modifiers only.
         if event.keyCode == 123 || event.keyCode == 124 || event.keyCode == 125 || event.keyCode == 126 {
             _ = ghostty_surface_key(surface, keyEvent)
+            GhosttyAppManager.shared.tick()
             return
         }
 
@@ -305,6 +383,10 @@ class GhosttySurfaceNSView: NSView {
         } else {
             _ = ghostty_surface_key(surface, keyEvent)
         }
+
+        // CRITICAL: Call tick() SYNCHRONOUSLY after input to ensure immediate processing.
+        // The coalesced requestTick() via DispatchQueue.main.async can introduce delays.
+        GhosttyAppManager.shared.tick()
     }
 
     override func keyUp(with event: NSEvent) {
@@ -323,6 +405,7 @@ class GhosttySurfaceNSView: NSView {
         keyEvent.composing = false
 
         _ = ghostty_surface_key(surface, keyEvent)
+        GhosttyAppManager.shared.tick()
     }
 
     override func flagsChanged(with event: NSEvent) {
@@ -341,6 +424,7 @@ class GhosttySurfaceNSView: NSView {
         keyEvent.composing = false
 
         _ = ghostty_surface_key(surface, keyEvent)
+        GhosttyAppManager.shared.tick()
     }
 
     private func translateModifiers(_ flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {
@@ -397,11 +481,13 @@ class GhosttySurfaceNSView: NSView {
         let scale = window?.backingScaleFactor ?? 2.0
         ghostty_surface_mouse_pos(surface, point.x * scale, (bounds.height - point.y) * scale, translateModifiers(event.modifierFlags))
         _ = ghostty_surface_mouse_button(surface, GHOSTTY_MOUSE_PRESS, GHOSTTY_MOUSE_LEFT, translateModifiers(event.modifierFlags))
+        GhosttyAppManager.shared.tick()
     }
 
     override func mouseUp(with event: NSEvent) {
         guard let surface = surface else { return }
         _ = ghostty_surface_mouse_button(surface, GHOSTTY_MOUSE_RELEASE, GHOSTTY_MOUSE_LEFT, translateModifiers(event.modifierFlags))
+        GhosttyAppManager.shared.tick()
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -409,6 +495,7 @@ class GhosttySurfaceNSView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         let scale = window?.backingScaleFactor ?? 2.0
         ghostty_surface_mouse_pos(surface, point.x * scale, (bounds.height - point.y) * scale, translateModifiers(event.modifierFlags))
+        GhosttyAppManager.shared.tick()
     }
 
     override func scrollWheel(with event: NSEvent) {
@@ -428,6 +515,7 @@ class GhosttySurfaceNSView: NSView {
                 scrollMods |= 1
             }
             ghostty_surface_mouse_scroll(surface, event.scrollingDeltaX, event.scrollingDeltaY, scrollMods)
+            GhosttyAppManager.shared.tick()
             return
         }
 
@@ -457,6 +545,7 @@ class GhosttySurfaceNSView: NSView {
                 scrollMods |= 1
             }
             ghostty_surface_mouse_scroll(surface, event.scrollingDeltaX, event.scrollingDeltaY, scrollMods)
+            GhosttyAppManager.shared.tick()
         }
     }
 
@@ -537,6 +626,8 @@ struct GhosttyTerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: GhosttySurfaceNSView, context: Context) {
+        nsView.applyVisibility(selected: isSelected)
+
         if isSelected && nsView.window?.firstResponder !== nsView {
             DispatchQueue.main.async {
                 nsView.window?.makeFirstResponder(nsView)

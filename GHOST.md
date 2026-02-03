@@ -35,6 +35,7 @@
     14. Sidebar terminal icon renders as original PNG (no template tinting).
     15. Keymaps are keyboard-first and additive; destructive actions remain unbound until guarded by explicit confirmation design.
     16. Each workspace bootstraps a default two-terminal pair ("Ghost", "Lyra") at runtime on app start and on workspace creation.
+    17. Non-selected libghostty terminal surfaces must be explicitly occluded to prevent rendering and wakeup overhead from scaling with terminal count.
 
 ## Next Steps
     1. Implement Workspaces/Agents/Tasks labeling UX without adding clutter.

@@ -120,6 +120,32 @@
 
 ---
 
+| Memory | Hidden SwiftUI Views Still Consume Renderer Budget | Date: 03 February 2026 | Time: 08:42 PM | Name: Ghost |
+
+### Observation
+1. The app can stutter when three or more terminals exist even though only one terminal is visible.
+2. The current UI preserves terminal state by keeping all terminals alive in a ZStack and hiding non-selected terminals with opacity.
+3. For Metal-backed libghostty surfaces, opacity does not guarantee that a surface stops drawing, stops ticking, or stops scheduling wakeups.
+
+### Implication
+1. “Single visible terminal” must be enforced at the renderer and event scheduling level, not just at the SwiftUI layout level.
+2. libghostty provides explicit occlusion support via ghostty_surface_set_occlusion(surface, bool) and it should be applied for non-selected terminals.
+3. Wakeups should be coalesced so multiple surfaces cannot spam the main thread.
+
+---
+
+| Memory | libghostty Occlusion Requires Explicit Refresh on Re-Show | Date: 03 February 2026 | Time: 10:23 PM | Name: Ghost |
+
+### Observation
+1. After adding ghostty_surface_set_occlusion for non-selected terminals, terminal input could appear “dead” even when the surface is selected.
+2. The surface could render existing content, but new key events did not produce visible updates.
+
+### Implication
+1. Transitioning a surface from occluded to visible should trigger ghostty_surface_refresh(surface) to force libghostty to resume drawing promptly.
+2. It is also useful to request an app tick immediately after refresh so pending work is processed on the main thread.
+
+---
+
 | Memory | SwiftTerm Configuration | Date: 14 January 2026 | Time: 10:29 PM | Name: Lyra |
 
 ### Observation
@@ -444,4 +470,32 @@
         1. Bootstrap a default terminal pair ("Ghost", "Lyra") for each workspace at runtime.
         2. Keep terminal persistence out of config.toml until we have a clear contract for process lifecycle and restoration.
     3. Implication:
-        1. Startup is deterministic and aligned with the workflow, while avoiding misleading “fake persistence”.
+        1. Startup is deterministic and aligned with the workflow, while avoiding misleading "fake persistence".
+
+---
+
+| Memory | libghostty Occlusion Causes Severe Rendering Delays | Date: 03 February 2026 | Time: 11:16 PM | Name: Lyra |
+
+### Observation
+1. The ghostty_surface_set_occlusion API caused 40-50 second delays between keyboard input and character rendering.
+2. The delay occurred even for surfaces that were set to non-occluded (selected/visible).
+3. Diagnostic logging confirmed that keyDown events were received immediately, tick() was called, and surface state was correct.
+4. The problem was internal to libghostty's rendering pipeline, not in our event routing.
+
+### Technical Details
+1. With 12 terminal surfaces (6 workspaces × 2 terminals each), setting occlusion state caused internal libghostty state corruption or blocking.
+2. ghostty_surface_set_focus alone works correctly for routing input to the selected surface.
+3. ghostty_surface_refresh and explicit tick() calls did not resolve the issue when occlusion was enabled.
+4. Upstream Ghostty's macOS app does not appear to use occlusion in the same multi-surface pattern.
+
+### Solution
+1. Disabled ghostty_surface_set_occlusion entirely.
+2. Rely on SwiftUI opacity (1 vs 0) for visibility control instead.
+3. Use ghostty_surface_set_focus to route input to the selected terminal.
+4. Call tick() synchronously after input events for immediate response.
+
+### Implication
+1. All terminal surfaces remain active in libghostty's internal state, which may have memory/CPU overhead.
+2. Performance with 12 terminals appears acceptable in practice.
+3. If performance issues arise with many more terminals, consider lazy surface creation or upstream libghostty fixes.
+4. This is a known limitation to document for future maintainers.

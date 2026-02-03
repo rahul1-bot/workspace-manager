@@ -1173,3 +1173,108 @@ momentumInterval = 1/120  // 120Hz updates
     5. Verification:
         1. ✅ swift build -c release
         2. ✅ scripts/run.sh
+
+---
+
+| Progress Todo | Performance: Occlude Non-Selected Terminals | Date: 03 February 2026 | Time: 08:42 PM | Name: Ghost |
+
+    1. Snapshot reference:
+        1. logs/2026-02-03/workspace-manager_08_42_PM
+    2. Problem statement (user-visible):
+        1. The app becomes laggy and stuttery when three or more terminals exist.
+        2. This occurs even though the UI shows only one terminal at a time.
+    3. Root cause (renderer-level):
+        1. TerminalContainer keeps all terminal views alive in a ZStack and hides non-selected terminals using opacity.
+        2. For Metal-backed libghostty surfaces, opacity does not guarantee the surface stops rendering or stops scheduling wakeups.
+        3. The result is cumulative rendering and main-thread wakeups scaling with terminal count instead of active terminal count.
+    4. Changes implemented:
+        1. libghostty surfaces now apply explicit occlusion and focus gating based on selection state:
+            1. Selected surface: focus enabled and occlusion disabled.
+            2. Non-selected surface: focus disabled and occlusion enabled.
+        2. When a surface view detaches from its window, it is immediately occluded to prevent background rendering.
+        3. libghostty wakeups are coalesced to avoid main-thread spam when multiple surfaces are active.
+        4. SwiftTerm fallback renderer additionally hides non-selected views to reduce background drawing work.
+    5. Files modified:
+        1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift
+        2. Sources/WorkspaceManager/Views/TerminalView.swift
+    6. Verification:
+        1. ✅ swift build
+        2. ✅ swift build -c release
+        3. ✅ scripts/build_app_bundle.sh
+
+---
+
+| Progress Todo | Fix: Terminal Input After Occlusion | Date: 03 February 2026 | Time: 10:23 PM | Name: Ghost |
+
+    1. Problem statement (user-visible):
+        1. After implementing occlusion for non-selected terminals, keyboard input no longer appeared in the terminal surface.
+        2. Symptom observed: the terminal surface renders, but typing produces no visible changes.
+    2. Root cause:
+        1. Surfaces can enter an occluded state during view/window attach timing before selection state is applied.
+        2. Some libghostty surfaces may require an explicit refresh when transitioning from occluded to visible to resume drawing and input processing.
+    3. Changes implemented:
+        1. When a surface becomes selected after being non-selected:
+            1. Call ghostty_surface_refresh(surface).
+            2. Request a coalesced app tick immediately to process pending work.
+        2. When a surface becomes non-selected:
+            1. Stop any active momentum timer to prevent background scroll work.
+    4. Files modified:
+        1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift
+    5. Verification:
+        1. ✅ swift build -c release
+
+---
+
+| Progress Todo | Fix: Input Lag by Forcing Tick After Input Events | Date: 03 February 2026 | Time: 10:28 PM | Name: Ghost |
+
+    1. Problem statement (user-visible):
+        1. Keyboard input in the Ghostty-rendered terminal could be delayed by tens of seconds.
+        2. Symptom: characters appear long after keypress, indicating the terminal event loop is not being ticked promptly.
+    2. Root cause hypothesis:
+        1. The host must wake and tick the Ghostty event loop quickly after input dispatch.
+        2. Relying only on wakeup_cb scheduling can be insufficient if wakeups are suppressed or coalesced while work is still pending.
+    3. Changes implemented:
+        1. After dispatching input and mouse/scroll events to libghostty, explicitly request a coalesced tick.
+        2. This preserves the coalescing guarantee while ensuring the event loop progresses immediately after user interaction.
+    4. Files modified:
+        1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift
+    5. Verification:
+        1. ✅ swift build -c release
+    6. Note:
+        1. This fix alone did NOT resolve the issue. See the next entry for the actual root cause.
+
+---
+
+| Progress Todo | Fix: Disable Occlusion to Resolve 40-50 Second Input Lag | Date: 03 February 2026 | Time: 11:16 PM | Name: Lyra |
+
+    1. Problem statement (user-visible):
+        1. Keyboard input in the Ghostty-rendered terminal was delayed by 40-50 seconds.
+        2. Terminal switching via shortcuts worked perfectly with no delay.
+        3. The delay occurred from the very first keystroke after app launch.
+        4. The issue persisted regardless of how many terminals were open (2-12 terminals).
+    2. Investigation process:
+        1. Added diagnostic logging to keyDown, applyVisibility, and tick functions.
+        2. Logs confirmed that keyDown events were received immediately and tick() was called synchronously.
+        3. The surface state was correct: hasSurface=true, isSelected=true.
+        4. This indicated the problem was inside libghostty, not in our event routing.
+        5. Researched Ghostty source code to compare our implementation with upstream.
+        6. Discovered that ghostty_surface_set_occlusion was the root cause.
+    3. Root cause:
+        1. The ghostty_surface_set_occlusion API causes severe rendering delays when surfaces transition between occluded and non-occluded states.
+        2. Even when a surface is set to non-occluded (selected), the internal libghostty rendering pipeline appears to remain blocked or degraded.
+        3. This may be a timing issue, race condition, or limitation in libghostty's occlusion implementation when used with multiple surfaces.
+    4. Solution:
+        1. Disabled the use of ghostty_surface_set_occlusion entirely.
+        2. Surfaces now rely on SwiftUI opacity for visibility control instead of libghostty occlusion.
+        3. ghostty_surface_set_focus is still used to route input to the selected surface.
+        4. Input events call tick() synchronously for immediate response.
+    5. Trade-off:
+        1. Without occlusion, all 12 terminal surfaces remain active in libghostty's internal state.
+        2. This may have performance implications with many terminals, but user testing showed acceptable performance.
+        3. A future fix could involve upstream improvements to libghostty's occlusion handling.
+    6. Files modified:
+        1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift
+    7. Verification:
+        1. ✅ swift build -c release
+        2. ✅ Keyboard input now appears instantly with no delay.
+        3. ✅ Terminal switching continues to work correctly.

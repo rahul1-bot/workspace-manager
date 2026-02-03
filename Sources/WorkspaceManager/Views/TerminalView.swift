@@ -106,6 +106,9 @@ struct TerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
+        // Avoid unnecessary drawing work for non-selected terminals.
+        nsView.isHidden = !isSelected
+
         // Only request focus if this terminal is selected
         if isSelected && nsView.window?.firstResponder !== nsView {
             DispatchQueue.main.async {
