@@ -5,3 +5,12 @@ DerivedData/
 .swiftpm/
 *.xcodeproj
 Frameworks/
+
+# Private operational docs (local only, never publish)
+GHOST.md
+LYRA.md
+memory.md
+progress.md
+review.md
+problems.md
+logs/
