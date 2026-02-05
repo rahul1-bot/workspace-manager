@@ -306,11 +306,6 @@ private struct CommandPaletteView: View {
     }
 
     private func activateFirstEntry() {
-        if normalizedQuery.isEmpty {
-            isPresented = false
-            onDismiss()
-            return
-        }
         guard let first = entries.first else { return }
         activate(first)
     }
@@ -486,4 +481,3 @@ private struct ShortcutSection: View {
         }
     }
 }
-

@@ -1297,7 +1297,7 @@ momentumInterval = 1/120  // 120Hz updates
         2. Command palette:
             1. Cmd+P toggles a command palette overlay.
             2. Palette supports searching workspace names/paths and terminal names across workspaces.
-            3. Enter activates the first match; Escape closes the palette.
+            3. Enter activates the first match (including empty query, which sorts the current terminal first); Escape closes the palette.
             4. Palette actions (new terminal, new workspace, toggle sidebar, toggle focus mode, reveal config) are only surfaced when the query matches.
         3. Shortcut help overlay:
             1. Shift+Cmd+/ toggles a keyboard shortcuts help card.
