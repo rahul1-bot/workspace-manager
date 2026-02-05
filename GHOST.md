@@ -39,6 +39,13 @@
     18. Agents/Tasks pairing keymaps are deferred until the Agents/Tasks config schema exists; only schema-free keymaps are implemented immediately.
     19. Focus Mode is a first-class appearance setting persisted in config.toml (appearance.focus_mode) and is toggleable via keyboard.
     20. Command palette is introduced as the scalable navigation primitive once workspace and terminal counts exceed single-digit muscle memory ranges.
+    21. Hardening rollout is branch-stacked and phase-gated: p0 diagnostics, p1 crash/input fixes, p2 security hardening, p3 shortcut routing compatibility, p4 architecture refactor, p5 quality gates.
+    22. Input diagnostics must be redacted and bounded by default; raw keystroke and clipboard payload logging is prohibited even in debug mode.
+    23. Ghostty clipboard callbacks must use explicit lifetime-safe buffers managed by a dedicated bridge object.
+    24. Keyboard routing is centralized in KeyboardShortcutRouter and standard edit shortcuts (Cmd+C/V/X/Z/A) are passthrough to preserve responder-chain behavior.
+    25. Terminal launch uses TerminalLaunchPolicy with shell-path allowlisting and sanitized environment projection.
+    26. Core models and state adopt stricter concurrency posture: AppState is @MainActor and config/workspace/terminal models conform to Sendable.
+    27. Quality gates are now explicit artifacts in-repo: test target, regression matrix, CI workflow, and local ci.sh script.
 
 ## Next Steps
     1. Implement Workspaces/Agents/Tasks labeling UX without adding clutter.
@@ -47,6 +54,9 @@
     4. Maintain docs/product.md as the authoritative v1 product spec.
     5. Upgrade the command palette to support arrow-key selection navigation and action groups without stealing input from terminals when closed.
     6. (Vacation) Implement Spatial Graph View per docs/spatial-graph-view.md — toggle between sidebar and graph canvas, generic nodes (terminal/markdown), force-directed layout, edge relationships.
+    7. Run the manual keyboard and whisper validation matrix on live app sessions with WM_DIAGNOSTICS=1 and archive failure snapshots.
+    8. Verify stacked-branch merge order into dev and attach per-phase verification summaries in merge notes.
+    9. Evaluate remaining singleton surfaces (ConfigService.shared and GhosttyAppManager.shared) for future dependency-injection hardening without destabilizing runtime behavior.
 
 ## Paths
     1. Primary: Config-driven app with libghostty Metal renderer.

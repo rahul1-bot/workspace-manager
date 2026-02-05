@@ -1352,3 +1352,50 @@ momentumInterval = 1/120  // 120Hz updates
         1. This is planning documentation only. No code changes. Implementation begins during vacation period.
     5. Paths:
         1. docs/spatial-graph-view.md
+
+---
+
+| Progress Todo | Hardening Program Phase Delivery (P0-P5) | Date: 05 February 2026 | Time: 09:31 PM | Name: Ghost |
+
+    1. Snapshot reference:
+        1. logs/2026-02-05/workspace-manager_09_31_PM
+    2. Scope delivered:
+        1. Implemented stacked branch execution model across:
+            1. ghost/p0-baseline-and-repro
+            2. ghost/p1-crash-and-input-core
+            3. ghost/p2-security-hardening
+            4. ghost/p3-whisper-and-shortcut-routing
+            5. ghost/p4-architecture-guideline-core-refactor
+            6. ghost/p5-quality-gates-and-regression-net
+    3. Phase outcomes:
+        1. P0 diagnostics and reproducibility:
+            1. Added AppLogger and Diagnostics support with redacted input samples and bounded ring-buffer retention.
+            2. Added scripts/repro_input_stress.sh and docs/input-repro-checklist.md for deterministic manual reproduction.
+        2. P1 crash and input core:
+            1. Added GhosttyClipboardBridge with explicit lifetime management for read callback responses and bounded write parsing.
+            2. Corrected modifier handling in flagsChanged to emit keycode-driven press/release transitions.
+            3. Added shortcut burst guardrails and active-app gating in ContentView key monitor path.
+        3. P2 security hardening:
+            1. Introduced typed errors: ConfigLoadError, ConfigValidationError, TerminalLaunchError, InputRoutingError.
+            2. Replaced ad-hoc shell command composition with TerminalLaunchPolicy shell allowlist and sanitized environment projection.
+            3. Removed print/NSLog usage from source paths and moved to AppLogger.
+        4. P3 whisper and shortcut routing:
+            1. Introduced KeyboardShortcutRouter with context-aware routing and explicit passthrough for standard edit shortcuts.
+            2. Unified command-palette toggle path via notification hook to reduce local-monitor and command-menu drift.
+        5. P4 architecture guideline core refactor:
+            1. Marked AppState as @MainActor final.
+            2. Added Sendable conformance for core config and model structs.
+            3. Split ConfigService parsing into dedicated helper methods (terminal, appearance, workspaces, ID normalization).
+        6. P5 quality gates and regression net:
+            1. Added SwiftPM test target WorkspaceManagerTests.
+            2. Added unit tests for KeyboardShortcutRouter and TerminalLaunchPolicy.
+            3. Added .github/workflows/ci.yml and scripts/ci.sh for build and test gates with warnings-as-errors.
+            4. Added docs/regression-matrix.md and lint/format scaffolding files.
+    4. Verification executed:
+        1. ✅ swift build
+        2. ✅ swift build -c release
+        3. ✅ swift build -Xswiftc -warnings-as-errors
+        4. ✅ swift build -c release -Xswiftc -warnings-as-errors
+        5. ✅ swift test -Xswiftc -warnings-as-errors
+    5. Operational notes:
+        1. Existing non-phase workspace deltas (for example docs/code-guidelines file transition and .phases/phase-1/plan.md deletion) were intentionally excluded from hardening commits unless explicitly requested.

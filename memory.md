@@ -564,3 +564,51 @@
 1. A GitHub search for Swift force-directed graph libraries should be the first research step before implementation.
 2. SwiftUI Canvas + SwiftUI views is the lowest-risk starting point. Performance profiling with 50-100 nodes will determine if SpriteKit or Metal is needed.
 3. The critical technical risk is rendering a libghostty Metal terminal surface inside a movable, zoomable canvas node. This needs dedicated investigation.
+
+---
+
+| Memory | Hardening Program Execution Model and Guardrails | Date: 05 February 2026 | Time: 09:31 PM | Name: Ghost |
+
+    1. Observation:
+        1. The codebase required simultaneous stabilization, security hardening, and architecture cleanup, but direct edits on dev would create review ambiguity and rollback risk.
+        2. Existing keyboard and clipboard bugs were tightly coupled to responder-chain behavior and C interop, so incremental branch isolation was mandatory.
+    2. Decision:
+        1. Execute as stacked branches with explicit phase gates:
+            1. ghost/p0-baseline-and-repro
+            2. ghost/p1-crash-and-input-core
+            3. ghost/p2-security-hardening
+            4. ghost/p3-whisper-and-shortcut-routing
+            5. ghost/p4-architecture-guideline-core-refactor
+            6. ghost/p5-quality-gates-and-regression-net
+        2. Enforce debug diagnostics redaction and ring-buffer bounds to avoid leaking sensitive keystroke or clipboard content.
+    3. Implication:
+        1. Every merge candidate can be validated and reverted in isolation.
+        2. Security and stability fixes remain auditable by phase instead of being buried in one large refactor.
+
+---
+
+| Memory | Clipboard and Modifier Failures Require Structural Fixes | Date: 05 February 2026 | Time: 09:31 PM | Name: Ghost |
+
+    1. Observation:
+        1. Ghostty clipboard callbacks were vulnerable to pointer-lifetime ambiguity and unsafe content parsing assumptions.
+        2. Modifier handling in flagsChanged could report only press transitions, producing sticky-modifier behavior under real command-key workflows.
+    2. Decision:
+        1. Introduce GhosttyClipboardBridge for explicit response-buffer ownership and bounded payload handling.
+        2. Change modifier event mapping to keycode-aware press and release transitions with previous-flag tracking fallback.
+    3. Implication:
+        1. Cmd+C and Cmd+V paths are hardened against interop-induced instability.
+        2. Hold-command workflows have a deterministic event model, reducing whisper trigger conflicts caused by stale modifier state.
+
+---
+
+| Memory | Quality Gates Must Exist in-Repo, Not in Verbal Plans | Date: 05 February 2026 | Time: 09:31 PM | Name: Ghost |
+
+    1. Observation:
+        1. Prior workflow depended on manual discipline and did not enforce anti-regression guarantees for input routing and terminal launch safety.
+    2. Decision:
+        1. Add WorkspaceManagerTests target for shortcut-router and launch-policy logic.
+        2. Add docs/regression-matrix.md, scripts/ci.sh, and .github/workflows/ci.yml.
+        3. Add lint/format scaffolding (.swiftlint.yml and .swiftformat) for consistent local and CI behavior.
+    3. Implication:
+        1. Hardening changes have repeatable gates and can fail fast before merging to dev.
+        2. Regression checks are now operational artifacts, not memory-dependent ritual.
