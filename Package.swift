@@ -40,6 +40,10 @@ let package = Package(
                 .linkedLibrary("c++")
             ]
         ),
+        .testTarget(
+            name: "WorkspaceManagerTests",
+            dependencies: ["WorkspaceManager"]
+        ),
         .binaryTarget(
             name: "GhosttyKit",
             path: "Frameworks/GhosttyKit.xcframework"

@@ -52,24 +52,40 @@ final class KeyboardShortcutRouter {
     ]
 
     func route(event: NSEvent, context: ShortcutContext) -> ShortcutRoute {
+        route(
+            keyCode: event.keyCode,
+            modifierFlags: event.modifierFlags,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers,
+            isRepeat: event.isARepeat,
+            context: context
+        )
+    }
+
+    func route(
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags,
+        charactersIgnoringModifiers: String?,
+        isRepeat: Bool,
+        context: ShortcutContext
+    ) -> ShortcutRoute {
         guard context.appIsActive else {
             return .passthrough
         }
 
-        let cmd = event.modifierFlags.contains(.command)
-        let shift = event.modifierFlags.contains(.shift)
-        let option = event.modifierFlags.contains(.option)
-        let char = (event.charactersIgnoringModifiers ?? "").lowercased()
+        let cmd = modifierFlags.contains(.command)
+        let shift = modifierFlags.contains(.shift)
+        let option = modifierFlags.contains(.option)
+        let char = (charactersIgnoringModifiers ?? "").lowercased()
 
         if context.showShortcutsHelp {
-            if event.keyCode == 53 {
+            if keyCode == 53 {
                 return .consume(.closeShortcutsHelp)
             }
             return .consume(.swallow)
         }
 
         if context.showCommandPalette {
-            if event.keyCode == 53 {
+            if keyCode == 53 {
                 return .consume(.closeCommandPalette)
             }
             return .passthrough
@@ -80,7 +96,7 @@ final class KeyboardShortcutRouter {
             return .passthrough
         }
 
-        if cmd && event.isARepeat && !["i", "k", "[", "]"].contains(char) {
+        if cmd && isRepeat && !["i", "k", "[", "]"].contains(char) {
             return .consume(.swallow)
         }
 
@@ -106,7 +122,7 @@ final class KeyboardShortcutRouter {
         if cmd && char == "[" { return .consume(.previousWorkspace) }
         if cmd && char == "]" { return .consume(.nextWorkspace) }
 
-        if let digit = numberRowKeyCodeToDigit[event.keyCode], digit >= 1 {
+        if let digit = numberRowKeyCodeToDigit[keyCode], digit >= 1 {
             if cmd && option {
                 return .consume(.jumpTerminal(index: digit - 1))
             }
@@ -116,10 +132,10 @@ final class KeyboardShortcutRouter {
         }
 
         if context.sidebarFocused {
-            if event.keyCode == 53 { return .consume(.sidebarCancelRename) }
-            if event.keyCode == 126 { return .consume(.sidebarPrevTerminal) }
-            if event.keyCode == 125 { return .consume(.sidebarNextTerminal) }
-            if event.keyCode == 36 { return .consume(.sidebarReturnToTerminal) }
+            if keyCode == 53 { return .consume(.sidebarCancelRename) }
+            if keyCode == 126 { return .consume(.sidebarPrevTerminal) }
+            if keyCode == 125 { return .consume(.sidebarNextTerminal) }
+            if keyCode == 36 { return .consume(.sidebarReturnToTerminal) }
         }
 
         return .passthrough

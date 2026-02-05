@@ -1,0 +1,8 @@
+--indent 4
+--linebreaks lf
+--commas inline
+--trimwhitespace always
+--semicolons never
+--ranges no-space
+--self remove
+--exclude .build,Build,Frameworks,logs

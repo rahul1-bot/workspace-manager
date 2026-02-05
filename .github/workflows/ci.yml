@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "ghost/**"
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Debug build (warnings as errors)
+        run: swift build -Xswiftc -warnings-as-errors
+
+      - name: Release build (warnings as errors)
+        run: swift build -c release -Xswiftc -warnings-as-errors
+
+      - name: Tests (warnings as errors)
+        run: swift test -Xswiftc -warnings-as-errors
