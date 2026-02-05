@@ -210,6 +210,11 @@ struct TerminalHeader: View {
         workspace?.terminals.first(where: { $0.id == terminalId })
     }
 
+    private var workspaceURL: URL? {
+        guard let workspace else { return nil }
+        return URL(fileURLWithPath: workspace.path)
+    }
+
     var body: some View {
         HStack {
             Circle()
@@ -232,9 +237,16 @@ struct TerminalHeader: View {
 
             Spacer()
 
-            Text(shortenedPath(workspace?.path ?? ""))
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(shortenedPath(workspace?.path ?? ""))
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.6))
+
+                WorkspaceActionBar(
+                    workspaceID: workspace?.id,
+                    workspaceURL: workspaceURL
+                )
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

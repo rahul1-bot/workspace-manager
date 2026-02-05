@@ -4,7 +4,11 @@ import SwiftUI
 @MainActor
 final class AppState: ObservableObject {
     @Published var workspaces: [Workspace] = []
-    @Published var selectedWorkspaceId: UUID?
+    @Published var selectedWorkspaceId: UUID? {
+        didSet {
+            refreshGitUIStatePlaceholder()
+        }
+    }
     @Published var selectedTerminalId: UUID?
     @Published var showSidebar: Bool
     @Published var focusMode: Bool
@@ -12,12 +16,25 @@ final class AppState: ObservableObject {
     @Published var showNewTerminalSheet: Bool = false
     @Published var renamingWorkspaceId: UUID?
     @Published var renamingTerminalId: UUID?
+    @Published var gitPanelState: GitPanelState = GitPanelState()
+    @Published var commitSheetState: CommitSheetState = CommitSheetState()
 
     private let configService: ConfigService
+    private let gitRepositoryService: any GitRepositoryServicing
+    private let editorLaunchService: any EditorLaunching
+    private let prLinkBuilder: any PRLinkBuilding
     private let defaultTerminalNames = ["Ghost", "Lyra"]
 
-    init(configService: ConfigService = ConfigService.shared) {
+    init(
+        configService: ConfigService = ConfigService.shared,
+        gitRepositoryService: any GitRepositoryServicing = GitRepositoryService(),
+        editorLaunchService: any EditorLaunching = EditorLaunchService(),
+        prLinkBuilder: any PRLinkBuilding = PRLinkBuilder()
+    ) {
         self.configService = configService
+        self.gitRepositoryService = gitRepositoryService
+        self.editorLaunchService = editorLaunchService
+        self.prLinkBuilder = prLinkBuilder
         self.showSidebar = configService.config.appearance.show_sidebar
         self.focusMode = configService.config.appearance.focus_mode
         loadWorkspacesFromConfig()
@@ -32,6 +49,8 @@ final class AppState: ObservableObject {
                 selectTerminal(id: firstTerminal.id, in: firstWorkspace.id)
             }
         }
+
+        refreshGitUIStatePlaceholder()
     }
 
     // MARK: - Config-Driven Loading
@@ -335,6 +354,11 @@ final class AppState: ObservableObject {
         return workspace.terminals.first { $0.id == tId }
     }
 
+    var selectedWorkspaceURL: URL? {
+        guard let workspace = selectedWorkspace else { return nil }
+        return URL(fileURLWithPath: workspace.path)
+    }
+
     // MARK: - Terminal Navigation (Within Selected Workspace)
 
     /// Get terminals in the currently selected workspace only
@@ -433,5 +457,79 @@ final class AppState: ObservableObject {
         let terminals = currentWorkspaceTerminals
         guard terminals.indices.contains(index) else { return }
         selectTerminal(id: terminals[index].id, in: wsId)
+    }
+
+    func toggleDiffPanelPlaceholder() {
+        guard gitPanelState.disabledReason == nil else { return }
+        gitPanelState.isPresented.toggle()
+    }
+
+    func dismissDiffPanelPlaceholder() {
+        gitPanelState.isPresented = false
+    }
+
+    func setDiffPanelModePlaceholder(_ mode: DiffPanelMode) {
+        gitPanelState.mode = mode
+    }
+
+    func presentCommitSheetPlaceholder() {
+        guard commitSheetState.disabledReason == nil else { return }
+        commitSheetState.errorText = nil
+        commitSheetState.isPresented = true
+    }
+
+    func dismissCommitSheetPlaceholder() {
+        commitSheetState.isPresented = false
+    }
+
+    func setCommitMessagePlaceholder(_ message: String) {
+        commitSheetState.message = message
+    }
+
+    func setIncludeUnstagedPlaceholder(_ includeUnstaged: Bool) {
+        commitSheetState.includeUnstaged = includeUnstaged
+    }
+
+    func setCommitNextStepPlaceholder(_ nextStep: CommitNextStep) {
+        commitSheetState.nextStep = nextStep
+    }
+
+    func continueCommitFlowPlaceholder() {
+        commitSheetState.errorText = GitControlDisabledReason.unavailableInPhase.title
+    }
+
+    func handleOpenActionPlaceholder(editor: ExternalEditor, workspaceID: UUID?) {
+        _ = editor
+        _ = workspaceID
+    }
+
+    private func refreshGitUIStatePlaceholder() {
+        guard let workspace = selectedWorkspace else {
+            gitPanelState.disabledReason = .noWorkspace
+            gitPanelState.summary = GitChangeSummary()
+            gitPanelState.isPresented = false
+            commitSheetState.disabledReason = .noWorkspace
+            commitSheetState.summary = GitChangeSummary()
+            commitSheetState.isPresented = false
+            return
+        }
+
+        gitPanelState.disabledReason = .unavailableInPhase
+        gitPanelState.summary = GitChangeSummary(branchName: workspace.name)
+        gitPanelState.patchText = ""
+        gitPanelState.errorText = nil
+        gitPanelState.isLoading = false
+        gitPanelState.isPresented = false
+
+        commitSheetState.disabledReason = .unavailableInPhase
+        commitSheetState.summary = GitChangeSummary(branchName: workspace.name)
+        commitSheetState.errorText = nil
+        commitSheetState.isPresented = false
+
+        Task {
+            _ = await gitRepositoryService.status(at: URL(fileURLWithPath: workspace.path))
+            _ = await editorLaunchService.availableEditors()
+            _ = prLinkBuilder.compareURL(remoteURL: "", baseBranch: "main", headBranch: "dev")
+        }
     }
 }

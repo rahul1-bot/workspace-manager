@@ -52,6 +52,21 @@ struct ContentView: View {
                                 .padding(.top, 10)
                         }
                     }
+                    .overlay(alignment: .trailing) {
+                        if appState.gitPanelState.isPresented {
+                            DiffPanelView(
+                                state: appState.gitPanelState,
+                                onClose: {
+                                    appState.dismissDiffPanelPlaceholder()
+                                },
+                                onModeSelected: { mode in
+                                    appState.setDiffPanelModePlaceholder(mode)
+                                }
+                            )
+                            .frame(width: 420)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
+                    }
             }
 
             if showCommandPalette {
@@ -63,8 +78,36 @@ struct ContentView: View {
             if showShortcutsHelp {
                 ShortcutsHelpOverlay(isPresented: $showShortcutsHelp)
             }
+
+            if appState.commitSheetState.isPresented {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        appState.dismissCommitSheetPlaceholder()
+                    }
+
+                CommitSheetView(
+                    state: appState.commitSheetState,
+                    onClose: {
+                        appState.dismissCommitSheetPlaceholder()
+                    },
+                    onMessageChanged: { message in
+                        appState.setCommitMessagePlaceholder(message)
+                    },
+                    onIncludeUnstagedChanged: { includeUnstaged in
+                        appState.setIncludeUnstagedPlaceholder(includeUnstaged)
+                    },
+                    onNextStepChanged: { nextStep in
+                        appState.setCommitNextStepPlaceholder(nextStep)
+                    },
+                    onContinue: {
+                        appState.continueCommitFlowPlaceholder()
+                    }
+                )
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.18), value: appState.gitPanelState.isPresented)
         .onAppear {
             setupKeyboardMonitor()
         }
