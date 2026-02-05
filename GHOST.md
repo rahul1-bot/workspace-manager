@@ -46,9 +46,11 @@
     3. Keep all orchestration actions verifiable by focusing the relevant terminal surfaces.
     4. Maintain docs/product.md as the authoritative v1 product spec.
     5. Upgrade the command palette to support arrow-key selection navigation and action groups without stealing input from terminals when closed.
+    6. (Vacation) Implement Spatial Graph View per docs/spatial-graph-view.md — toggle between sidebar and graph canvas, generic nodes (terminal/markdown), force-directed layout, edge relationships.
 
 ## Paths
     1. Primary: Config-driven app with libghostty Metal renderer.
     2. Fallback: SwiftTerm CPU renderer when GPU renderer is disabled.
     3. Product spec: docs/product.md.
-    4. Research: Ghostty renderer tuning (input/scroll/clipboard) and performance profiling.
+    4. Spatial graph view spec: docs/spatial-graph-view.md.
+    5. Research: Ghostty renderer tuning (input/scroll/clipboard) and performance profiling.

@@ -524,3 +524,43 @@
         1. Implement digit shortcuts using NSEvent.keyCode mapping for the number row (1..9).
     3. Implication:
         1. Option+Cmd+digit shortcuts remain deterministic across keyboard layouts and do not depend on character translation.
+
+---
+
+| Memory | Voicetree Architecture Analysis | Date: 05 February 2026 | Time: 04:51 PM | Name: Lyra |
+
+### Observation
+1. Voicetree (github.com/voicetreelab/voicetree) is an Electron/React/Python app combining Obsidian-style graph visualization with terminal-based AI agent orchestration.
+2. Its tech stack is fundamentally incompatible with our native Swift/Metal stack: Cytoscape.js for graph rendering, xterm.js for terminals, FastAPI/ChromaDB/LangGraph for the backend.
+3. Direct code reuse or embedding is not viable. The value lies in porting the concepts, not the implementation.
+
+### Key Concepts Worth Porting
+1. Spatial graph as the primary navigation surface — nodes are terminals and markdown files, edges are relationships.
+2. Generic node containers — a node is type-agnostic until opened (terminal or markdown).
+3. Context injection by proximity — agents receive content from nearby graph nodes, avoiding context rot.
+4. Recursive agent spawning — agents decompose tasks into sub-nodes and spawn sub-agents.
+5. Shared memory graph — human and agents read/write the same knowledge structure.
+
+### Implication
+1. Our existing workspace/terminal model is already a graph rendered as a flat sidebar. A spatial view reveals this structure visually.
+2. The toggle between sidebar and graph view preserves both interaction models without forcing users into one paradigm.
+3. Force-directed layout in Swift is the key technical challenge. Research needed on existing Swift graph visualization libraries before implementation.
+4. Implementation is a vacation project. The feature spec at docs/spatial-graph-view.md captures all design decisions.
+
+---
+
+| Memory | Graph Rendering in Native Swift — Technology Landscape | Date: 05 February 2026 | Time: 04:51 PM | Name: Lyra |
+
+### Observation
+1. There is no direct equivalent of Cytoscape.js in the Swift ecosystem as of February 2026.
+2. Candidate rendering approaches for a 2D interactive graph on macOS:
+    1. SwiftUI Canvas — simplest API, hardware-accelerated, but limited interactivity and no built-in hit testing.
+    2. SpriteKit — Apple-native 2D engine with physics, good for force-directed simulation, but carries a game-framework overhead.
+    3. Core Animation (CALayer) — low-level, smooth animations, but requires manual hit testing.
+    4. Custom Metal renderer — maximum performance, matches our libghostty approach, but significant engineering effort.
+3. The recommended starting point is SwiftUI Canvas for edges/background combined with standard SwiftUI views for interactive nodes.
+
+### Implication
+1. A GitHub search for Swift force-directed graph libraries should be the first research step before implementation.
+2. SwiftUI Canvas + SwiftUI views is the lowest-risk starting point. Performance profiling with 50-100 nodes will determine if SpriteKit or Metal is needed.
+3. The critical technical risk is rendering a libghostty Metal terminal surface inside a movable, zoomable canvas node. This needs dedicated investigation.

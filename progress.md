@@ -1330,3 +1330,25 @@ momentumInterval = 1/120  // 120Hz updates
         2. ✅ swift build -c release
     6. Deferred intentionally:
         1. Worker/Reviewer pairing keymaps and task label editing keymaps remain deferred until Agents/Tasks are introduced as first-class config schema.
+
+---
+
+| Progress Todo | Spatial Graph View Feature Specification | Date: 05 February 2026 | Time: 04:51 PM | Name: Lyra |
+
+    1. Context:
+        1. Researched the Voicetree project (Electron/React/Python spatial IDE) as a reference for graph-based agent orchestration.
+        2. Discussed with Rahul the feasibility and scope of porting the spatial graph concept into our native Swift/Metal stack.
+        3. Agreed that this is a vacation project — the feature specification captures the vision for future implementation.
+    2. Document created:
+        1. docs/spatial-graph-view.md — Comprehensive feature specification covering problem statement, core concepts, data model, rendering options, interaction design, phased roadmap, and research TODOs.
+    3. Key design decisions captured:
+        1. Graph view is a toggle alternative to the sidebar view, not a replacement. Same data, different visualization.
+        2. Nodes are generic containers that open as either terminal (libghostty Metal) or markdown editor. Type is a runtime choice.
+        3. Edges represent containment, reference, dependency, or user-defined relationships.
+        4. Force-directed layout algorithm for auto-positioning nodes.
+        5. Node positions persist to config.toml for cross-session stability.
+        6. Four-phase roadmap: Foundation, Knowledge Layer, Agent Orchestration, Advanced Features (voice, embeddings, time evolution).
+    4. Implementation deferred:
+        1. This is planning documentation only. No code changes. Implementation begins during vacation period.
+    5. Paths:
+        1. docs/spatial-graph-view.md

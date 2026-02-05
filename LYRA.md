@@ -195,3 +195,23 @@ App Launch → ConfigService.loadConfig() → Parse TOML → AppState initialize
    1. Every workspace/course spawns two terminals by default: "Ghost" and "Lyra".
    2. Applied at startup and for any newly created workspace.
 2. Verified behavior in the running app after rebuild and restart.
+
+---
+
+| Status | Focus | Date: 05 February 2026 | Time: 04:51 PM | Name: Lyra |
+
+### Spatial Graph View — Feature Specification Created
+1. Researched the Voicetree project (https://github.com/voicetreelab/voicetree), an Electron/React/Python spatial IDE for recursive multi-agent orchestration that uses Cytoscape for graph visualization and xterm.js for embedded terminals.
+2. Analyzed feasibility of integrating Voicetree concepts into our native Swift/Metal stack. Concluded that direct code integration is not viable due to fundamentally different tech stacks (Electron vs native Swift), but the core concepts are highly valuable and should be ported natively.
+3. Created comprehensive feature specification at docs/spatial-graph-view.md covering:
+    1. Problem statement: why spatial visualization is needed at scale (cognitive overload, no relationship visibility, no spatial memory).
+    2. Core concepts: Nodes (generic containers opened as terminal or markdown), Edges (containment, reference, dependency, custom), Graph, Canvas.
+    3. View architecture: toggle between sidebar view (current) and graph view (new) within the same app.
+    4. Data model extensions: graph metadata (node positions, edge types) in config.toml and AppState.
+    5. Graph rendering technology options: SwiftUI Canvas, SpriteKit, Core Animation, custom Metal.
+    6. Force-directed layout algorithm requirements (Fruchterman-Reingold or similar).
+    7. Interaction design: pan, zoom, drag, select, open, focus, edge creation.
+    8. Four-phase implementation roadmap: Foundation, Knowledge Layer, Agent Orchestration, Advanced Features.
+    9. Non-goals for v1: no voice input, no embeddings, no LLM-driven graph building.
+    10. Research TODOs and open questions for pre-implementation investigation.
+4. Implementation is deferred to vacation period. This document exists to capture the vision while it is fresh.
