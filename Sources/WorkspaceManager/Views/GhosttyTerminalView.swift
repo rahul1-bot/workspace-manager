@@ -58,6 +58,12 @@ class GhosttyAppManager {
         runtimeConfig.userdata = Unmanaged.passUnretained(self).toOpaque()
         runtimeConfig.supports_selection_clipboard = true
         runtimeConfig.wakeup_cb = { userdata in
+            InputEventRecorder.shared.record(
+                kind: .ghosttyCallback,
+                keyCode: nil,
+                modifierFlags: 0,
+                details: "wakeup_cb"
+            )
             GhosttyAppManager.shared.requestTick()
         }
         runtimeConfig.action_cb = { app, target, action in
@@ -68,6 +74,12 @@ class GhosttyAppManager {
             // Read clipboard
             guard let state = state else { return }
             let content = NSPasteboard.general.string(forType: .string) ?? ""
+            InputEventRecorder.shared.record(
+                kind: .ghosttyCallback,
+                keyCode: nil,
+                modifierFlags: 0,
+                details: "read_clipboard_cb location=\(location.rawValue)"
+            )
             content.withCString { cstr in
                 ghostty_surface_complete_clipboard_request(state, cstr, nil, false)
             }
@@ -76,6 +88,12 @@ class GhosttyAppManager {
         runtimeConfig.write_clipboard_cb = { (userdata: UnsafeMutableRawPointer?, location: ghostty_clipboard_e, content: UnsafePointer<ghostty_clipboard_content_s>?, len: Int, confirm: Bool) in
             // Write clipboard - content is an array of ghostty_clipboard_content_s
             guard let content = content, len > 0 else { return }
+            InputEventRecorder.shared.record(
+                kind: .ghosttyCallback,
+                keyCode: nil,
+                modifierFlags: 0,
+                details: "write_clipboard_cb location=\(location.rawValue) entries=\(len) confirm=\(confirm)"
+            )
 
             // Process the first content item with bounded null-terminated string handling
             let contentItem = content.pointee
@@ -355,6 +373,13 @@ class GhosttySurfaceNSView: NSView {
             return
         }
 
+        InputEventRecorder.shared.record(
+            kind: .keyDown,
+            keyCode: event.keyCode,
+            modifierFlags: event.modifierFlags.rawValue,
+            details: "ghostty keyDown chars=\(Redaction.maskCharacters(event.characters))"
+        )
+
         var keyEvent = ghostty_input_key_s()
         keyEvent.action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
         keyEvent.mods = translateModifiers(event.modifierFlags)
@@ -413,6 +438,13 @@ class GhosttySurfaceNSView: NSView {
             super.flagsChanged(with: event)
             return
         }
+
+        InputEventRecorder.shared.record(
+            kind: .flagsChanged,
+            keyCode: event.keyCode,
+            modifierFlags: event.modifierFlags.rawValue,
+            details: "ghostty flagsChanged"
+        )
 
         var keyEvent = ghostty_input_key_s()
         keyEvent.action = GHOSTTY_ACTION_PRESS

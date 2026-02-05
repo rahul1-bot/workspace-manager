@@ -63,10 +63,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func logActivationState(context: String) {
+        guard DiagnosticMode.isEnabled else { return }
         let keyWindow = String(describing: NSApp.keyWindow)
         let mainWindow = String(describing: NSApp.mainWindow)
         let firstResponder = String(describing: NSApp.keyWindow?.firstResponder)
-        print("[WorkspaceManager] \(context) active=\(NSApp.isActive) policy=\(NSApp.activationPolicy()) key=\(keyWindow) main=\(mainWindow) firstResponder=\(firstResponder)")
+        AppLogger.app.debug("activation context=\(context, privacy: .public) active=\(NSApp.isActive, privacy: .public) policy=\(String(describing: NSApp.activationPolicy()), privacy: .public) key=\(keyWindow, privacy: .private(mask: .hash)) main=\(mainWindow, privacy: .private(mask: .hash)) responder=\(firstResponder, privacy: .private(mask: .hash))")
     }
 
     private func installInputMonitors() {
@@ -92,11 +93,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func logKeyEvent(_ event: NSEvent, label: String) {
-        let chars = event.characters ?? ""
-        let charsIgnoring = event.charactersIgnoringModifiers ?? ""
-        let keyWindow = String(describing: NSApp.keyWindow)
-        let responder = String(describing: NSApp.keyWindow?.firstResponder)
-        print("[WorkspaceManager] \(label) keyCode=\(event.keyCode) chars='\(chars)' charsIgnoring='\(charsIgnoring)' flags=\(event.modifierFlags) key=\(keyWindow) responder=\(responder)")
+        guard DiagnosticMode.isEnabled else { return }
+        InputEventRecorder.shared.record(
+            kind: label == "flagsChanged" ? .flagsChanged : .keyMonitor,
+            keyCode: event.keyCode,
+            modifierFlags: event.modifierFlags.rawValue,
+            details: "chars=\(Redaction.maskCharacters(event.characters)) charsIgnoring=\(Redaction.maskCharacters(event.charactersIgnoringModifiers))"
+        )
+        AppLogger.input.debug("event label=\(label, privacy: .public) keyCode=\(event.keyCode, privacy: .public) flags=\(event.modifierFlags.rawValue, privacy: .public)")
     }
 }
 

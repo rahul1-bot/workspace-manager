@@ -87,6 +87,13 @@ struct ContentView: View {
             let shift = event.modifierFlags.contains(.shift)
             let char = (event.charactersIgnoringModifiers ?? "").lowercased()
 
+            InputEventRecorder.shared.record(
+                kind: .keyMonitor,
+                keyCode: event.keyCode,
+                modifierFlags: event.modifierFlags.rawValue,
+                details: "char=\(Redaction.maskCharacters(char)) cmd=\(cmd) shift=\(shift)"
+            )
+
             if showShortcutsHelp {
                 if event.keyCode == 53 {
                     showShortcutsHelp = false
@@ -289,7 +296,7 @@ struct ContentView: View {
             // ⇧⌘R - hot reload config.toml
             if cmd && char == "r" && event.modifierFlags.contains(.shift) {
                 appState.reloadFromConfig()
-                print("[ContentView] Config reloaded via Shift+Cmd+R")
+                AppLogger.app.debug("config reloaded via Shift+Cmd+R")
                 return nil
             }
 
