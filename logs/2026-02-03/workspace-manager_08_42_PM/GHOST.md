@@ -35,17 +35,12 @@
     14. Sidebar terminal icon renders as original PNG (no template tinting).
     15. Keymaps are keyboard-first and additive; destructive actions remain unbound until guarded by explicit confirmation design.
     16. Each workspace bootstraps a default two-terminal pair ("Ghost", "Lyra") at runtime on app start and on workspace creation.
-    17. Non-selected libghostty terminal surfaces must be explicitly occluded to prevent rendering and wakeup overhead from scaling with terminal count.
-    18. Agents/Tasks pairing keymaps are deferred until the Agents/Tasks config schema exists; only schema-free keymaps are implemented immediately.
-    19. Focus Mode is a first-class appearance setting persisted in config.toml (appearance.focus_mode) and is toggleable via keyboard.
-    20. Command palette is introduced as the scalable navigation primitive once workspace and terminal counts exceed single-digit muscle memory ranges.
 
 ## Next Steps
     1. Implement Workspaces/Agents/Tasks labeling UX without adding clutter.
     2. Add explicit Worker/Reviewer pairing and keyboard-first navigation for Claude↔Codex loops.
     3. Keep all orchestration actions verifiable by focusing the relevant terminal surfaces.
     4. Maintain docs/product.md as the authoritative v1 product spec.
-    5. Upgrade the command palette to support arrow-key selection navigation and action groups without stealing input from terminals when closed.
 
 ## Paths
     1. Primary: Config-driven app with libghostty Metal renderer.

@@ -18,6 +18,9 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var sidebarFocused = false
     @State private var eventMonitor: Any?
+    @State private var showCommandPalette = false
+    @State private var showShortcutsHelp = false
+    @State private var showCloseTerminalConfirm = false
 
     var body: some View {
         ZStack {
@@ -28,7 +31,7 @@ struct ContentView: View {
             HStack(spacing: 0) {
                 // Sidebar - instant toggle, no animation
                 // Uses appState.showSidebar as single source of truth
-                if appState.showSidebar {
+                if appState.showSidebar && !appState.focusMode {
                     WorkspaceSidebar()
                         .frame(width: 240)
                         .overlay(
@@ -39,7 +42,24 @@ struct ContentView: View {
                 }
 
                 // Terminal area
-                TerminalContainer()
+                TerminalContainer(showHeader: !appState.focusMode)
+                    .overlay(alignment: .topLeading) {
+                        if appState.focusMode {
+                            FocusModeOverlay()
+                                .padding(.leading, 12)
+                                .padding(.top, 10)
+                        }
+                    }
+            }
+
+            if showCommandPalette {
+                CommandPaletteOverlay(isPresented: $showCommandPalette) {
+                    sidebarFocused = false
+                }
+            }
+
+            if showShortcutsHelp {
+                ShortcutsHelpOverlay(isPresented: $showShortcutsHelp)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -49,6 +69,14 @@ struct ContentView: View {
         .onDisappear {
             removeKeyboardMonitor()
         }
+        .alert("Close Terminal?", isPresented: $showCloseTerminalConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Close", role: .destructive) {
+                appState.closeSelectedTerminal()
+            }
+        } message: {
+            Text("This will terminate the running shell session in the selected terminal.")
+        }
     }
 
     private func setupKeyboardMonitor() {
@@ -56,10 +84,30 @@ struct ContentView: View {
 
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
             let cmd = event.modifierFlags.contains(.command)
+            let shift = event.modifierFlags.contains(.shift)
             let char = (event.charactersIgnoringModifiers ?? "").lowercased()
+
+            if showShortcutsHelp {
+                if event.keyCode == 53 {
+                    showShortcutsHelp = false
+                    return nil
+                }
+                return nil
+            }
+
+            if showCommandPalette {
+                if event.keyCode == 53 {
+                    showCommandPalette = false
+                    return nil
+                }
+                return event
+            }
 
             // ⌘B toggle sidebar visibility (focus stays on terminal)
             if cmd && char == "b" {
+                if appState.focusMode {
+                    appState.setFocusMode(false)
+                }
                 appState.toggleSidebar()
                 if !appState.showSidebar { sidebarFocused = false }
                 return nil
@@ -68,6 +116,29 @@ struct ContentView: View {
             // ⌘T new terminal
             if cmd && char == "t" {
                 appState.createTerminalViaShortcut()
+                return nil
+            }
+
+            // ⇧⌘N new workspace (sheet)
+            if cmd && shift && char == "n" {
+                if appState.focusMode {
+                    appState.setFocusMode(false)
+                }
+                appState.setSidebar(visible: true)
+                sidebarFocused = true
+                appState.showNewWorkspaceSheet = true
+                return nil
+            }
+
+            // ⇧⌘I - previous workspace
+            if cmd && shift && char == "i" {
+                appState.selectPreviousWorkspace()
+                return nil
+            }
+
+            // ⇧⌘K - next workspace
+            if cmd && shift && char == "k" {
+                appState.selectNextWorkspace()
                 return nil
             }
 
@@ -85,6 +156,9 @@ struct ContentView: View {
 
             // ⌘J - focus sidebar (show if hidden)
             if cmd && char == "j" {
+                if appState.focusMode {
+                    appState.setFocusMode(false)
+                }
                 appState.setSidebar(visible: true)
                 sidebarFocused = true
                 return nil
@@ -98,6 +172,9 @@ struct ContentView: View {
 
             // ⌘E - toggle workspace expand/collapse
             if cmd && char == "e" {
+                if appState.focusMode {
+                    appState.setFocusMode(false)
+                }
                 if let wsId = appState.selectedWorkspaceId {
                     appState.toggleWorkspaceExpanded(id: wsId)
                 }
@@ -123,8 +200,68 @@ struct ContentView: View {
                 return nil
             }
 
+            // ⌘, - reveal config.toml in Finder
+            if cmd && char == "," {
+                NSWorkspace.shared.activateFileViewerSelecting([ConfigService.shared.configFileURL])
+                return nil
+            }
+
+            // ⌘. - toggle Focus Mode
+            if cmd && char == "." {
+                appState.toggleFocusMode()
+                sidebarFocused = false
+                return nil
+            }
+
+            // ⌘P - command palette
+            if cmd && char == "p" {
+                showCommandPalette.toggle()
+                sidebarFocused = false
+                return nil
+            }
+
+            // ⇧⌘/ - shortcuts help
+            if cmd && shift && char == "/" {
+                showShortcutsHelp.toggle()
+                return nil
+            }
+
+            // ⌘W - close selected terminal (confirm)
+            if cmd && char == "w" {
+                if appState.selectedTerminalId != nil {
+                    showCloseTerminalConfirm = true
+                    return nil
+                }
+                return event
+            }
+
+            func numberKeyFromKeyCode(_ keyCode: UInt16) -> Int? {
+                switch keyCode {
+                case 18: return 1
+                case 19: return 2
+                case 20: return 3
+                case 21: return 4
+                case 23: return 5
+                case 22: return 6
+                case 26: return 7
+                case 28: return 8
+                case 25: return 9
+                case 29: return 0
+                default: return nil
+                }
+            }
+
+            // ⌥⌘1..⌥⌘9 - jump to terminal index within workspace
+            if cmd && event.modifierFlags.contains(.option),
+               let digit = numberKeyFromKeyCode(event.keyCode),
+               digit >= 1 {
+                let index = digit - 1
+                appState.selectTerminalByIndex(index: index)
+                return nil
+            }
+
             // ⌘1..⌘9 - jump to workspace index
-            if cmd, let digit = Int(char), digit >= 1 {
+            if cmd, let digit = numberKeyFromKeyCode(event.keyCode), digit >= 1 {
                 let index = digit - 1
                 if appState.workspaces.indices.contains(index) {
                     let ws = appState.workspaces[index]
@@ -140,6 +277,9 @@ struct ContentView: View {
 
             // ⌘R - rename (inline)
             if cmd && char == "r" && !event.modifierFlags.contains(.shift) {
+                if appState.focusMode {
+                    appState.setFocusMode(false)
+                }
                 appState.setSidebar(visible: true)
                 sidebarFocused = true
                 appState.beginRenameSelectedItem()

@@ -148,6 +148,7 @@ struct TerminalView: NSViewRepresentable {
 
 struct TerminalContainer: View {
     @EnvironmentObject var appState: AppState
+    let showHeader: Bool
 
     private var useGpuRenderer: Bool {
         ConfigService.shared.config.terminal.use_gpu_renderer
@@ -160,7 +161,9 @@ struct TerminalContainer: View {
                     let isSelected = terminal.id == appState.selectedTerminal?.id
 
                     VStack(spacing: 0) {
-                        TerminalHeader(terminalId: terminal.id, workspaceId: workspace.id)
+                        if showHeader {
+                            TerminalHeader(terminalId: terminal.id, workspaceId: workspace.id)
+                        }
 
                         if useGpuRenderer {
                             GhosttyTerminalView(

@@ -111,6 +111,9 @@ class ConfigService {
                 if let showSidebar = appearanceTable["show_sidebar"] as? Bool {
                     appearanceConfig.show_sidebar = showSidebar
                 }
+                if let focusMode = appearanceTable["focus_mode"] as? Bool {
+                    appearanceConfig.focus_mode = focusMode
+                }
             }
 
             // Parse workspaces array with ID validation and duplicate detection
@@ -290,6 +293,7 @@ class ConfigService {
 
         [appearance]
         show_sidebar = \(config.appearance.show_sidebar)
+        focus_mode = \(config.appearance.focus_mode)
 
         # Workspaces - each needs id, name and path
         # Use ~ for home directory
@@ -334,6 +338,10 @@ class ConfigService {
         loadConfig()
     }
 
+    var configFileURL: URL {
+        configPath
+    }
+
     // MARK: - Workspace Mutations
 
     func addWorkspace(id: String, name: String, path: String) {
@@ -368,6 +376,11 @@ class ConfigService {
 
     func setShowSidebar(_ show: Bool) {
         config.appearance.show_sidebar = show
+        saveConfig()
+    }
+
+    func setFocusMode(_ enabled: Bool) {
+        config.appearance.focus_mode = enabled
         saveConfig()
     }
 }

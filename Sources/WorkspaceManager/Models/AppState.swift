@@ -6,6 +6,7 @@ class AppState: ObservableObject {
     @Published var selectedWorkspaceId: UUID?
     @Published var selectedTerminalId: UUID?
     @Published var showSidebar: Bool
+    @Published var focusMode: Bool
     @Published var showNewWorkspaceSheet: Bool = false
     @Published var showNewTerminalSheet: Bool = false
     @Published var renamingWorkspaceId: UUID?
@@ -17,6 +18,7 @@ class AppState: ObservableObject {
     init(configService: ConfigService = ConfigService.shared) {
         self.configService = configService
         self.showSidebar = configService.config.appearance.show_sidebar
+        self.focusMode = configService.config.appearance.focus_mode
         loadWorkspacesFromConfig()
 
         // Ensure every workspace has the default terminal pair.
@@ -64,6 +66,7 @@ class AppState: ObservableObject {
 
         // Sync appearance settings from config
         showSidebar = configService.config.appearance.show_sidebar
+        focusMode = configService.config.appearance.focus_mode
 
         // Restore selection if still valid
         if let prevWsId = previousSelectedWorkspace,
@@ -224,6 +227,18 @@ class AppState: ObservableObject {
         configService.setShowSidebar(showSidebar)
     }
 
+    // MARK: - Focus Mode (Persisted to Config)
+
+    func toggleFocusMode() {
+        focusMode.toggle()
+        configService.setFocusMode(focusMode)
+    }
+
+    func setFocusMode(_ enabled: Bool) {
+        focusMode = enabled
+        configService.setFocusMode(focusMode)
+    }
+
     // MARK: - Terminal Operations (Runtime Only)
 
     /// Create a new terminal, bootstrapping a default workspace if the user has none yet.
@@ -266,6 +281,25 @@ class AppState: ObservableObject {
         if selectedTerminalId == id {
             selectedTerminalId = nil
         }
+    }
+
+    func closeSelectedTerminal() {
+        guard let wsId = selectedWorkspaceId,
+              let tId = selectedTerminalId,
+              let wsIndex = workspaces.firstIndex(where: { $0.id == wsId }),
+              let tIndex = workspaces[wsIndex].terminals.firstIndex(where: { $0.id == tId }) else {
+            return
+        }
+
+        workspaces[wsIndex].removeTerminal(id: tId)
+
+        if workspaces[wsIndex].terminals.isEmpty {
+            selectedTerminalId = nil
+            return
+        }
+
+        let newIndex = min(tIndex, workspaces[wsIndex].terminals.count - 1)
+        selectTerminal(id: workspaces[wsIndex].terminals[newIndex].id, in: wsId)
     }
 
     func selectTerminal(id: UUID, in workspaceId: UUID) {
@@ -391,5 +425,12 @@ class AppState: ObservableObject {
                 }
             }
         }
+    }
+
+    func selectTerminalByIndex(index: Int) {
+        guard let wsId = selectedWorkspaceId else { return }
+        let terminals = currentWorkspaceTerminals
+        guard terminals.indices.contains(index) else { return }
+        selectTerminal(id: terminals[index].id, in: wsId)
     }
 }

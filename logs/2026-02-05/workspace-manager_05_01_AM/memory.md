@@ -499,28 +499,3 @@
 2. Performance with 12 terminals appears acceptable in practice.
 3. If performance issues arise with many more terminals, consider lazy surface creation or upstream libghostty fixes.
 4. This is a known limitation to document for future maintainers.
-
----
-
-| Memory | Keyboard Shortcut Design: Avoid Schema Drift | Date: 05 February 2026 | Time: 05:01 AM | Name: Ghost |
-
-    1. Observation:
-        1. Several high-leverage keymaps in docs/product.md depend on an Agents/Tasks schema (task label edit, Worker/Reviewer jump, handoff).
-        2. Implementing those keymaps before the schema exists forces temporary hacks and guarantees keymap churn later.
-    2. Decision:
-        1. Implement only “schema-free” keymaps now: navigation, overlays, focus mode, config reveal, and safe terminal close.
-        2. Defer pairing and task-label keymaps until Agents and Tasks exist as first-class persisted concepts in config.toml.
-    3. Implication:
-        1. Keymaps stay stable and auditable; future pairing work becomes a clean additive change rather than a rewrite.
-
----
-
-| Memory | Modifier-Safe Digit Keymaps Need KeyCode Mapping | Date: 05 February 2026 | Time: 05:01 AM | Name: Ghost |
-
-    1. Observation:
-        1. NSEvent.charactersIgnoringModifiers is unreliable for digit parsing when Option is held because Option alters the produced character (layout dependent).
-        2. This breaks Option+Cmd+1..9 style shortcuts if implemented using characters strings.
-    2. Decision:
-        1. Implement digit shortcuts using NSEvent.keyCode mapping for the number row (1..9).
-    3. Implication:
-        1. Option+Cmd+digit shortcuts remain deterministic across keyboard layouts and do not depend on character translation.

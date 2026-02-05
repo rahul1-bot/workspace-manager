@@ -42,9 +42,11 @@ struct TerminalConfig: Codable {
 
 struct AppearanceConfig: Codable {
     var show_sidebar: Bool
+    var focus_mode: Bool
 
-    init(show_sidebar: Bool = true) {
+    init(show_sidebar: Bool = true, focus_mode: Bool = false) {
         self.show_sidebar = show_sidebar
+        self.focus_mode = focus_mode
     }
 }
 
