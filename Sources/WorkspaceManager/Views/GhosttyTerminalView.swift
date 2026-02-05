@@ -64,7 +64,7 @@ class GhosttyAppManager {
             GhosttyAppManager.shared.requestTick()
         }
         runtimeConfig.action_cb = { app, target, action in
-            // Handle actions (title changes, notifications, etc.)
+            GhosttyAppManager.shared.handleAction(action)
             return true
         }
         runtimeConfig.read_clipboard_cb = { userdata, location, state in
@@ -129,6 +129,20 @@ class GhosttyAppManager {
             DispatchQueue.main.async { [weak self] in
                 self?.runTick()
             }
+        }
+    }
+
+    private func handleAction(_ action: ghostty_action_s) {
+        if action.tag == GHOSTTY_ACTION_SECURE_INPUT {
+            let secureAction = action.action.secure_input
+            SecureInputController.shared.applyGhosttyAction(secureAction)
+            InputEventRecorder.shared.record(
+                kind: .ghosttyCallback,
+                keyCode: nil,
+                modifierFlags: 0,
+                details: "action_cb secure_input=\(secureAction.rawValue) enabled=\(SecureInputController.shared.isSecureInputEnabled())"
+            )
+            AppLogger.input.debug("ghostty action secure_input=\(secureAction.rawValue, privacy: .public) enabled=\(SecureInputController.shared.isSecureInputEnabled(), privacy: .public)")
         }
     }
 
@@ -400,7 +414,14 @@ class GhosttySurfaceNSView: NSView {
 
         var keyEvent = ghostty_input_key_s()
         let current = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if let changedFlag = modifierFlag(for: event.keyCode) {
+        let changedFlag = modifierFlag(for: event.keyCode)
+        if changedFlag == .command && hasNoModifierButCommand(current) {
+            previousModifierFlags = current
+            super.flagsChanged(with: event)
+            return
+        }
+
+        if let changedFlag {
             keyEvent.action = current.contains(changedFlag) ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE
         } else {
             let previous = previousModifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -416,6 +437,11 @@ class GhosttySurfaceNSView: NSView {
         _ = ghostty_surface_key(surface, keyEvent)
         previousModifierFlags = current
         GhosttyAppManager.shared.tick()
+    }
+
+    private func hasNoModifierButCommand(_ flags: NSEvent.ModifierFlags) -> Bool {
+        let meaningful = flags.intersection([.command, .shift, .option, .control])
+        return meaningful == .command || meaningful == []
     }
 
     private func modifierFlag(for keyCode: UInt16) -> NSEvent.ModifierFlags? {
