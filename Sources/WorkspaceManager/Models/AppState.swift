@@ -1,7 +1,8 @@
 import Foundation
 import SwiftUI
 
-class AppState: ObservableObject {
+@MainActor
+final class AppState: ObservableObject {
     @Published var workspaces: [Workspace] = []
     @Published var selectedWorkspaceId: UUID?
     @Published var selectedTerminalId: UUID?

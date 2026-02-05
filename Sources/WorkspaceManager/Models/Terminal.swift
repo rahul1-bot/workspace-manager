@@ -1,6 +1,6 @@
 import Foundation
 
-struct Terminal: Identifiable, Codable, Hashable {
+struct Terminal: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var name: String
     var workingDirectory: String

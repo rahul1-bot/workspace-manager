@@ -2,7 +2,7 @@ import Foundation
 import TOMLKit
 
 /// Service for loading and managing application configuration from TOML
-class ConfigService {
+final class ConfigService {
     static let shared = ConfigService()
 
     private(set) var config: AppConfig
@@ -84,82 +84,11 @@ class ConfigService {
             let tomlString = try String(contentsOf: configPath, encoding: .utf8)
             let tomlTable = try TOMLTable(string: tomlString)
 
-            // Parse terminal config
-            var terminalConfig = TerminalConfig()
-            if let terminalTable = tomlTable["terminal"] as? TOMLTable {
-                if let font = terminalTable["font"] as? String {
-                    terminalConfig.font = font
-                }
-                if let fontSize = terminalTable["font_size"] as? Int {
-                    terminalConfig.font_size = fontSize
-                }
-                if let scrollback = terminalTable["scrollback"] as? Int {
-                    terminalConfig.scrollback = scrollback
-                }
-                if let cursorStyle = terminalTable["cursor_style"] as? String {
-                    terminalConfig.cursor_style = cursorStyle
-                }
-                if let useGpuRenderer = terminalTable["use_gpu_renderer"] as? Bool {
-                    terminalConfig.use_gpu_renderer = useGpuRenderer
-                }
-            }
-
-            // Parse appearance config
-            var appearanceConfig = AppearanceConfig()
-            if let appearanceTable = tomlTable["appearance"] as? TOMLTable {
-                if let showSidebar = appearanceTable["show_sidebar"] as? Bool {
-                    appearanceConfig.show_sidebar = showSidebar
-                }
-                if let focusMode = appearanceTable["focus_mode"] as? Bool {
-                    appearanceConfig.focus_mode = focusMode
-                }
-            }
-
-            // Parse workspaces array with ID validation and duplicate detection
-            var workspaces: [WorkspaceConfig] = []
-            var seenIds: Set<String> = []
-            var needsSave = false
-
-            if let workspacesArray = tomlTable["workspaces"] as? TOMLArray {
-                for item in workspacesArray {
-                    if let wsTable = item as? TOMLTable,
-                       let name = wsTable["name"] as? String,
-                       let path = wsTable["path"] as? String {
-                        let expandedPath = expandPath(path)
-
-                        // Validate and normalize the workspace ID
-                        var id: String
-                        if let existingId = wsTable["id"] as? String,
-                           !existingId.isEmpty,
-                           UUID(uuidString: existingId) != nil {
-                            // Valid UUID string
-                            id = existingId
-                        } else {
-                            // Invalid or missing ID - generate a new valid UUID
-                            id = UUID().uuidString
-                            needsSave = true
-                            if let existingId = wsTable["id"] as? String, !existingId.isEmpty {
-                                AppLogger.config.warning("invalid workspace id regenerated")
-                            }
-                        }
-
-                        // Check for duplicate IDs and regenerate if needed
-                        if seenIds.contains(id) {
-                            AppLogger.config.warning("duplicate workspace id regenerated")
-                            id = UUID().uuidString
-                            needsSave = true
-                        }
-                        seenIds.insert(id)
-                        do {
-                            try validateWorkspace(name: name, path: expandedPath, id: id)
-                            workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath))
-                        } catch {
-                            needsSave = true
-                            AppLogger.config.error("workspace entry dropped during validation: \(String(describing: error), privacy: .public)")
-                        }
-                    }
-                }
-            }
+            let terminalConfig = parseTerminalConfig(from: tomlTable)
+            let appearanceConfig = parseAppearanceConfig(from: tomlTable)
+            let parseResult = parseWorkspaces(from: tomlTable)
+            var workspaces = parseResult.workspaces
+            var needsSave = parseResult.needsSave
 
             // If the config exists but contains no workspaces, bootstrap a sane default.
             if workspaces.isEmpty {
@@ -386,6 +315,92 @@ class ConfigService {
     func setFocusMode(_ enabled: Bool) {
         config.appearance.focus_mode = enabled
         saveConfig()
+    }
+
+    private func parseTerminalConfig(from table: TOMLTable) -> TerminalConfig {
+        var terminalConfig = TerminalConfig()
+        guard let terminalTable = table["terminal"] as? TOMLTable else {
+            return terminalConfig
+        }
+        if let font = terminalTable["font"] as? String {
+            terminalConfig.font = font
+        }
+        if let fontSize = terminalTable["font_size"] as? Int {
+            terminalConfig.font_size = fontSize
+        }
+        if let scrollback = terminalTable["scrollback"] as? Int {
+            terminalConfig.scrollback = scrollback
+        }
+        if let cursorStyle = terminalTable["cursor_style"] as? String {
+            terminalConfig.cursor_style = cursorStyle
+        }
+        if let useGpuRenderer = terminalTable["use_gpu_renderer"] as? Bool {
+            terminalConfig.use_gpu_renderer = useGpuRenderer
+        }
+        return terminalConfig
+    }
+
+    private func parseAppearanceConfig(from table: TOMLTable) -> AppearanceConfig {
+        var appearanceConfig = AppearanceConfig()
+        guard let appearanceTable = table["appearance"] as? TOMLTable else {
+            return appearanceConfig
+        }
+        if let showSidebar = appearanceTable["show_sidebar"] as? Bool {
+            appearanceConfig.show_sidebar = showSidebar
+        }
+        if let focusMode = appearanceTable["focus_mode"] as? Bool {
+            appearanceConfig.focus_mode = focusMode
+        }
+        return appearanceConfig
+    }
+
+    private func parseWorkspaces(from table: TOMLTable) -> (workspaces: [WorkspaceConfig], needsSave: Bool) {
+        var workspaces: [WorkspaceConfig] = []
+        var needsSave = false
+        var seenIds: Set<String> = []
+
+        guard let workspacesArray = table["workspaces"] as? TOMLArray else {
+            return (workspaces, needsSave)
+        }
+
+        for item in workspacesArray {
+            guard let wsTable = item as? TOMLTable,
+                  let name = wsTable["name"] as? String,
+                  let rawPath = wsTable["path"] as? String else {
+                continue
+            }
+
+            let expandedPath = expandPath(rawPath)
+            var id = normalizeWorkspaceIdentifier(from: wsTable["id"] as? String, needsSave: &needsSave)
+
+            if seenIds.contains(id) {
+                AppLogger.config.warning("duplicate workspace id regenerated")
+                id = UUID().uuidString
+                needsSave = true
+            }
+            seenIds.insert(id)
+
+            do {
+                try validateWorkspace(name: name, path: expandedPath, id: id)
+                workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath))
+            } catch {
+                needsSave = true
+                AppLogger.config.error("workspace entry dropped during validation: \(String(describing: error), privacy: .public)")
+            }
+        }
+
+        return (workspaces, needsSave)
+    }
+
+    private func normalizeWorkspaceIdentifier(from candidate: String?, needsSave: inout Bool) -> String {
+        if let candidate, !candidate.isEmpty, UUID(uuidString: candidate) != nil {
+            return candidate
+        }
+        if candidate != nil {
+            AppLogger.config.warning("invalid workspace id regenerated")
+        }
+        needsSave = true
+        return UUID().uuidString
     }
 
     private func validateWorkspace(name: String, path: String, id: String) throws {

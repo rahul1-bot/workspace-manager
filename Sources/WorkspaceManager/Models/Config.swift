@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Configuration Models
 
-struct AppConfig: Codable {
+struct AppConfig: Codable, Sendable {
     var terminal: TerminalConfig
     var appearance: AppearanceConfig
     var workspaces: [WorkspaceConfig]
@@ -18,7 +18,7 @@ struct AppConfig: Codable {
     }
 }
 
-struct TerminalConfig: Codable {
+struct TerminalConfig: Codable, Sendable {
     var font: String
     var font_size: Int
     var scrollback: Int
@@ -40,7 +40,7 @@ struct TerminalConfig: Codable {
     }
 }
 
-struct AppearanceConfig: Codable {
+struct AppearanceConfig: Codable, Sendable {
     var show_sidebar: Bool
     var focus_mode: Bool
 
@@ -51,7 +51,7 @@ struct AppearanceConfig: Codable {
 }
 
 /// Workspace configuration from TOML
-struct WorkspaceConfig: Codable {
+struct WorkspaceConfig: Codable, Sendable {
     var id: String
     var name: String
     var path: String

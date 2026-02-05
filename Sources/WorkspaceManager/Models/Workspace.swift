@@ -1,6 +1,6 @@
 import Foundation
 
-struct Workspace: Identifiable, Codable, Hashable {
+struct Workspace: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var name: String
     var path: String
