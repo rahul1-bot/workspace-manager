@@ -133,6 +133,11 @@ struct WorkspaceManagerApp: App {
                     appState.showNewWorkspaceSheet = true
                 }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
+
+                Button("Command Palette") {
+                    NotificationCenter.default.post(name: .wmToggleCommandPalette, object: nil)
+                }
+                .keyboardShortcut("p", modifiers: .command)
             }
 
             CommandGroup(after: .sidebar) {
@@ -145,4 +150,8 @@ struct WorkspaceManagerApp: App {
             }
         }
     }
+}
+
+extension Notification.Name {
+    static let wmToggleCommandPalette = Notification.Name("wmToggleCommandPalette")
 }
