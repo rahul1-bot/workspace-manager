@@ -71,52 +71,13 @@ class GhosttyAppManager {
             return true
         }
         runtimeConfig.read_clipboard_cb = { userdata, location, state in
-            // Read clipboard
             guard let state = state else { return }
-            let content = NSPasteboard.general.string(forType: .string) ?? ""
-            InputEventRecorder.shared.record(
-                kind: .ghosttyCallback,
-                keyCode: nil,
-                modifierFlags: 0,
-                details: "read_clipboard_cb location=\(location.rawValue)"
-            )
-            content.withCString { cstr in
-                ghostty_surface_complete_clipboard_request(state, cstr, nil, false)
-            }
+            GhosttyClipboardBridge.shared.completeReadRequest(state: state, location: location)
         }
         runtimeConfig.confirm_read_clipboard_cb = nil
         runtimeConfig.write_clipboard_cb = { (userdata: UnsafeMutableRawPointer?, location: ghostty_clipboard_e, content: UnsafePointer<ghostty_clipboard_content_s>?, len: Int, confirm: Bool) in
-            // Write clipboard - content is an array of ghostty_clipboard_content_s
             guard let content = content, len > 0 else { return }
-            InputEventRecorder.shared.record(
-                kind: .ghosttyCallback,
-                keyCode: nil,
-                modifierFlags: 0,
-                details: "write_clipboard_cb location=\(location.rawValue) entries=\(len) confirm=\(confirm)"
-            )
-
-            // Process the first content item with bounded null-terminated string handling
-            let contentItem = content.pointee
-            guard let dataPtr = contentItem.data else { return }
-
-            // Use bounded scan for null terminator to prevent buffer overruns
-            // This is safer than unbounded String(cString:)
-            let maxLen = 10_000_000  // 10MB safety limit
-            var actualLen = 0
-            while actualLen < maxLen && dataPtr[actualLen] != 0 {
-                actualLen += 1
-            }
-
-            guard actualLen < maxLen else {
-                NSLog("[GhosttyAppManager] Clipboard content exceeded safety limit")
-                return
-            }
-
-            let data = Data(bytes: dataPtr, count: actualLen)
-            if let str = String(data: data, encoding: .utf8) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(str, forType: .string)
-            }
+            GhosttyClipboardBridge.shared.writeClipboard(contents: content, count: len, location: location, confirm: confirm)
         }
         runtimeConfig.close_surface_cb = { userdata, processAlive in
             // Handle surface close
@@ -176,6 +137,7 @@ class GhosttyAppManager {
     }
 
     deinit {
+        GhosttyClipboardBridge.shared.cleanupRetainedResponses()
         if let app = app {
             ghostty_app_free(app)
         }
@@ -193,6 +155,7 @@ class GhosttySurfaceNSView: NSView {
     let workingDirectory: String
     private var workingDirectoryCString: UnsafeMutablePointer<CChar>?
     private var isCurrentlySelected: Bool = false
+    private var previousModifierFlags: NSEvent.ModifierFlags = []
 
     // MARK: - Custom Momentum Physics
     private var scrollVelocityY: Double = 0
@@ -447,7 +410,13 @@ class GhosttySurfaceNSView: NSView {
         )
 
         var keyEvent = ghostty_input_key_s()
-        keyEvent.action = GHOSTTY_ACTION_PRESS
+        let current = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if let changedFlag = modifierFlag(for: event.keyCode) {
+            keyEvent.action = current.contains(changedFlag) ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE
+        } else {
+            let previous = previousModifierFlags.intersection(.deviceIndependentFlagsMask)
+            keyEvent.action = current.rawValue >= previous.rawValue ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE
+        }
         keyEvent.mods = translateModifiers(event.modifierFlags)
         keyEvent.consumed_mods = consumedMods(event.modifierFlags)
         keyEvent.keycode = UInt32(event.keyCode)
@@ -456,7 +425,25 @@ class GhosttySurfaceNSView: NSView {
         keyEvent.composing = false
 
         _ = ghostty_surface_key(surface, keyEvent)
+        previousModifierFlags = current
         GhosttyAppManager.shared.tick()
+    }
+
+    private func modifierFlag(for keyCode: UInt16) -> NSEvent.ModifierFlags? {
+        switch keyCode {
+        case 54, 55:
+            return .command
+        case 56, 60:
+            return .shift
+        case 58, 61:
+            return .option
+        case 59, 62:
+            return .control
+        case 57:
+            return .capsLock
+        default:
+            return nil
+        }
     }
 
     private func translateModifiers(_ flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {
@@ -486,6 +473,10 @@ class GhosttySurfaceNSView: NSView {
     }
 
     private func ghosttyCharacters(for event: NSEvent) -> String? {
+        if event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control) {
+            return nil
+        }
+
         guard let characters = event.characters else { return nil }
 
         if characters.count == 1, let scalar = characters.unicodeScalars.first {

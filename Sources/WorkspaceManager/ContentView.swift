@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var showCommandPalette = false
     @State private var showShortcutsHelp = false
     @State private var showCloseTerminalConfirm = false
+    @State private var shortcutThrottle: [String: TimeInterval] = [:]
 
     var body: some View {
         ZStack {
@@ -83,6 +84,7 @@ struct ContentView: View {
         guard eventMonitor == nil else { return }
 
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
+            guard NSApp.isActive else { return event }
             let cmd = event.modifierFlags.contains(.command)
             let shift = event.modifierFlags.contains(.shift)
             let char = (event.charactersIgnoringModifiers ?? "").lowercased()
@@ -110,8 +112,14 @@ struct ContentView: View {
                 return event
             }
 
+            let repeatFriendly: Set<String> = ["i", "k", "[", "]"]
+            if cmd && event.isARepeat && !repeatFriendly.contains(char) {
+                return nil
+            }
+
             // ⌘B toggle sidebar visibility (focus stays on terminal)
             if cmd && char == "b" {
+                guard shouldExecuteShortcut("toggleSidebar") else { return nil }
                 if appState.focusMode {
                     appState.setFocusMode(false)
                 }
@@ -122,12 +130,14 @@ struct ContentView: View {
 
             // ⌘T new terminal
             if cmd && char == "t" {
+                guard shouldExecuteShortcut("newTerminal") else { return nil }
                 appState.createTerminalViaShortcut()
                 return nil
             }
 
             // ⇧⌘N new workspace (sheet)
             if cmd && shift && char == "n" {
+                guard shouldExecuteShortcut("newWorkspace") else { return nil }
                 if appState.focusMode {
                     appState.setFocusMode(false)
                 }
@@ -163,6 +173,7 @@ struct ContentView: View {
 
             // ⌘J - focus sidebar (show if hidden)
             if cmd && char == "j" {
+                guard shouldExecuteShortcut("focusSidebar") else { return nil }
                 if appState.focusMode {
                     appState.setFocusMode(false)
                 }
@@ -173,12 +184,14 @@ struct ContentView: View {
 
             // ⌘L - focus terminal
             if cmd && char == "l" {
+                guard shouldExecuteShortcut("focusTerminal") else { return nil }
                 sidebarFocused = false
                 return nil
             }
 
             // ⌘E - toggle workspace expand/collapse
             if cmd && char == "e" {
+                guard shouldExecuteShortcut("toggleExpand") else { return nil }
                 if appState.focusMode {
                     appState.setFocusMode(false)
                 }
@@ -192,6 +205,7 @@ struct ContentView: View {
 
             // ⌘O - open workspace in Finder
             if cmd && char == "o" {
+                guard shouldExecuteShortcut("openFinder") else { return nil }
                 if let ws = appState.selectedWorkspace {
                     NSWorkspace.shared.open(URL(fileURLWithPath: ws.path))
                 }
@@ -209,12 +223,14 @@ struct ContentView: View {
 
             // ⌘, - reveal config.toml in Finder
             if cmd && char == "," {
+                guard shouldExecuteShortcut("revealConfig") else { return nil }
                 NSWorkspace.shared.activateFileViewerSelecting([ConfigService.shared.configFileURL])
                 return nil
             }
 
             // ⌘. - toggle Focus Mode
             if cmd && char == "." {
+                guard shouldExecuteShortcut("toggleFocusMode") else { return nil }
                 appState.toggleFocusMode()
                 sidebarFocused = false
                 return nil
@@ -222,6 +238,7 @@ struct ContentView: View {
 
             // ⌘P - command palette
             if cmd && char == "p" {
+                guard shouldExecuteShortcut("togglePalette") else { return nil }
                 showCommandPalette.toggle()
                 sidebarFocused = false
                 return nil
@@ -229,12 +246,14 @@ struct ContentView: View {
 
             // ⇧⌘/ - shortcuts help
             if cmd && shift && char == "/" {
+                guard shouldExecuteShortcut("toggleHelp") else { return nil }
                 showShortcutsHelp.toggle()
                 return nil
             }
 
             // ⌘W - close selected terminal (confirm)
             if cmd && char == "w" {
+                guard shouldExecuteShortcut("closeTerminalPrompt") else { return nil }
                 if appState.selectedTerminalId != nil {
                     showCloseTerminalConfirm = true
                     return nil
@@ -284,6 +303,7 @@ struct ContentView: View {
 
             // ⌘R - rename (inline)
             if cmd && char == "r" && !event.modifierFlags.contains(.shift) {
+                guard shouldExecuteShortcut("rename") else { return nil }
                 if appState.focusMode {
                     appState.setFocusMode(false)
                 }
@@ -295,6 +315,7 @@ struct ContentView: View {
 
             // ⇧⌘R - hot reload config.toml
             if cmd && char == "r" && event.modifierFlags.contains(.shift) {
+                guard shouldExecuteShortcut("reloadConfig") else { return nil }
                 appState.reloadFromConfig()
                 AppLogger.app.debug("config reloaded via Shift+Cmd+R")
                 return nil
@@ -339,6 +360,14 @@ struct ContentView: View {
 
             return event
         }
+    }
+
+    private func shouldExecuteShortcut(_ id: String, cooldown: TimeInterval = 0.08) -> Bool {
+        let now = CFAbsoluteTimeGetCurrent()
+        let last = shortcutThrottle[id] ?? 0
+        guard now - last >= cooldown else { return false }
+        shortcutThrottle[id] = now
+        return true
     }
 
     private func removeKeyboardMonitor() {
