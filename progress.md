@@ -1399,3 +1399,26 @@ momentumInterval = 1/120  // 120Hz updates
         5. ✅ swift test -Xswiftc -warnings-as-errors
     5. Operational notes:
         1. Existing non-phase workspace deltas (for example docs/code-guidelines file transition and .phases/phase-1/plan.md deletion) were intentionally excluded from hardening commits unless explicitly requested.
+
+---
+
+| Progress Todo | Dev Merge Completed + Open Whisper Terminal Bug | Date: 05 February 2026 | Time: 10:14 PM | Name: Ghost |
+
+    1. Snapshot reference:
+        1. logs/2026-02-05/workspace-manager_10_14_PM
+    2. Dev merge status:
+        1. Stacked hardening branches were merged into dev via fast-forward sequence.
+        2. Included phase scope:
+            1. Diagnostics/repro instrumentation
+            2. Clipboard and modifier handling hardening
+            3. Security hardening and typed errors
+            4. Keyboard routing abstraction
+            5. Architecture/concurrency refactor
+            6. Test and CI quality gates
+    3. Post-merge verification:
+        1. Sidebar rename field hold-command behavior: ✅ whisper blue bubble appears.
+        2. Main terminal focus hold-command behavior: not resolved; blue bubble still absent.
+        3. Isolate test with use_gpu_renderer = false: same failure signature in main terminal focus.
+    4. Current state:
+        1. Hardening program is merged and ready on dev.
+        2. Whisper hold-command in terminal focus remains an active defect and is tracked in ledger for immediate follow-up work.

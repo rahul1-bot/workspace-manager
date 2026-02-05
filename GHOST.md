@@ -57,6 +57,7 @@
     7. Run the manual keyboard and whisper validation matrix on live app sessions with WM_DIAGNOSTICS=1 and archive failure snapshots.
     8. Verify stacked-branch merge order into dev and attach per-phase verification summaries in merge notes.
     9. Evaluate remaining singleton surfaces (ConfigService.shared and GhosttyAppManager.shared) for future dependency-injection hardening without destabilizing runtime behavior.
+    10. Resolve unresolved whisper hold-command integration bug: sidebar rename field allows blue bubble trigger, but main terminal focus still blocks it.
 
 ## Paths
     1. Primary: Config-driven app with libghostty Metal renderer.

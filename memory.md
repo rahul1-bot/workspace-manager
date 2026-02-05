@@ -612,3 +612,18 @@
     3. Implication:
         1. Hardening changes have repeatable gates and can fail fast before merging to dev.
         2. Regression checks are now operational artifacts, not memory-dependent ritual.
+
+---
+
+| Memory | Whisper Hold-Command Bug Persists in Main Terminal Focus | Date: 05 February 2026 | Time: 10:14 PM | Name: Ghost |
+
+    1. Observation:
+        1. Post-hardening tests confirm asymmetric behavior for external whisper trigger.
+        2. Sidebar rename TextField path: hold Command shows the small blue whisper bubble and transcription pipeline works.
+        3. Main terminal focus path (right-side terminal surface): hold Command does not show the blue whisper bubble.
+        4. Isolate test with use_gpu_renderer = false still reproduces the same asymmetry, indicating the issue is not strictly renderer-selection dependent.
+    2. Decision:
+        1. Keep this defect explicitly open and track it as a focused integration issue at terminal input boundaries.
+        2. Preserve all merged stability/security hardening while we investigate responder-chain and secure-input interactions deeper.
+    3. Implication:
+        1. The application is significantly more stable overall but still has a high-priority UX/input integration gap for whisper hold-command in terminal focus.
