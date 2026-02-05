@@ -117,17 +117,17 @@ class AppState: ObservableObject {
         // Enforce unique workspace names
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else {
-            print("[AppState] Error: Workspace name cannot be empty")
+            AppLogger.app.error("workspace creation rejected: empty name")
             return false
         }
         guard !workspaces.contains(where: { $0.name == trimmedName }) else {
-            print("[AppState] Error: Workspace with name '\(trimmedName)' already exists")
+            AppLogger.app.error("workspace creation rejected: duplicate name")
             return false
         }
 
         let expandedPath = configService.expandPath(path)
         if !FileManager.default.fileExists(atPath: expandedPath) {
-            print("[AppState] Warning: Workspace path does not exist: \(expandedPath)")
+            AppLogger.app.warning("workspace path does not exist")
         }
 
         // Generate stable ID that will be saved to config

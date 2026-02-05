@@ -80,20 +80,26 @@ struct TerminalView: NSViewRepresentable {
         let cwdCandidates = [workingDirectory, preferredRoot, homeDir]
         let cwd = cwdCandidates.first(where: { !$0.isEmpty && FileManager.default.fileExists(atPath: $0) }) ?? homeDir
 
-        // Set environment with working directory
-        var env = ProcessInfo.processInfo.environment
-        env["PWD"] = cwd
-
-        // Escape the working directory path to prevent shell injection
-        // Replace single quotes with '\'' (end quote, escaped quote, start quote)
-        let escapedCwd = cwd.replacingOccurrences(of: "'", with: "'\\''")
-
-        terminalView.startProcess(
-            executable: shell,
-            args: ["-c", "cd '\(escapedCwd)' && exec \(shell)"],
-            environment: Array(env.map { "\($0.key)=\($0.value)" }),
-            execName: nil
-        )
+        do {
+            let launchPlan = try TerminalLaunchPolicy.buildPlan(
+                shellFromEnvironment: shell,
+                workingDirectory: cwd
+            )
+            terminalView.startProcess(
+                executable: launchPlan.executable,
+                args: launchPlan.args,
+                environment: launchPlan.environment,
+                execName: nil
+            )
+        } catch {
+            AppLogger.terminal.error("terminal launch policy rejected shell/cwd: \(String(describing: error), privacy: .public)")
+            terminalView.startProcess(
+                executable: "/bin/zsh",
+                args: ["-l"],
+                environment: nil,
+                execName: nil
+            )
+        }
 
         let click = NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.focusTerminal))
         terminalView.addGestureRecognizer(click)

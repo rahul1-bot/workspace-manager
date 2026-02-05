@@ -71,15 +71,14 @@ class ConfigService {
 
     /// Load configuration from TOML file
     func loadConfig() {
-        print("[ConfigService] Loading config from: \(configPath.path)")
         // Check if config file exists
         guard FileManager.default.fileExists(atPath: configPath.path) else {
-            print("[ConfigService] Config file does not exist, creating default")
+            AppLogger.config.info("config file does not exist; creating default")
             // Create default config only when no config exists
             createDefaultConfig()
             return
         }
-        print("[ConfigService] Config file exists, parsing...")
+        AppLogger.config.debug("loading existing config")
 
         do {
             let tomlString = try String(contentsOf: configPath, encoding: .utf8)
@@ -140,19 +139,24 @@ class ConfigService {
                             id = UUID().uuidString
                             needsSave = true
                             if let existingId = wsTable["id"] as? String, !existingId.isEmpty {
-                                print("[ConfigService] Warning: Invalid workspace ID '\(existingId)' for '\(name)', regenerating")
+                                AppLogger.config.warning("invalid workspace id regenerated")
                             }
                         }
 
                         // Check for duplicate IDs and regenerate if needed
                         if seenIds.contains(id) {
-                            print("[ConfigService] Warning: Duplicate workspace ID '\(id)' for '\(name)', regenerating")
+                            AppLogger.config.warning("duplicate workspace id regenerated")
                             id = UUID().uuidString
                             needsSave = true
                         }
                         seenIds.insert(id)
-
-                        workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath))
+                        do {
+                            try validateWorkspace(name: name, path: expandedPath, id: id)
+                            workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath))
+                        } catch {
+                            needsSave = true
+                            AppLogger.config.error("workspace entry dropped during validation: \(String(describing: error), privacy: .public)")
+                        }
                     }
                 }
             }
@@ -232,9 +236,8 @@ class ConfigService {
         } catch {
             // IMPORTANT: Do NOT overwrite user config on parse failure
             // Keep existing config in memory and log the error clearly
-            print("[ConfigService] ERROR: Failed to parse config.toml: \(error)")
-            print("[ConfigService] Using default configuration in memory. User config at \(configPath.path) is preserved.")
-            print("[ConfigService] Please fix the TOML syntax and restart the app.")
+            let wrapped = ConfigLoadError.parseFailed(configPath, String(describing: error))
+            AppLogger.config.error("config parse failed: \(String(describing: wrapped), privacy: .public)")
             // Keep defaults in memory but don't overwrite the user's file.
             // Ensure the app still has a usable workspace even when the user's TOML is broken.
             self.config = AppConfig(
@@ -319,7 +322,8 @@ class ConfigService {
         do {
             try toml.write(to: configPath, atomically: true, encoding: .utf8)
         } catch {
-            print("[ConfigService] Failed to save config.toml: \(error)")
+            let wrapped = ConfigLoadError.saveFailed(configPath, String(describing: error))
+            AppLogger.config.error("config save failed: \(String(describing: wrapped), privacy: .public)")
         }
     }
 
@@ -347,12 +351,12 @@ class ConfigService {
     func addWorkspace(id: String, name: String, path: String) {
         // Enforce unique names
         guard !config.workspaces.contains(where: { $0.name == name }) else {
-            print("[ConfigService] Error: Workspace with name '\(name)' already exists")
+            AppLogger.config.error("addWorkspace rejected: duplicate name")
             return
         }
         // Enforce unique IDs
         guard !config.workspaces.contains(where: { $0.id == id }) else {
-            print("[ConfigService] Error: Workspace with ID '\(id)' already exists")
+            AppLogger.config.error("addWorkspace rejected: duplicate id")
             return
         }
         let newWorkspace = WorkspaceConfig(id: id, name: name, path: path)
@@ -382,5 +386,17 @@ class ConfigService {
     func setFocusMode(_ enabled: Bool) {
         config.appearance.focus_mode = enabled
         saveConfig()
+    }
+
+    private func validateWorkspace(name: String, path: String, id: String) throws {
+        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw ConfigValidationError.emptyWorkspaceName
+        }
+        if UUID(uuidString: id) == nil {
+            throw ConfigValidationError.invalidWorkspaceIdentifier(id)
+        }
+        if path.isEmpty || path.contains("\0") {
+            throw ConfigValidationError.invalidWorkspacePath(path)
+        }
     }
 }

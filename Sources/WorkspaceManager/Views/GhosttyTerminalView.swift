@@ -23,35 +23,32 @@ class GhosttyAppManager {
     /// Initialize libghostty - call once at app startup
     func initialize() {
         guard !initialized else {
-            NSLog("[GhosttyAppManager] Already initialized")
+            AppLogger.ghostty.debug("app manager already initialized")
             return
         }
         initialized = true
-        NSLog("[GhosttyAppManager] Starting initialization...")
+        AppLogger.ghostty.info("starting ghostty initialization")
 
         // Initialize the library
-        NSLog("[GhosttyAppManager] Calling ghostty_init...")
         let result = ghostty_init(0, nil)
         guard result == 0 else {
-            NSLog("[GhosttyAppManager] ghostty_init failed with code: \(result)")
+            AppLogger.ghostty.error("ghostty_init failed code=\(result, privacy: .public)")
             return
         }
-        NSLog("[GhosttyAppManager] ghostty_init succeeded")
+        AppLogger.ghostty.debug("ghostty_init succeeded")
 
         // Create configuration
-        NSLog("[GhosttyAppManager] Creating config...")
         guard let cfg = ghostty_config_new() else {
-            NSLog("[GhosttyAppManager] ghostty_config_new failed")
+            AppLogger.ghostty.error("ghostty_config_new failed")
             return
         }
         self.config = cfg
-        NSLog("[GhosttyAppManager] Config created")
+        AppLogger.ghostty.debug("ghostty config created")
 
         // Load default config files
-        NSLog("[GhosttyAppManager] Loading config files...")
         ghostty_config_load_default_files(cfg)
         ghostty_config_finalize(cfg)
-        NSLog("[GhosttyAppManager] Config finalized")
+        AppLogger.ghostty.debug("ghostty config finalized")
 
         // Create runtime config with callbacks
         var runtimeConfig = ghostty_runtime_config_s()
@@ -84,14 +81,13 @@ class GhosttyAppManager {
         }
 
         // Create the app
-        NSLog("[GhosttyAppManager] Creating ghostty app...")
         guard let app = ghostty_app_new(&runtimeConfig, cfg) else {
-            NSLog("[GhosttyAppManager] ghostty_app_new failed")
+            AppLogger.ghostty.error("ghostty_app_new failed")
             return
         }
         self.app = app
 
-        NSLog("[GhosttyAppManager] Initialized successfully! App is ready.")
+        AppLogger.ghostty.info("ghostty initialized")
     }
 
     /// Process pending work - call regularly
@@ -186,26 +182,22 @@ class GhosttySurfaceNSView: NSView {
     }
 
     private func setupSurface() {
-        NSLog("[GhosttySurfaceNSView] setupSurface called")
         guard let app = GhosttyAppManager.shared.app else {
-            NSLog("[GhosttySurfaceNSView] No app available - GhosttyAppManager not initialized?")
+            AppLogger.ghostty.error("surface setup failed: app not initialized")
             return
         }
-        NSLog("[GhosttySurfaceNSView] Got app, creating surface...")
 
         // Create surface using closure to ensure C string lifetime safety
         let createdSurface: ghostty_surface_t? = createSurfaceWithConfig(app: app)
 
         guard let surface = createdSurface else {
-            NSLog("[GhosttySurfaceNSView] ghostty_surface_new failed!")
+            AppLogger.ghostty.error("ghostty_surface_new failed")
             return
         }
         self.surface = surface
-        NSLog("[GhosttySurfaceNSView] Surface created successfully!")
 
         // Set initial size
         updateSurfaceSize()
-        NSLog("[GhosttySurfaceNSView] Size updated, surface is ready for rendering")
     }
 
     private func createSurfaceWithConfig(app: ghostty_app_t) -> ghostty_surface_t? {
@@ -229,13 +221,11 @@ class GhosttySurfaceNSView: NSView {
         if !workingDirectory.isEmpty {
             let cstr = strdup(workingDirectory)
             guard let cstr else {
-                NSLog("[GhosttySurfaceNSView] strdup failed for working_directory")
-                NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new without working_directory...")
+                AppLogger.ghostty.error("working_directory strdup failed")
                 return ghostty_surface_new(app, &surfaceConfig)
             }
             workingDirectoryCString = cstr
             surfaceConfig.working_directory = UnsafePointer(cstr)
-            NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new with working_directory...")
             let created = ghostty_surface_new(app, &surfaceConfig)
             if created == nil {
                 free(cstr)
@@ -244,7 +234,6 @@ class GhosttySurfaceNSView: NSView {
             return created
         }
 
-        NSLog("[GhosttySurfaceNSView] Calling ghostty_surface_new without working_directory...")
         return ghostty_surface_new(app, &surfaceConfig)
     }
 
