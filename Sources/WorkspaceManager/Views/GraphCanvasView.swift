@@ -15,8 +15,8 @@ struct GraphCanvasView: View {
     private let nodeCornerRadius: CGFloat = 8
     private let gridSpacing: CGFloat = 40
     private let hitTestRadius: CGFloat = 80
-    private let panSensitivity: Double = 0.55
-    private let zoomSensitivity: Double = 0.3
+    private let panSensitivity: Double = 0.35
+    private let zoomSensitivity: Double = 0.15
 
     var body: some View {
         GeometryReader { geometry in
