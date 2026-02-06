@@ -26,11 +26,12 @@ struct ContentView: View {
     @State private var diffPanelDragStartRatio: CGFloat?
     @State private var isDiffResizeHandleHovering = false
     @State private var isDiffPanelResizing = false
+    @State private var lastDiffResizeUpdateTime: CFAbsoluteTime = 0
     private let shortcutRouter = KeyboardShortcutRouter()
     private let minDiffPanelWidthRatio: CGFloat = 0.2
     private let maxDiffPanelWidthRatio: CGFloat = 1.0
     private let defaultDiffPanelWidthRatio: CGFloat = 0.5
-    private let resizeStepRatio: CGFloat = 0.006
+    private let resizeStepRatio: CGFloat = 0.001
 
     var body: some View {
         ZStack {
@@ -320,6 +321,7 @@ struct ContentView: View {
                         if diffPanelDragStartRatio == nil {
                             diffPanelDragStartRatio = diffPanelWidthRatio
                             isDiffPanelResizing = true
+                            lastDiffResizeUpdateTime = CFAbsoluteTimeGetCurrent()
                         }
                         let startRatio = diffPanelDragStartRatio ?? diffPanelWidthRatio
                         let deltaRatio = -value.translation.width / max(terminalWidth, 1)
@@ -329,6 +331,10 @@ struct ContentView: View {
                         let steppedRatio = (rawClampedRatio / step).rounded() * step
                         let clampedRatio = min(maxDiffPanelWidthRatio, max(0, steppedRatio))
                         guard abs(clampedRatio - diffPanelWidthRatio) >= (step / 2) else { return }
+                        let now = CFAbsoluteTimeGetCurrent()
+                        let minimumUpdateInterval = 1.0 / 90.0
+                        guard now - lastDiffResizeUpdateTime >= minimumUpdateInterval else { return }
+                        lastDiffResizeUpdateTime = now
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
@@ -344,6 +350,7 @@ struct ContentView: View {
                         }
                         diffPanelDragStartRatio = nil
                         isDiffPanelResizing = false
+                        lastDiffResizeUpdateTime = 0
                     }
             )
             .onHover { hovering in
@@ -361,6 +368,7 @@ struct ContentView: View {
                     isDiffResizeHandleHovering = false
                 }
                 isDiffPanelResizing = false
+                lastDiffResizeUpdateTime = 0
             }
     }
 }

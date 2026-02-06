@@ -75,12 +75,8 @@ struct DiffCodeRowView: View {
             : tokens
 
         return activeTokens.reduce(Text("")) { partial, token in
-            var fragment = Text(verbatim: token.text)
+            let fragment = Text(verbatim: token.text)
                 .foregroundColor(tokenColor(for: token.tokenClass))
-
-            if hasEmphasis(start: token.start, end: token.end) {
-                fragment = fragment.underline(true, color: emphasisColor)
-            }
 
             return partial + fragment
         }
@@ -162,21 +158,6 @@ struct DiffCodeRowView: View {
         case .noNewlineMarker:
             return Color.white.opacity(0.04)
         }
-    }
-
-    private var emphasisColor: Color {
-        switch line.kind {
-        case .addition:
-            return Color.green.opacity(0.95)
-        case .deletion:
-            return Color.red.opacity(0.95)
-        default:
-            return Color.yellow.opacity(0.9)
-        }
-    }
-
-    private func hasEmphasis(start: Int, end: Int) -> Bool {
-        line.emphasisSpans.contains { $0.overlaps(start: start, end: end) }
     }
 
     private func tokenColor(for tokenClass: DiffTokenClass) -> Color {

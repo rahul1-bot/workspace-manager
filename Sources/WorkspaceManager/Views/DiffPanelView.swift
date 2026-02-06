@@ -39,15 +39,19 @@ struct DiffPanelView: View {
 
     private var panelBackground: some View {
         ZStack {
-            VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0.28),
-                    Color.black.opacity(0.18)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            if isResizing {
+                Color.black.opacity(0.48)
+            } else {
+                VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.28),
+                        Color.black.opacity(0.18)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
         }
     }
 

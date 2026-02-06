@@ -99,7 +99,7 @@ final class DiffPatchParserTests: XCTestCase {
         XCTAssertTrue(hunkLines.last?.isNoNewlineMarker ?? false)
     }
 
-    func testIntralinePairingAddsEmphasisSpans() {
+    func testIntralineSpansAreDisabledForCleanerRendering() {
         let patch = """
         diff --git a/Sources/A.swift b/Sources/A.swift
         index 1111111..2222222 100644
@@ -119,8 +119,8 @@ final class DiffPatchParserTests: XCTestCase {
         let deletion = lines.first(where: { $0.kind == .deletion })
         let addition = lines.first(where: { $0.kind == .addition })
 
-        XCTAssertFalse(deletion?.emphasisSpans.isEmpty ?? true)
-        XCTAssertFalse(addition?.emphasisSpans.isEmpty ?? true)
+        XCTAssertTrue(deletion?.emphasisSpans.isEmpty ?? false)
+        XCTAssertTrue(addition?.emphasisSpans.isEmpty ?? false)
     }
 
     func testFallbackDocumentWhenPatchIsNotUnifiedDiff() {

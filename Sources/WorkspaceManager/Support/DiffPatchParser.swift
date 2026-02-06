@@ -227,8 +227,6 @@ struct DiffPatchParser {
             lineIndex += 1
         }
 
-        let emphasizedLines = annotateIntralineEmphasis(lines: renderableLines)
-
         let hunk = DiffHunk(
             id: "diff-file-\(fileIndex)-hunk-\(hunkIndex)",
             headerText: headerText,
@@ -236,7 +234,7 @@ struct DiffPatchParser {
             oldCount: header.oldCount,
             newStart: header.newStart,
             newCount: header.newCount,
-            lines: emphasizedLines
+            lines: renderableLines
         )
 
         return (hunk: hunk, nextIndex: cursor)
