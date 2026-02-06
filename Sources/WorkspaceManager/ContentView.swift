@@ -25,10 +25,13 @@ struct ContentView: View {
     @State private var diffPanelWidthRatio: CGFloat = 0.5
     @State private var diffPanelDragStartRatio: CGFloat?
     @State private var isDiffResizeHandleHovering = false
+    @State private var isDiffPanelResizing = false
+    @State private var lastDiffResizeUpdateTime: CFAbsoluteTime = 0
     private let shortcutRouter = KeyboardShortcutRouter()
     private let minDiffPanelWidthRatio: CGFloat = 0.2
     private let maxDiffPanelWidthRatio: CGFloat = 1.0
     private let defaultDiffPanelWidthRatio: CGFloat = 0.5
+    private let resizeStepRatio: CGFloat = 0.001
 
     var body: some View {
         ZStack {
@@ -36,49 +39,11 @@ struct ContentView: View {
             GlassSidebarBackground()
                 .ignoresSafeArea()
 
-            HStack(spacing: 0) {
-                // Sidebar - instant toggle, no animation
-                // Uses appState.showSidebar as single source of truth
-                if appState.showSidebar && !appState.focusMode {
-                    WorkspaceSidebar()
-                        .frame(width: 240)
-                        .overlay(
-                            // Visual indicator when sidebar is focused
-                            RoundedRectangle(cornerRadius: 0)
-                                .stroke(sidebarFocused ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 2)
-                        )
-                }
-
-                // Terminal area
-                GeometryReader { terminalGeometry in
-                    let terminalWidth = max(terminalGeometry.size.width, 1)
-
-                    TerminalContainer(showHeader: !appState.focusMode)
-                        .overlay(alignment: .topLeading) {
-                            if appState.focusMode {
-                                FocusModeOverlay()
-                                    .padding(.leading, 12)
-                                    .padding(.top, 10)
-                            }
-                        }
-                        .overlay(alignment: .trailing) {
-                            if appState.gitPanelState.isPresented {
-                                DiffPanelView(
-                                    state: appState.gitPanelState,
-                                    onClose: {
-                                        appState.dismissDiffPanelPlaceholder()
-                                    },
-                                    onModeSelected: { mode in
-                                        appState.setDiffPanelModePlaceholder(mode)
-                                    }
-                                )
-                                .frame(width: terminalWidth * diffPanelWidthRatio)
-                                .overlay(alignment: .leading) {
-                                    diffResizeHandle(terminalWidth: terminalWidth)
-                                }
-                            }
-                        }
-                }
+            switch appState.currentViewMode {
+            case .sidebar:
+                sidebarModeContent
+            case .graph:
+                GraphCanvasView()
             }
 
             if showCommandPalette {
@@ -122,6 +87,7 @@ struct ContentView: View {
         .onAppear {
             setupKeyboardMonitor()
             appState.refreshGitUIState()
+            appState.loadGraphState()
         }
         .onDisappear {
             removeKeyboardMonitor()
@@ -130,6 +96,13 @@ struct ContentView: View {
             showCommandPalette.toggle()
             sidebarFocused = false
         }
+        .onChange(of: appState.gitPanelState.isPresented) { _, isPresented in
+            if !isPresented {
+                diffPanelDragStartRatio = nil
+                isDiffPanelResizing = false
+                lastDiffResizeUpdateTime = 0
+            }
+        }
         .alert("Close Terminal?", isPresented: $showCloseTerminalConfirm) {
             Button("Cancel", role: .cancel) {}
             Button("Close", role: .destructive) {
@@ -137,6 +110,50 @@ struct ContentView: View {
             }
         } message: {
             Text("This will terminate the running shell session in the selected terminal.")
+        }
+    }
+
+    private var sidebarModeContent: some View {
+        HStack(spacing: 0) {
+            if appState.showSidebar && !appState.focusMode {
+                WorkspaceSidebar()
+                    .frame(width: 240)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 0)
+                            .stroke(sidebarFocused ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 2)
+                    )
+            }
+
+            GeometryReader { terminalGeometry in
+                let terminalWidth = max(terminalGeometry.size.width, 1)
+
+                TerminalContainer(showHeader: !appState.focusMode)
+                    .overlay(alignment: .topLeading) {
+                        if appState.focusMode {
+                            FocusModeOverlay()
+                                .padding(.leading, 12)
+                                .padding(.top, 10)
+                        }
+                    }
+                    .overlay(alignment: .trailing) {
+                        if appState.gitPanelState.isPresented {
+                            DiffPanelView(
+                                state: appState.gitPanelState,
+                                isResizing: isDiffPanelResizing,
+                                onClose: {
+                                    appState.dismissDiffPanelPlaceholder()
+                                },
+                                onModeSelected: { mode in
+                                    appState.setDiffPanelModePlaceholder(mode)
+                                }
+                            )
+                            .frame(width: terminalWidth * diffPanelWidthRatio)
+                            .overlay(alignment: .leading) {
+                                diffResizeHandle(terminalWidth: terminalWidth)
+                            }
+                        }
+                    }
+            }
         }
     }
 
@@ -158,7 +175,8 @@ struct ContentView: View {
                 showCommitSheet: appState.commitSheetState.isPresented,
                 showDiffPanel: appState.gitPanelState.isPresented,
                 sidebarFocused: sidebarFocused,
-                selectedTerminalExists: appState.selectedTerminalId != nil
+                selectedTerminalExists: appState.selectedTerminalId != nil,
+                isGraphMode: appState.currentViewMode == .graph
             )
 
             switch shortcutRouter.route(event: event, context: context) {
@@ -286,6 +304,20 @@ struct ContentView: View {
             appState.selectNextTerminal()
         case .sidebarReturnToTerminal:
             sidebarFocused = false
+        case .toggleViewMode:
+            guard shouldExecuteShortcut("toggleViewMode") else { return }
+            appState.toggleViewMode()
+            sidebarFocused = false
+        case .unfocusGraphNode:
+            appState.unfocusGraphNode()
+        case .graphZoomIn:
+            NotificationCenter.default.post(name: .wmGraphZoomIn, object: nil)
+        case .graphZoomOut:
+            NotificationCenter.default.post(name: .wmGraphZoomOut, object: nil)
+        case .graphZoomToFit:
+            NotificationCenter.default.post(name: .wmGraphZoomToFit, object: nil)
+        case .graphRerunLayout:
+            appState.rerunForceLayout()
         case .swallow:
             break
         }
@@ -316,12 +348,21 @@ struct ContentView: View {
                     .onChanged { value in
                         if diffPanelDragStartRatio == nil {
                             diffPanelDragStartRatio = diffPanelWidthRatio
+                            isDiffPanelResizing = true
+                            lastDiffResizeUpdateTime = CFAbsoluteTimeGetCurrent()
                         }
                         let startRatio = diffPanelDragStartRatio ?? diffPanelWidthRatio
                         let deltaRatio = -value.translation.width / max(terminalWidth, 1)
                         let candidateRatio = startRatio + deltaRatio
-                        let clampedRatio = min(maxDiffPanelWidthRatio, max(0, candidateRatio))
-                        guard abs(clampedRatio - diffPanelWidthRatio) >= 0.002 else { return }
+                        let rawClampedRatio = min(maxDiffPanelWidthRatio, max(0, candidateRatio))
+                        let step = max(resizeStepRatio, 1 / max(terminalWidth, 1))
+                        let steppedRatio = (rawClampedRatio / step).rounded() * step
+                        let clampedRatio = min(maxDiffPanelWidthRatio, max(0, steppedRatio))
+                        guard abs(clampedRatio - diffPanelWidthRatio) >= (step / 2) else { return }
+                        let now = CFAbsoluteTimeGetCurrent()
+                        let minimumUpdateInterval = 1.0 / 90.0
+                        guard now - lastDiffResizeUpdateTime >= minimumUpdateInterval else { return }
+                        lastDiffResizeUpdateTime = now
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
@@ -336,6 +377,8 @@ struct ContentView: View {
                             diffPanelWidthRatio = min(maxDiffPanelWidthRatio, max(minDiffPanelWidthRatio, diffPanelWidthRatio))
                         }
                         diffPanelDragStartRatio = nil
+                        isDiffPanelResizing = false
+                        lastDiffResizeUpdateTime = 0
                     }
             )
             .onHover { hovering in
@@ -352,6 +395,8 @@ struct ContentView: View {
                     NSCursor.pop()
                     isDiffResizeHandleHovering = false
                 }
+                isDiffPanelResizing = false
+                lastDiffResizeUpdateTime = 0
             }
     }
 }

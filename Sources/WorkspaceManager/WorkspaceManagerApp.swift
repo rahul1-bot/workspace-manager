@@ -154,4 +154,7 @@ struct WorkspaceManagerApp: App {
 
 extension Notification.Name {
     static let wmToggleCommandPalette = Notification.Name("wmToggleCommandPalette")
+    static let wmGraphZoomIn = Notification.Name("wmGraphZoomIn")
+    static let wmGraphZoomOut = Notification.Name("wmGraphZoomOut")
+    static let wmGraphZoomToFit = Notification.Name("wmGraphZoomToFit")
 }

@@ -7,4 +7,5 @@ enum AppLogger {
     static let ghostty = Logger(subsystem: "WorkspaceManager", category: "ghostty")
     static let config = Logger(subsystem: "WorkspaceManager", category: "config")
     static let terminal = Logger(subsystem: "WorkspaceManager", category: "terminal")
+    static let graph = Logger(subsystem: "WorkspaceManager", category: "graph")
 }

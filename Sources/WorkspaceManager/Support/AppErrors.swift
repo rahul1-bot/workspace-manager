@@ -67,3 +67,23 @@ enum InputRoutingError: Error, LocalizedError, Sendable {
         }
     }
 }
+
+enum GraphStateError: Error, LocalizedError, Sendable {
+    case fileReadFailed(URL, String)
+    case decodingFailed(URL, String)
+    case encodingFailed(String)
+    case saveFailed(URL, String)
+
+    var errorDescription: String? {
+        switch self {
+        case .fileReadFailed(let url, let detail):
+            return "Failed to read graph state at \(url.path): \(detail)"
+        case .decodingFailed(let url, let detail):
+            return "Failed to decode graph state at \(url.path): \(detail)"
+        case .encodingFailed(let detail):
+            return "Failed to encode graph state: \(detail)"
+        case .saveFailed(let url, let detail):
+            return "Failed to save graph state at \(url.path): \(detail)"
+        }
+    }
+}
