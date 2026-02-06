@@ -41,6 +41,7 @@ enum CommitStagePolicy: String, Codable, Sendable {
 
 enum GitControlDisabledReason: String, Codable, Sendable {
     case noWorkspace
+    case noTerminalSelection
     case notGitRepository
     case unavailableInPhase
 
@@ -48,6 +49,8 @@ enum GitControlDisabledReason: String, Codable, Sendable {
         switch self {
         case .noWorkspace:
             return "No workspace selected"
+        case .noTerminalSelection:
+            return "No terminal selected"
         case .notGitRepository:
             return "Not a git repository"
         case .unavailableInPhase:

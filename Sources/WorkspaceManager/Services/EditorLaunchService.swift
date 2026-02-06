@@ -18,6 +18,13 @@ enum ExternalEditor: String, CaseIterable, Codable, Sendable {
     }
 }
 
+enum EditorLaunchMode: Equatable, Sendable {
+    case cli
+    case app
+    case finder
+    case unavailable
+}
+
 protocol EditorLaunching: Sendable {
     func availableEditors() async -> [ExternalEditor]
     func preferredEditor(for workspaceID: UUID) async -> ExternalEditor?
@@ -26,24 +33,46 @@ protocol EditorLaunching: Sendable {
 }
 
 actor EditorLaunchService: EditorLaunching {
+    nonisolated static let zedBundleIdentifiers = ["dev.zed.Zed", "dev.zed.Zed-Preview"]
+    nonisolated static let zedCLIPath = "/usr/local/bin/zed"
+
+    nonisolated static func preferredLaunchMode(
+        for editor: ExternalEditor,
+        appAvailable: Bool,
+        zedCLIAvailable: Bool
+    ) -> EditorLaunchMode {
+        switch editor {
+        case .finder:
+            return .finder
+        case .zed:
+            if zedCLIAvailable {
+                return .cli
+            }
+            return appAvailable ? .app : .unavailable
+        case .vsCode:
+            return appAvailable ? .app : .unavailable
+        }
+    }
+
     private let userDefaultsKey = "workspace_manager.preferred_editor_by_workspace"
-    private let editorBundleIdentifierMap: [ExternalEditor: String] = [
-        .zed: "dev.zed.Zed",
-        .vsCode: "com.microsoft.VSCode"
-    ]
 
     func availableEditors() async -> [ExternalEditor] {
-        return await MainActor.run {
-            var editors: [ExternalEditor] = []
-            for editor in [ExternalEditor.zed, ExternalEditor.vsCode] {
-                guard let bundleIdentifier = editorBundleIdentifierMap[editor] else { continue }
-                if NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) != nil {
-                    editors.append(editor)
-                }
+        var editors: [ExternalEditor] = []
+
+        for editor in [ExternalEditor.zed, ExternalEditor.vsCode] {
+            let appAvailable = await resolvedApplicationURL(bundleIdentifiers: bundleIdentifiers(for: editor)) != nil
+            let launchMode = Self.preferredLaunchMode(
+                for: editor,
+                appAvailable: appAvailable,
+                zedCLIAvailable: Self.isZedCLIAvailable()
+            )
+            if launchMode != .unavailable {
+                editors.append(editor)
             }
-            editors.append(.finder)
-            return editors
         }
+
+        editors.append(.finder)
+        return editors
     }
 
     func preferredEditor(for workspaceID: UUID) async -> ExternalEditor? {
@@ -59,13 +88,20 @@ actor EditorLaunchService: EditorLaunching {
     }
 
     func openWorkspace(at workspaceURL: URL, using editor: ExternalEditor) async {
-        await MainActor.run {
-            switch editor {
-            case .finder:
+        switch editor {
+        case .finder:
+            _ = await MainActor.run {
                 NSWorkspace.shared.open(workspaceURL)
-            case .zed, .vsCode:
-                guard let bundleIdentifier = editorBundleIdentifierMap[editor],
-                      let applicationURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+            }
+        case .zed:
+            if Self.isZedCLIAvailable(), Self.launchZedCLI(at: workspaceURL) {
+                return
+            }
+            fallthrough
+        case .vsCode:
+            let applicationURL = await resolvedApplicationURL(bundleIdentifiers: bundleIdentifiers(for: editor))
+            await MainActor.run {
+                guard let applicationURL else {
                     NSWorkspace.shared.open(workspaceURL)
                     return
                 }
@@ -81,5 +117,45 @@ actor EditorLaunchService: EditorLaunching {
 
     private func preferenceMap() -> [String: String] {
         return UserDefaults.standard.dictionary(forKey: userDefaultsKey) as? [String: String] ?? [:]
+    }
+
+    private func bundleIdentifiers(for editor: ExternalEditor) -> [String] {
+        switch editor {
+        case .zed:
+            return Self.zedBundleIdentifiers
+        case .vsCode:
+            return ["com.microsoft.VSCode"]
+        case .finder:
+            return []
+        }
+    }
+
+    private func resolvedApplicationURL(bundleIdentifiers: [String]) async -> URL? {
+        guard !bundleIdentifiers.isEmpty else { return nil }
+        return await MainActor.run {
+            for bundleIdentifier in bundleIdentifiers {
+                if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+                    return appURL
+                }
+            }
+            return nil
+        }
+    }
+
+    nonisolated private static func isZedCLIAvailable() -> Bool {
+        FileManager.default.isExecutableFile(atPath: zedCLIPath)
+    }
+
+    @discardableResult
+    nonisolated private static func launchZedCLI(at workspaceURL: URL) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: zedCLIPath)
+        process.arguments = [workspaceURL.path]
+        do {
+            try process.run()
+            return true
+        } catch {
+            return false
+        }
     }
 }

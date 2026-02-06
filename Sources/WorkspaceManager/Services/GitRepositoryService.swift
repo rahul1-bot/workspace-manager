@@ -211,16 +211,28 @@ actor GitRepositoryService: GitRepositoryServicing {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git", "-C", workspaceURL.path] + arguments
 
-        let standardOutputPipe = Pipe()
-        let standardErrorPipe = Pipe()
-        process.standardOutput = standardOutputPipe
-        process.standardError = standardErrorPipe
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+        let standardOutputURL = temporaryDirectory.appendingPathComponent("wm_git_stdout_\(UUID().uuidString)")
+        let standardErrorURL = temporaryDirectory.appendingPathComponent("wm_git_stderr_\(UUID().uuidString)")
+        FileManager.default.createFile(atPath: standardOutputURL.path, contents: nil)
+        FileManager.default.createFile(atPath: standardErrorURL.path, contents: nil)
+
+        let standardOutputHandle = try FileHandle(forWritingTo: standardOutputURL)
+        let standardErrorHandle = try FileHandle(forWritingTo: standardErrorURL)
+        defer {
+            try? standardOutputHandle.close()
+            try? standardErrorHandle.close()
+            try? FileManager.default.removeItem(at: standardOutputURL)
+            try? FileManager.default.removeItem(at: standardErrorURL)
+        }
+
+        process.standardOutput = standardOutputHandle
+        process.standardError = standardErrorHandle
 
         try process.run()
         process.waitUntilExit()
-
-        let standardOutputData = standardOutputPipe.fileHandleForReading.readDataToEndOfFile()
-        let standardErrorData = standardErrorPipe.fileHandleForReading.readDataToEndOfFile()
+        let standardOutputData = (try? Data(contentsOf: standardOutputURL)) ?? Data()
+        let standardErrorData = (try? Data(contentsOf: standardErrorURL)) ?? Data()
 
         let standardOutput = String(data: standardOutputData, encoding: .utf8) ?? ""
         let standardError = String(data: standardErrorData, encoding: .utf8) ?? ""
@@ -234,6 +246,13 @@ actor GitRepositoryService: GitRepositoryServicing {
     }
 
     private func resolveBaseReference(workspaceURL: URL) -> String? {
+        if let upstream = resolveUpstreamReference(workspaceURL: workspaceURL) {
+            return upstream
+        }
+        if let originHead = resolveOriginHeadReference(workspaceURL: workspaceURL) {
+            return originHead
+        }
+
         let candidates = ["origin/main", "main", "origin/master", "master"]
         for candidate in candidates {
             let result = try? runGitAllowFailure(arguments: ["rev-parse", "--verify", candidate], workspaceURL: workspaceURL)
@@ -246,12 +265,55 @@ actor GitRepositoryService: GitRepositoryServicing {
 
     private func preferredBaseBranch(workspaceURL: URL) -> String {
         if let ref = resolveBaseReference(workspaceURL: workspaceURL) {
-            if ref.contains("master") {
-                return "master"
-            }
-            return "main"
+            return normalizedBranchName(from: ref, workspaceURL: workspaceURL)
         }
         return "main"
+    }
+
+    private func resolveUpstreamReference(workspaceURL: URL) -> String? {
+        let output = try? runGitAllowFailure(
+            arguments: ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+            workspaceURL: workspaceURL
+        )
+        guard let output, output.exitCode == 0 else { return nil }
+        let ref = output.standardOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ref.isEmpty else { return nil }
+        let verified = try? runGitAllowFailure(arguments: ["rev-parse", "--verify", ref], workspaceURL: workspaceURL)
+        guard verified?.exitCode == 0 else { return nil }
+        return ref
+    }
+
+    private func resolveOriginHeadReference(workspaceURL: URL) -> String? {
+        let output = try? runGitAllowFailure(
+            arguments: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
+            workspaceURL: workspaceURL
+        )
+        guard let output, output.exitCode == 0 else { return nil }
+        let ref = output.standardOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ref.isEmpty else { return nil }
+        let verified = try? runGitAllowFailure(arguments: ["rev-parse", "--verify", ref], workspaceURL: workspaceURL)
+        guard verified?.exitCode == 0 else { return nil }
+        return ref
+    }
+
+    private func normalizedBranchName(from reference: String, workspaceURL: URL) -> String {
+        let ref = reference.trimmingCharacters(in: .whitespacesAndNewlines)
+        if ref.hasPrefix("refs/remotes/") {
+            let suffix = String(ref.dropFirst("refs/remotes/".count))
+            if let slashIndex = suffix.firstIndex(of: "/") {
+                return String(suffix[suffix.index(after: slashIndex)...])
+            }
+            return suffix
+        }
+
+        let verifyRemote = try? runGitAllowFailure(
+            arguments: ["show-ref", "--verify", "--quiet", "refs/remotes/\(ref)"],
+            workspaceURL: workspaceURL
+        )
+        if verifyRemote?.exitCode == 0, let slashIndex = ref.firstIndex(of: "/") {
+            return String(ref[ref.index(after: slashIndex)...])
+        }
+        return ref
     }
 
     private func remoteURLForOrigin(workspaceURL: URL) -> String? {

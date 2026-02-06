@@ -3,10 +3,10 @@ import SwiftUI
 struct WorkspaceActionBar: View {
     @EnvironmentObject var appState: AppState
     let workspaceID: UUID?
-    let workspaceURL: URL?
+    let terminalID: UUID
 
     private var openDisabled: Bool {
-        workspaceURL == nil || appState.availableEditors.isEmpty
+        appState.actionTargetURL(for: terminalID) == nil || appState.availableEditors.isEmpty
     }
 
     private var commitDisabled: Bool {
@@ -26,7 +26,7 @@ struct WorkspaceActionBar: View {
             Menu {
                 ForEach(appState.availableEditors, id: \.self) { editor in
                     Button(editor.title) {
-                        appState.handleOpenActionPlaceholder(editor: editor, workspaceID: workspaceID)
+                        appState.handleOpenActionPlaceholder(editor: editor, workspaceID: workspaceID, terminalID: terminalID)
                     }
                     .disabled(openDisabled)
                 }

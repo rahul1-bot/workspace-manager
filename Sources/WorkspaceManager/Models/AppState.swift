@@ -9,7 +9,11 @@ final class AppState: ObservableObject {
             refreshGitUIStatePlaceholder()
         }
     }
-    @Published var selectedTerminalId: UUID?
+    @Published var selectedTerminalId: UUID? {
+        didSet {
+            refreshGitUIStatePlaceholder()
+        }
+    }
     @Published var showSidebar: Bool
     @Published var focusMode: Bool
     @Published var showNewWorkspaceSheet: Bool = false
@@ -28,6 +32,8 @@ final class AppState: ObservableObject {
     private let defaultTerminalNames = ["Ghost", "Lyra"]
     private var diffLoadTask: Task<Void, Never>?
     private var commitTask: Task<Void, Never>?
+    private var runtimePathObserver: NSObjectProtocol?
+    private var terminalRuntimePaths: [UUID: String] = [:]
 
     init(
         configService: ConfigService = ConfigService.shared,
@@ -44,6 +50,7 @@ final class AppState: ObservableObject {
         self.showSidebar = configService.config.appearance.show_sidebar
         self.focusMode = configService.config.appearance.focus_mode
         loadWorkspacesFromConfig()
+        installRuntimePathObserver()
 
         // Ensure every workspace has the default terminal pair.
         bootstrapDefaultTerminals()
@@ -57,6 +64,12 @@ final class AppState: ObservableObject {
         }
 
         refreshGitUIStatePlaceholder()
+    }
+
+    deinit {
+        if let runtimePathObserver {
+            NotificationCenter.default.removeObserver(runtimePathObserver)
+        }
     }
 
     // MARK: - Config-Driven Loading
@@ -78,6 +91,21 @@ final class AppState: ObservableObject {
         for index in workspaces.indices where workspaces[index].terminals.isEmpty {
             for name in defaultTerminalNames {
                 _ = workspaces[index].addTerminal(name: name)
+            }
+        }
+    }
+
+    private func installRuntimePathObserver() {
+        runtimePathObserver = NotificationCenter.default.addObserver(
+            forName: .wmTerminalRuntimePathDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self else { return }
+            guard let terminalID = notification.userInfo?[TerminalRuntimeNotificationKey.terminalID] as? UUID else { return }
+            guard let path = notification.userInfo?[TerminalRuntimeNotificationKey.path] as? String else { return }
+            Task { @MainActor in
+                self.updateTerminalRuntimePath(for: terminalID, path: path)
             }
         }
     }
@@ -134,6 +162,7 @@ final class AppState: ObservableObject {
                 workspaces.append(workspace)
             }
         }
+        pruneTerminalRuntimePaths()
     }
 
     // MARK: - Workspace Operations
@@ -172,6 +201,11 @@ final class AppState: ObservableObject {
     }
 
     func removeWorkspace(id: UUID) {
+        if let workspace = workspaces.first(where: { $0.id == id }) {
+            for terminal in workspace.terminals {
+                terminalRuntimePaths.removeValue(forKey: terminal.id)
+            }
+        }
         workspaces.removeAll { $0.id == id }
         if selectedWorkspaceId == id {
             selectedWorkspaceId = nil
@@ -179,6 +213,7 @@ final class AppState: ObservableObject {
         }
 
         configService.removeWorkspace(id: id.uuidString)
+        pruneTerminalRuntimePaths()
     }
 
     func toggleWorkspaceExpanded(id: UUID) {
@@ -304,6 +339,7 @@ final class AppState: ObservableObject {
         guard let index = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
 
         workspaces[index].removeTerminal(id: id)
+        terminalRuntimePaths.removeValue(forKey: id)
         if selectedTerminalId == id {
             selectedTerminalId = nil
         }
@@ -318,6 +354,7 @@ final class AppState: ObservableObject {
         }
 
         workspaces[wsIndex].removeTerminal(id: tId)
+        terminalRuntimePaths.removeValue(forKey: tId)
 
         if workspaces[wsIndex].terminals.isEmpty {
             selectedTerminalId = nil
@@ -363,6 +400,49 @@ final class AppState: ObservableObject {
     var selectedWorkspaceURL: URL? {
         guard let workspace = selectedWorkspace else { return nil }
         return URL(fileURLWithPath: workspace.path)
+    }
+
+    func updateTerminalRuntimePath(for terminalID: UUID, path: String) {
+        guard let resolvedPath = normalizedDirectoryPath(path) else {
+            clearTerminalRuntimePath(for: terminalID)
+            return
+        }
+
+        let previousPath = terminalRuntimePaths[terminalID]
+        terminalRuntimePaths[terminalID] = resolvedPath
+
+        if selectedTerminalId == terminalID, previousPath != resolvedPath {
+            refreshGitUIState()
+        }
+    }
+
+    func clearTerminalRuntimePath(for terminalID: UUID) {
+        let removed = terminalRuntimePaths.removeValue(forKey: terminalID)
+        if selectedTerminalId == terminalID, removed != nil {
+            refreshGitUIState()
+        }
+    }
+
+    func actionTargetURL(for terminalID: UUID?) -> URL? {
+        guard let terminalID,
+              let terminal = terminal(with: terminalID) else {
+            return nil
+        }
+
+        if let runtimePath = terminalRuntimePaths[terminalID],
+           let resolvedRuntimePath = normalizedDirectoryPath(runtimePath) {
+            return URL(fileURLWithPath: resolvedRuntimePath)
+        }
+
+        if let launchPath = normalizedDirectoryPath(terminal.workingDirectory) {
+            return URL(fileURLWithPath: launchPath)
+        }
+
+        return nil
+    }
+
+    private var selectedActionTargetURL: URL? {
+        actionTargetURL(for: selectedTerminalId)
     }
 
     // MARK: - Terminal Navigation (Within Selected Workspace)
@@ -513,7 +593,7 @@ final class AppState: ObservableObject {
     }
 
     func continueCommitFlowPlaceholder() {
-        guard let workspaceURL = selectedWorkspaceURL else { return }
+        guard let actionTargetURL = selectedActionTargetURL else { return }
         commitSheetState.errorText = nil
         commitSheetState.isLoading = true
 
@@ -525,9 +605,9 @@ final class AppState: ObservableObject {
         commitTask?.cancel()
         commitTask = Task {
             do {
-                let message = try await resolveCommitMessage(enteredMessage: enteredMessage, workspaceURL: workspaceURL)
+                let message = try await resolveCommitMessage(enteredMessage: enteredMessage, workspaceURL: actionTargetURL)
                 let result = try await gitRepositoryService.executeCommit(
-                    at: workspaceURL,
+                    at: actionTargetURL,
                     stagePolicy: stagePolicy,
                     message: message,
                     nextStep: nextStep
@@ -566,25 +646,28 @@ final class AppState: ObservableObject {
         }
     }
 
-    func handleOpenActionPlaceholder(editor: ExternalEditor, workspaceID: UUID?) {
-        guard let workspace = selectedWorkspace,
-              let workspaceID = workspaceID else {
+    func handleOpenActionPlaceholder(editor: ExternalEditor, workspaceID: UUID?, terminalID: UUID?) {
+        guard selectedWorkspace != nil,
+              let workspaceID = workspaceID,
+              actionTargetURL(for: terminalID) != nil else {
             return
         }
 
-        let workspaceURL = URL(fileURLWithPath: workspace.path)
+        guard let targetURL = actionTargetURL(for: terminalID) else {
+            return
+        }
         Task {
             await editorLaunchService.setPreferredEditor(editor, for: workspaceID)
-            await editorLaunchService.openWorkspace(at: workspaceURL, using: editor)
+            await editorLaunchService.openWorkspace(at: targetURL, using: editor)
             refreshGitUIState()
         }
     }
 
     func initializeGitRepositoryPlaceholder() {
-        guard let workspaceURL = selectedWorkspaceURL else { return }
+        guard let targetURL = selectedActionTargetURL else { return }
         Task {
             do {
-                try await gitRepositoryService.initializeRepository(at: workspaceURL)
+                try await gitRepositoryService.initializeRepository(at: targetURL)
                 refreshGitUIState()
             } catch {
                 await MainActor.run {
@@ -608,10 +691,31 @@ final class AppState: ObservableObject {
             return
         }
 
+        guard let terminalID = selectedTerminalId else {
+            availableEditors = []
+            gitPanelState.disabledReason = .noTerminalSelection
+            gitPanelState.summary = GitChangeSummary()
+            gitPanelState.isPresented = false
+            commitSheetState.disabledReason = .noTerminalSelection
+            commitSheetState.summary = GitChangeSummary()
+            commitSheetState.isPresented = false
+            return
+        }
+
+        guard let actionTargetURL = actionTargetURL(for: terminalID) else {
+            availableEditors = []
+            gitPanelState.disabledReason = .noTerminalSelection
+            gitPanelState.summary = GitChangeSummary()
+            gitPanelState.isPresented = false
+            commitSheetState.disabledReason = .noTerminalSelection
+            commitSheetState.summary = GitChangeSummary()
+            commitSheetState.isPresented = false
+            return
+        }
+
         let workspaceID = workspace.id
-        let workspaceURL = URL(fileURLWithPath: workspace.path)
         Task {
-            let status = await gitRepositoryService.status(at: workspaceURL)
+            let status = await gitRepositoryService.status(at: actionTargetURL)
             let editors = await editorLaunchService.availableEditors()
             let preferred = await editorLaunchService.preferredEditor(for: workspaceID)
             let orderedEditors = orderEditors(editors, preferred: preferred)
@@ -638,7 +742,6 @@ final class AppState: ObservableObject {
                     commitSheetState.isPresented = false
                 }
                 commitSheetState.summary = GitChangeSummary(branchName: status.branchName)
-                _ = prLinkBuilder.compareURL(remoteURL: "", baseBranch: "main", headBranch: "dev")
             }
         }
     }
@@ -658,19 +761,25 @@ final class AppState: ObservableObject {
     private func loadDiffPanel() {
         guard let workspace = selectedWorkspace else { return }
         guard gitPanelState.disabledReason == nil else { return }
+        guard let actionTargetURL = selectedActionTargetURL else {
+            gitPanelState.isLoading = false
+            gitPanelState.patchText = ""
+            gitPanelState.errorText = "No terminal path available for diff."
+            return
+        }
 
         diffLoadTask?.cancel()
         gitPanelState.isLoading = true
         gitPanelState.errorText = nil
         gitPanelState.patchText = ""
+        let fallbackBranchName = gitPanelState.summary.branchName
 
         let workspaceID = workspace.id
-        let workspaceURL = URL(fileURLWithPath: workspace.path)
         let mode = gitPanelState.mode
 
         diffLoadTask = Task {
             do {
-                let snapshot = try await gitRepositoryService.diff(at: workspaceURL, mode: mode)
+                let snapshot = try await gitRepositoryService.diff(at: actionTargetURL, mode: mode)
                 await MainActor.run {
                     guard selectedWorkspaceId == workspaceID else { return }
                     guard gitPanelState.mode == mode else { return }
@@ -685,7 +794,7 @@ final class AppState: ObservableObject {
                 await MainActor.run {
                     guard selectedWorkspaceId == workspaceID else { return }
                     guard gitPanelState.mode == mode else { return }
-                    gitPanelState.summary = GitChangeSummary(branchName: workspace.name)
+                    gitPanelState.summary = GitChangeSummary(branchName: fallbackBranchName)
                     gitPanelState.patchText = ""
                     gitPanelState.isLoading = false
                     gitPanelState.errorText = diffErrorText(error)
@@ -700,7 +809,7 @@ final class AppState: ObservableObject {
             case .noHistory:
                 return "No commit history available for last turn changes."
             case .missingBaseBranch:
-                return "Cannot resolve base branch. Expected origin/main, main, origin/master, or master."
+                return "Cannot resolve a base branch for this repository."
             case .noChangesToCommit:
                 return "No changes to diff."
             case .commandFailed(let message):
@@ -718,7 +827,7 @@ final class AppState: ObservableObject {
             case .noHistory:
                 return "Repository has no commit history yet."
             case .missingBaseBranch:
-                return "Cannot determine base branch for PR compare URL."
+                return "Cannot resolve a base branch for this repository."
             case .commandFailed(let message):
                 return message.trimmingCharacters(in: .whitespacesAndNewlines)
             }
@@ -737,11 +846,15 @@ final class AppState: ObservableObject {
         guard let workspace = selectedWorkspace else { return }
         guard commitSheetState.disabledReason == nil else { return }
         let workspaceID = workspace.id
-        let workspaceURL = URL(fileURLWithPath: workspace.path)
+        guard let actionTargetURL = selectedActionTargetURL else {
+            commitSheetState.summary = GitChangeSummary(branchName: commitSheetState.summary.branchName)
+            return
+        }
+        let fallbackBranchName = commitSheetState.summary.branchName
 
         Task {
             do {
-                let snapshot = try await gitRepositoryService.diff(at: workspaceURL, mode: .uncommitted)
+                let snapshot = try await gitRepositoryService.diff(at: actionTargetURL, mode: .uncommitted)
                 await MainActor.run {
                     guard selectedWorkspaceId == workspaceID else { return }
                     commitSheetState.summary = snapshot.summary
@@ -749,9 +862,33 @@ final class AppState: ObservableObject {
             } catch {
                 await MainActor.run {
                     guard selectedWorkspaceId == workspaceID else { return }
-                    commitSheetState.summary = GitChangeSummary(branchName: workspace.name)
+                    commitSheetState.summary = GitChangeSummary(branchName: fallbackBranchName)
                 }
             }
         }
+    }
+
+    private func terminal(with terminalID: UUID) -> Terminal? {
+        for workspace in workspaces {
+            if let terminal = workspace.terminals.first(where: { $0.id == terminalID }) {
+                return terminal
+            }
+        }
+        return nil
+    }
+
+    private func normalizedDirectoryPath(_ path: String) -> String? {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let standardizedPath = URL(fileURLWithPath: trimmed).standardizedFileURL.path
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: standardizedPath, isDirectory: &isDirectory)
+        guard exists && isDirectory.boolValue else { return nil }
+        return standardizedPath
+    }
+
+    private func pruneTerminalRuntimePaths() {
+        let validTerminalIDs = Set(workspaces.flatMap { $0.terminals.map(\.id) })
+        terminalRuntimePaths = terminalRuntimePaths.filter { validTerminalIDs.contains($0.key) }
     }
 }

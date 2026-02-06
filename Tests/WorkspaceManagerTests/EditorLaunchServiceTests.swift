@@ -17,4 +17,17 @@ final class EditorLaunchServiceTests: XCTestCase {
 
         XCTAssertEqual(preferred, .finder)
     }
+
+    func testZedBundleIdentifiersIncludePreview() {
+        XCTAssertTrue(EditorLaunchService.zedBundleIdentifiers.contains("dev.zed.Zed-Preview"))
+    }
+
+    func testZedLaunchModePrefersCLIWhenAvailable() {
+        let launchMode = EditorLaunchService.preferredLaunchMode(
+            for: .zed,
+            appAvailable: true,
+            zedCLIAvailable: true
+        )
+        XCTAssertEqual(launchMode, .cli)
+    }
 }

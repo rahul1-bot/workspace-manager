@@ -3,9 +3,12 @@ import XCTest
 
 actor MockGitRepositoryService: GitRepositoryServicing {
     private(set) var recordedMessages: [String] = []
+    private(set) var statusURLs: [URL] = []
+    private(set) var diffURLs: [URL] = []
+    private(set) var commitURLs: [URL] = []
 
     func status(at workspaceURL: URL) async -> GitRepositoryStatus {
-        _ = workspaceURL
+        statusURLs.append(workspaceURL)
         return GitRepositoryStatus(isRepository: true, branchName: "dev", disabledReason: nil)
     }
 
@@ -14,7 +17,7 @@ actor MockGitRepositoryService: GitRepositoryServicing {
     }
 
     func diff(at workspaceURL: URL, mode: DiffPanelMode) async throws -> GitDiffSnapshot {
-        _ = workspaceURL
+        diffURLs.append(workspaceURL)
         return GitDiffSnapshot(
             summary: GitChangeSummary(branchName: "dev", filesChanged: 1, additions: 1, deletions: 0),
             patchText: mode.rawValue
@@ -27,7 +30,7 @@ actor MockGitRepositoryService: GitRepositoryServicing {
         message: String,
         nextStep: CommitNextStep
     ) async throws -> GitCommitResult {
-        _ = workspaceURL
+        commitURLs.append(workspaceURL)
         _ = stagePolicy
         _ = nextStep
         recordedMessages.append(message)
@@ -41,6 +44,18 @@ actor MockGitRepositoryService: GitRepositoryServicing {
 
     func lastRecordedMessage() async -> String? {
         recordedMessages.last
+    }
+
+    func lastStatusURL() async -> URL? {
+        statusURLs.last
+    }
+
+    func lastDiffURL() async -> URL? {
+        diffURLs.last
+    }
+
+    func lastCommitURL() async -> URL? {
+        commitURLs.last
     }
 }
 
@@ -121,7 +136,44 @@ actor MockSlowDiffRepositoryService: GitRepositoryServicing {
     }
 }
 
+actor MockMissingBaseDiffRepositoryService: GitRepositoryServicing {
+    func status(at workspaceURL: URL) async -> GitRepositoryStatus {
+        _ = workspaceURL
+        return GitRepositoryStatus(isRepository: true, branchName: "dev", disabledReason: nil)
+    }
+
+    func initializeRepository(at workspaceURL: URL) async throws {
+        _ = workspaceURL
+    }
+
+    func diff(at workspaceURL: URL, mode: DiffPanelMode) async throws -> GitDiffSnapshot {
+        _ = workspaceURL
+        _ = mode
+        throw GitRepositoryServiceError.missingBaseBranch
+    }
+
+    func executeCommit(
+        at workspaceURL: URL,
+        stagePolicy: CommitStagePolicy,
+        message: String,
+        nextStep: CommitNextStep
+    ) async throws -> GitCommitResult {
+        _ = workspaceURL
+        _ = stagePolicy
+        _ = message
+        _ = nextStep
+        throw GitRepositoryServiceError.missingBaseBranch
+    }
+
+    func autoCommitMessage(at workspaceURL: URL) async throws -> String {
+        _ = workspaceURL
+        return "chore: update 1 files in workspace"
+    }
+}
+
 actor MockEditorLaunchService: EditorLaunching {
+    private(set) var openedWorkspaceURLs: [URL] = []
+
     func availableEditors() async -> [ExternalEditor] {
         [.zed, .vsCode, .finder]
     }
@@ -137,8 +189,12 @@ actor MockEditorLaunchService: EditorLaunching {
     }
 
     func openWorkspace(at workspaceURL: URL, using editor: ExternalEditor) async {
-        _ = workspaceURL
+        openedWorkspaceURLs.append(workspaceURL)
         _ = editor
+    }
+
+    func lastOpenedWorkspaceURL() async -> URL? {
+        openedWorkspaceURLs.last
     }
 }
 
@@ -284,6 +340,127 @@ final class GitUIStateTests: XCTestCase {
 
         let openedURL = await urlOpener.lastOpenedURL()
         XCTAssertNotNil(openedURL)
+    }
+
+    @MainActor
+    func testCommitSheetDismissTransitionsToClosedState() {
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockGitRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
+        )
+
+        appState.commitSheetState.disabledReason = nil
+        appState.presentCommitSheetPlaceholder()
+        XCTAssertTrue(appState.commitSheetState.isPresented)
+
+        appState.dismissCommitSheetPlaceholder()
+        XCTAssertFalse(appState.commitSheetState.isPresented)
+    }
+
+    @MainActor
+    func testOpenActionUsesSelectedTerminalRuntimePath() async throws {
+        let editorService = MockEditorLaunchService()
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockGitRepositoryService(),
+            editorLaunchService: editorService,
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
+        )
+
+        let runtimeURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: runtimeURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: runtimeURL) }
+
+        guard let terminalID = appState.selectedTerminalId else {
+            XCTFail("Expected selected terminal id")
+            return
+        }
+
+        appState.updateTerminalRuntimePath(for: terminalID, path: runtimeURL.path)
+        appState.handleOpenActionPlaceholder(
+            editor: .finder,
+            workspaceID: appState.selectedWorkspaceId,
+            terminalID: terminalID
+        )
+
+        try? await Task.sleep(nanoseconds: 120_000_000)
+        let openedURL = await editorService.lastOpenedWorkspaceURL()
+        XCTAssertEqual(openedURL?.path, runtimeURL.path)
+    }
+
+    @MainActor
+    func testGitOperationsUseSelectedTerminalRuntimePath() async throws {
+        let gitService = MockGitRepositoryService()
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: gitService,
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
+        )
+
+        let runtimeURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: runtimeURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: runtimeURL) }
+
+        guard let terminalID = appState.selectedTerminalId else {
+            XCTFail("Expected selected terminal id")
+            return
+        }
+
+        appState.updateTerminalRuntimePath(for: terminalID, path: runtimeURL.path)
+        appState.refreshGitUIState()
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        let statusURL = await gitService.lastStatusURL()
+        XCTAssertEqual(statusURL?.path, runtimeURL.path)
+
+        appState.toggleDiffPanelPlaceholder()
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        let diffURL = await gitService.lastDiffURL()
+        XCTAssertEqual(diffURL?.path, runtimeURL.path)
+
+        appState.commitSheetState.disabledReason = nil
+        appState.presentCommitSheetPlaceholder()
+        appState.setCommitMessagePlaceholder("feat: runtime path")
+        appState.setCommitNextStepPlaceholder(.commit)
+        appState.continueCommitFlowPlaceholder()
+
+        try? await Task.sleep(nanoseconds: 160_000_000)
+
+        let commitURL = await gitService.lastCommitURL()
+        XCTAssertEqual(commitURL?.path, runtimeURL.path)
+    }
+
+    @MainActor
+    func testMissingBaseErrorTextIsNeutralAndBranchIsPreserved() async {
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockMissingBaseDiffRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
+        )
+
+        appState.refreshGitUIState()
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        appState.toggleDiffPanelPlaceholder()
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertEqual(appState.gitPanelState.summary.branchName, "dev")
+        XCTAssertEqual(appState.gitPanelState.errorText, "Cannot resolve a base branch for this repository.")
+
+        appState.commitSheetState.disabledReason = nil
+        appState.presentCommitSheetPlaceholder()
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertEqual(appState.commitSheetState.summary.branchName, "dev")
     }
 
     func testDiffPanelModeTitles() {

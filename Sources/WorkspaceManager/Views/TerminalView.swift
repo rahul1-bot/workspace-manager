@@ -210,11 +210,6 @@ struct TerminalHeader: View {
         workspace?.terminals.first(where: { $0.id == terminalId })
     }
 
-    private var workspaceURL: URL? {
-        guard let workspace else { return nil }
-        return URL(fileURLWithPath: workspace.path)
-    }
-
     var body: some View {
         HStack {
             Circle()
@@ -244,7 +239,7 @@ struct TerminalHeader: View {
 
                 WorkspaceActionBar(
                     workspaceID: workspace?.id,
-                    workspaceURL: workspaceURL
+                    terminalID: terminalId
                 )
             }
         }

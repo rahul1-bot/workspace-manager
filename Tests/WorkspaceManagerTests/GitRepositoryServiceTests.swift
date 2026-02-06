@@ -150,6 +150,78 @@ final class GitRepositoryServiceTests: XCTestCase {
         }
     }
 
+    func testExecuteCommitUsesUpstreamBaseWhenMainMasterMissing() async throws {
+        let service = GitRepositoryService()
+        let temporaryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let remoteURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).git")
+        try FileManager.default.createDirectory(at: temporaryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            try? FileManager.default.removeItem(at: remoteURL)
+        }
+
+        try runGit(arguments: ["init", "--bare", remoteURL.path], workspaceURL: temporaryURL)
+        try await service.initializeRepository(at: temporaryURL)
+        try runGit(arguments: ["config", "user.email", "test@example.com"], workspaceURL: temporaryURL)
+        try runGit(arguments: ["config", "user.name", "Tester"], workspaceURL: temporaryURL)
+        try runGit(arguments: ["branch", "-M", "trunk"], workspaceURL: temporaryURL)
+
+        let fileURL = temporaryURL.appendingPathComponent("sample.txt")
+        try "line-1\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        try runGit(arguments: ["add", "."], workspaceURL: temporaryURL)
+        try runGit(arguments: ["commit", "-m", "init"], workspaceURL: temporaryURL)
+        try runGit(arguments: ["remote", "add", "origin", remoteURL.path], workspaceURL: temporaryURL)
+        try runGit(arguments: ["push", "-u", "origin", "trunk"], workspaceURL: temporaryURL)
+
+        try runGit(arguments: ["checkout", "-b", "feature/upstream"], workspaceURL: temporaryURL)
+        try runGit(arguments: ["branch", "--set-upstream-to=origin/trunk"], workspaceURL: temporaryURL)
+        try "line-1\nline-2\n".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let result = try await service.executeCommit(
+            at: temporaryURL,
+            stagePolicy: .includeUnstaged,
+            message: "feat: upstream base",
+            nextStep: .commit
+        )
+        XCTAssertEqual(result.baseBranch, "trunk")
+    }
+
+    func testExecuteCommitUsesOriginHeadFallbackWhenUpstreamMissing() async throws {
+        let service = GitRepositoryService()
+        let temporaryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let remoteURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).git")
+        try FileManager.default.createDirectory(at: temporaryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            try? FileManager.default.removeItem(at: remoteURL)
+        }
+
+        try runGit(arguments: ["init", "--bare", remoteURL.path], workspaceURL: temporaryURL)
+        try await service.initializeRepository(at: temporaryURL)
+        try runGit(arguments: ["config", "user.email", "test@example.com"], workspaceURL: temporaryURL)
+        try runGit(arguments: ["config", "user.name", "Tester"], workspaceURL: temporaryURL)
+        try runGit(arguments: ["branch", "-M", "trunk"], workspaceURL: temporaryURL)
+
+        let fileURL = temporaryURL.appendingPathComponent("sample.txt")
+        try "line-1\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        try runGit(arguments: ["add", "."], workspaceURL: temporaryURL)
+        try runGit(arguments: ["commit", "-m", "init"], workspaceURL: temporaryURL)
+        try runGit(arguments: ["remote", "add", "origin", remoteURL.path], workspaceURL: temporaryURL)
+        try runGit(arguments: ["push", "-u", "origin", "trunk"], workspaceURL: temporaryURL)
+        try runGit(arguments: ["remote", "set-head", "origin", "trunk"], workspaceURL: temporaryURL)
+
+        try runGit(arguments: ["checkout", "-b", "feature/origin-head"], workspaceURL: temporaryURL)
+        try "line-1\nline-2\n".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let result = try await service.executeCommit(
+            at: temporaryURL,
+            stagePolicy: .includeUnstaged,
+            message: "feat: origin head base",
+            nextStep: .commit
+        )
+        XCTAssertEqual(result.baseBranch, "trunk")
+    }
+
     private func runGit(arguments: [String], workspaceURL: URL) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")

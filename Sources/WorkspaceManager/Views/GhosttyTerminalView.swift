@@ -16,7 +16,11 @@ class GhosttyAppManager {
         var scheduled: Bool = false
         var needsAnotherTick: Bool = false
     }
+    private struct SurfaceRegistryState {
+        var terminalIDBySurfaceKey: [UInt: UUID] = [:]
+    }
     private let tickState = OSAllocatedUnfairLock(initialState: TickState())
+    private let surfaceRegistry = OSAllocatedUnfairLock(initialState: SurfaceRegistryState())
 
     private init() {}
 
@@ -63,8 +67,8 @@ class GhosttyAppManager {
             )
             GhosttyAppManager.shared.requestTick()
         }
-        runtimeConfig.action_cb = { app, target, action in
-            GhosttyAppManager.shared.handleAction(action)
+        runtimeConfig.action_cb = { _, target, action in
+            GhosttyAppManager.shared.handleAction(action, target: target)
             return true
         }
         runtimeConfig.read_clipboard_cb = { userdata, location, state in
@@ -132,7 +136,21 @@ class GhosttyAppManager {
         }
     }
 
-    private func handleAction(_ action: ghostty_action_s) {
+    func registerSurface(_ surface: ghostty_surface_t, terminalID: UUID) {
+        let key = surfaceKey(surface)
+        surfaceRegistry.withLock { state in
+            state.terminalIDBySurfaceKey[key] = terminalID
+        }
+    }
+
+    func unregisterSurface(_ surface: ghostty_surface_t) {
+        let key = surfaceKey(surface)
+        _ = surfaceRegistry.withLock { state in
+            state.terminalIDBySurfaceKey.removeValue(forKey: key)
+        }
+    }
+
+    private func handleAction(_ action: ghostty_action_s, target: ghostty_target_s) {
         if action.tag == GHOSTTY_ACTION_SECURE_INPUT {
             let secureAction = action.action.secure_input
             SecureInputController.shared.applyGhosttyAction(secureAction)
@@ -143,7 +161,33 @@ class GhosttyAppManager {
                 details: "action_cb secure_input=\(secureAction.rawValue) enabled=\(SecureInputController.shared.isSecureInputEnabled())"
             )
             AppLogger.input.debug("ghostty action secure_input=\(secureAction.rawValue, privacy: .public) enabled=\(SecureInputController.shared.isSecureInputEnabled(), privacy: .public)")
+            return
         }
+
+        if action.tag == GHOSTTY_ACTION_PWD,
+           target.tag == GHOSTTY_TARGET_SURFACE,
+           let pwdCString = action.action.pwd.pwd {
+            let key = surfaceKey(target.target.surface)
+            let terminalID = surfaceRegistry.withLock { state in
+                state.terminalIDBySurfaceKey[key]
+            }
+            guard let terminalID else { return }
+            let runtimePath = String(cString: pwdCString)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: .wmTerminalRuntimePathDidChange,
+                    object: nil,
+                    userInfo: [
+                        TerminalRuntimeNotificationKey.terminalID: terminalID,
+                        TerminalRuntimeNotificationKey.path: runtimePath
+                    ]
+                )
+            }
+        }
+    }
+
+    private func surfaceKey(_ surface: ghostty_surface_t) -> UInt {
+        UInt(bitPattern: surface)
     }
 
     deinit {
@@ -162,6 +206,7 @@ class GhosttyAppManager {
 class GhosttySurfaceNSView: NSView {
     private var surface: ghostty_surface_t?
 
+    let terminalID: UUID
     let workingDirectory: String
     private var workingDirectoryCString: UnsafeMutablePointer<CChar>?
     private var isCurrentlySelected: Bool = false
@@ -177,7 +222,8 @@ class GhosttySurfaceNSView: NSView {
     private let velocityThreshold: Double = 5.5   // Stop when velocity below this (higher = stops earlier, avoids low-velocity stutter)
     private let momentumInterval: Double = 1.0 / 120.0  // 120Hz updates
 
-    init(workingDirectory: String) {
+    init(workingDirectory: String, terminalID: UUID) {
+        self.terminalID = terminalID
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
         let preferredRoot = ConfigService.preferredWorkspaceRoot
         let cwdCandidates = [workingDirectory, preferredRoot, homeDir]
@@ -209,6 +255,7 @@ class GhosttySurfaceNSView: NSView {
             return
         }
         self.surface = surface
+        GhosttyAppManager.shared.registerSurface(surface, terminalID: terminalID)
 
         // Set initial size
         updateSurfaceSize()
@@ -642,6 +689,7 @@ class GhosttySurfaceNSView: NSView {
     deinit {
         stopMomentumTimer()
         if let surface = surface {
+            GhosttyAppManager.shared.unregisterSurface(surface)
             ghostty_surface_free(surface)
         }
         if let workingDirectoryCString {
@@ -659,7 +707,7 @@ struct GhosttyTerminalView: NSViewRepresentable {
     let isSelected: Bool
 
     func makeNSView(context: Context) -> GhosttySurfaceNSView {
-        let view = GhosttySurfaceNSView(workingDirectory: workingDirectory)
+        let view = GhosttySurfaceNSView(workingDirectory: workingDirectory, terminalID: terminalId)
         return view
     }
 

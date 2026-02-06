@@ -88,9 +88,6 @@ struct ContentView: View {
 
                 CommitSheetView(
                     state: appState.commitSheetState,
-                    onClose: {
-                        appState.dismissCommitSheetPlaceholder()
-                    },
                     onMessageChanged: { message in
                         appState.setCommitMessagePlaceholder(message)
                     },
@@ -104,6 +101,9 @@ struct ContentView: View {
                         appState.continueCommitFlowPlaceholder()
                     }
                 )
+                .onExitCommand {
+                    appState.dismissCommitSheetPlaceholder()
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
