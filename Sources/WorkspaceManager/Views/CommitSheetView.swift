@@ -8,7 +8,7 @@ struct CommitSheetView: View {
     let onContinue: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             headerSection
 
             sectionDivider
@@ -29,8 +29,11 @@ struct CommitSheetView: View {
         }
         .frame(width: 640)
         .background(
-            VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            ZStack {
+                VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
+                Color.black.opacity(0.45)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -147,15 +150,18 @@ struct CommitSheetView: View {
                     HStack(spacing: 10) {
                         Circle()
                             .fill(state.nextStep == step ? Color.white.opacity(0.9) : Color.clear)
-                            .frame(width: 8, height: 8)
+                            .frame(width: 10, height: 10)
                             .overlay(
                                 Circle()
-                                    .stroke(Color.white.opacity(state.nextStep == step ? 0.9 : 0.35), lineWidth: 1)
+                                    .stroke(Color.white.opacity(state.nextStep == step ? 0.9 : 0.4), lineWidth: 1.5)
                             )
                         Text(step.title)
                             .font(.system(.body, design: .default))
-                            .foregroundColor(.white.opacity(state.nextStep == step ? 0.9 : 0.6))
+                            .foregroundColor(.white.opacity(state.nextStep == step ? 0.95 : 0.65))
+                        Spacer()
                     }
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -165,7 +171,7 @@ struct CommitSheetView: View {
     }
 
     private var footerSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 8) {
             if let errorText = state.errorText {
                 Text(errorText)
                     .font(.system(.callout, design: .default))
