@@ -17,16 +17,30 @@ struct GitDiffSnapshot: Equatable, Sendable {
     let patchText: String
 }
 
+struct GitCommitResult: Equatable, Sendable {
+    let branchName: String
+    let remoteURL: String?
+    let baseBranch: String
+}
+
 protocol GitRepositoryServicing: Sendable {
     func status(at workspaceURL: URL) async -> GitRepositoryStatus
     func initializeRepository(at workspaceURL: URL) async throws
     func diff(at workspaceURL: URL, mode: DiffPanelMode) async throws -> GitDiffSnapshot
+    func executeCommit(
+        at workspaceURL: URL,
+        stagePolicy: CommitStagePolicy,
+        message: String,
+        nextStep: CommitNextStep
+    ) async throws -> GitCommitResult
+    func autoCommitMessage(at workspaceURL: URL) async throws -> String
 }
 
 enum GitRepositoryServiceError: Error, Sendable, Equatable {
     case commandFailed(String)
     case noHistory
     case missingBaseBranch
+    case noChangesToCommit
 }
 
 private struct GitCommandOutput {
@@ -95,6 +109,77 @@ actor GitRepositoryService: GitRepositoryServicing {
         }
     }
 
+    func executeCommit(
+        at workspaceURL: URL,
+        stagePolicy: CommitStagePolicy,
+        message: String,
+        nextStep: CommitNextStep
+    ) async throws -> GitCommitResult {
+        switch stagePolicy {
+        case .includeUnstaged:
+            _ = try runGit(arguments: ["add", "-A"], workspaceURL: workspaceURL)
+        case .stagedOnly:
+            break
+        }
+
+        let stagedChanges = try runGitAllowFailure(arguments: ["diff", "--cached", "--quiet"], workspaceURL: workspaceURL)
+        if stagedChanges.exitCode == 0 {
+            throw GitRepositoryServiceError.noChangesToCommit
+        }
+
+        _ = try runGit(arguments: ["commit", "-m", message], workspaceURL: workspaceURL)
+
+        let branchName = branchNameOrHead(workspaceURL: workspaceURL)
+        let remoteURL = remoteURLForOrigin(workspaceURL: workspaceURL)
+        let baseBranch = preferredBaseBranch(workspaceURL: workspaceURL)
+
+        switch nextStep {
+        case .commit:
+            break
+        case .commitAndPush, .commitAndCreatePR:
+            _ = try runGit(arguments: ["push"], workspaceURL: workspaceURL)
+        }
+
+        return GitCommitResult(
+            branchName: branchName,
+            remoteURL: remoteURL,
+            baseBranch: baseBranch
+        )
+    }
+
+    func autoCommitMessage(at workspaceURL: URL) async throws -> String {
+        let statusOutput = try runGit(arguments: ["status", "--porcelain"], workspaceURL: workspaceURL).standardOutput
+        let entries = statusOutput
+            .split(separator: "\n")
+            .map(String.init)
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+        let paths = entries.compactMap { entry -> String? in
+            guard entry.count >= 4 else { return nil }
+            return String(entry.dropFirst(3))
+        }
+        let uniquePaths = Array(Set(paths))
+        let scopeNames = uniquePaths
+            .map { path in
+                let first = path.split(separator: "/").first.map(String.init) ?? path
+                return first
+            }
+            .sorted()
+        let displayedScopes = Array(scopeNames.prefix(2))
+        let scopeText = displayedScopes.isEmpty ? "workspace" : displayedScopes.joined(separator: ", ")
+
+        let prefix: String
+        if uniquePaths.allSatisfy({ $0.hasPrefix("docs/") || $0.hasSuffix(".md") }) {
+            prefix = "docs"
+        } else if uniquePaths.allSatisfy({ $0.contains("Test") || $0.contains("Tests/") }) {
+            prefix = "test"
+        } else {
+            prefix = "chore"
+        }
+
+        return "\(prefix): update \(uniquePaths.count) files in \(scopeText)"
+    }
+
     private func branchNameOrHead(workspaceURL: URL) -> String {
         if let branch = try? runGit(arguments: ["symbolic-ref", "--short", "HEAD"], workspaceURL: workspaceURL)
             .standardOutput
@@ -155,6 +240,24 @@ actor GitRepositoryService: GitRepositoryServicing {
             if result?.exitCode == 0 {
                 return candidate
             }
+        }
+        return nil
+    }
+
+    private func preferredBaseBranch(workspaceURL: URL) -> String {
+        if let ref = resolveBaseReference(workspaceURL: workspaceURL) {
+            if ref.contains("master") {
+                return "master"
+            }
+            return "main"
+        }
+        return "main"
+    }
+
+    private func remoteURLForOrigin(workspaceURL: URL) -> String? {
+        if let output = try? runGit(arguments: ["remote", "get-url", "origin"], workspaceURL: workspaceURL).standardOutput {
+            let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
         }
         return nil
     }

@@ -24,19 +24,23 @@ final class AppState: ObservableObject {
     private let gitRepositoryService: any GitRepositoryServicing
     private let editorLaunchService: any EditorLaunching
     private let prLinkBuilder: any PRLinkBuilding
+    private let urlOpener: any URLOpening
     private let defaultTerminalNames = ["Ghost", "Lyra"]
     private var diffLoadTask: Task<Void, Never>?
+    private var commitTask: Task<Void, Never>?
 
     init(
         configService: ConfigService = ConfigService.shared,
         gitRepositoryService: any GitRepositoryServicing = GitRepositoryService(),
         editorLaunchService: any EditorLaunching = EditorLaunchService(),
-        prLinkBuilder: any PRLinkBuilding = PRLinkBuilder()
+        prLinkBuilder: any PRLinkBuilding = PRLinkBuilder(),
+        urlOpener: any URLOpening = WorkspaceURLOpener()
     ) {
         self.configService = configService
         self.gitRepositoryService = gitRepositoryService
         self.editorLaunchService = editorLaunchService
         self.prLinkBuilder = prLinkBuilder
+        self.urlOpener = urlOpener
         self.showSidebar = configService.config.appearance.show_sidebar
         self.focusMode = configService.config.appearance.focus_mode
         loadWorkspacesFromConfig()
@@ -485,12 +489,15 @@ final class AppState: ObservableObject {
 
     func presentCommitSheetPlaceholder() {
         guard commitSheetState.disabledReason == nil else { return }
+        commitSheetState.isLoading = false
         commitSheetState.errorText = nil
         commitSheetState.isPresented = true
+        loadCommitSummary()
     }
 
     func dismissCommitSheetPlaceholder() {
         commitSheetState.isPresented = false
+        commitTask?.cancel()
     }
 
     func setCommitMessagePlaceholder(_ message: String) {
@@ -506,7 +513,57 @@ final class AppState: ObservableObject {
     }
 
     func continueCommitFlowPlaceholder() {
-        commitSheetState.errorText = GitControlDisabledReason.unavailableInPhase.title
+        guard let workspaceURL = selectedWorkspaceURL else { return }
+        commitSheetState.errorText = nil
+        commitSheetState.isLoading = true
+
+        let stagePolicy: CommitStagePolicy = commitSheetState.includeUnstaged ? .includeUnstaged : .stagedOnly
+        let nextStep = commitSheetState.nextStep
+        let enteredMessage = commitSheetState.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let workspaceID = selectedWorkspaceId
+
+        commitTask?.cancel()
+        commitTask = Task {
+            do {
+                let message = try await resolveCommitMessage(enteredMessage: enteredMessage, workspaceURL: workspaceURL)
+                let result = try await gitRepositoryService.executeCommit(
+                    at: workspaceURL,
+                    stagePolicy: stagePolicy,
+                    message: message,
+                    nextStep: nextStep
+                )
+
+                await MainActor.run {
+                    guard selectedWorkspaceId == workspaceID else { return }
+                    commitSheetState.isLoading = false
+                    commitSheetState.isPresented = false
+                    commitSheetState.message = ""
+                }
+
+                if nextStep == .commitAndCreatePR,
+                   let remoteURL = result.remoteURL,
+                   let compareURL = prLinkBuilder.compareURL(
+                       remoteURL: remoteURL,
+                       baseBranch: result.baseBranch,
+                       headBranch: result.branchName
+                   ) {
+                    await urlOpener.open(compareURL)
+                }
+
+                await MainActor.run {
+                    refreshGitUIState()
+                }
+            } catch {
+                if Task.isCancelled {
+                    return
+                }
+                await MainActor.run {
+                    guard selectedWorkspaceId == workspaceID else { return }
+                    commitSheetState.isLoading = false
+                    commitSheetState.errorText = commitErrorText(error)
+                }
+            }
+        }
     }
 
     func handleOpenActionPlaceholder(editor: ExternalEditor, workspaceID: UUID?) {
@@ -644,10 +701,57 @@ final class AppState: ObservableObject {
                 return "No commit history available for last turn changes."
             case .missingBaseBranch:
                 return "Cannot resolve base branch. Expected origin/main, main, origin/master, or master."
+            case .noChangesToCommit:
+                return "No changes to diff."
             case .commandFailed(let message):
                 return message.trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }
         return String(describing: error)
+    }
+
+    private func commitErrorText(_ error: Error) -> String {
+        if let gitError = error as? GitRepositoryServiceError {
+            switch gitError {
+            case .noChangesToCommit:
+                return "No staged changes to commit."
+            case .noHistory:
+                return "Repository has no commit history yet."
+            case .missingBaseBranch:
+                return "Cannot determine base branch for PR compare URL."
+            case .commandFailed(let message):
+                return message.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return String(describing: error)
+    }
+
+    private func resolveCommitMessage(enteredMessage: String, workspaceURL: URL) async throws -> String {
+        if !enteredMessage.isEmpty {
+            return enteredMessage
+        }
+        return try await gitRepositoryService.autoCommitMessage(at: workspaceURL)
+    }
+
+    private func loadCommitSummary() {
+        guard let workspace = selectedWorkspace else { return }
+        guard commitSheetState.disabledReason == nil else { return }
+        let workspaceID = workspace.id
+        let workspaceURL = URL(fileURLWithPath: workspace.path)
+
+        Task {
+            do {
+                let snapshot = try await gitRepositoryService.diff(at: workspaceURL, mode: .uncommitted)
+                await MainActor.run {
+                    guard selectedWorkspaceId == workspaceID else { return }
+                    commitSheetState.summary = snapshot.summary
+                }
+            } catch {
+                await MainActor.run {
+                    guard selectedWorkspaceId == workspaceID else { return }
+                    commitSheetState.summary = GitChangeSummary(branchName: workspace.name)
+                }
+            }
+        }
     }
 }

@@ -34,6 +34,11 @@ enum CommitNextStep: String, CaseIterable, Codable, Sendable {
     }
 }
 
+enum CommitStagePolicy: String, Codable, Sendable {
+    case includeUnstaged
+    case stagedOnly
+}
+
 enum GitControlDisabledReason: String, Codable, Sendable {
     case noWorkspace
     case notGitRepository
@@ -95,6 +100,7 @@ struct GitPanelState: Codable, Equatable, Sendable {
 
 struct CommitSheetState: Codable, Equatable, Sendable {
     var isPresented: Bool
+    var isLoading: Bool
     var includeUnstaged: Bool
     var message: String
     var nextStep: CommitNextStep
@@ -104,6 +110,7 @@ struct CommitSheetState: Codable, Equatable, Sendable {
 
     init(
         isPresented: Bool = false,
+        isLoading: Bool = false,
         includeUnstaged: Bool = true,
         message: String = "",
         nextStep: CommitNextStep = .commit,
@@ -112,6 +119,7 @@ struct CommitSheetState: Codable, Equatable, Sendable {
         disabledReason: GitControlDisabledReason? = .unavailableInPhase
     ) {
         self.isPresented = isPresented
+        self.isLoading = isLoading
         self.includeUnstaged = includeUnstaged
         self.message = message
         self.nextStep = nextStep

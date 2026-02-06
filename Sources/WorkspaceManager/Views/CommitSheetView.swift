@@ -99,15 +99,22 @@ struct CommitSheetView: View {
             }
 
             Button(action: onContinue) {
-                Text("Continue")
-                    .font(.system(.headline, design: .default))
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                HStack(spacing: 8) {
+                    if state.isLoading {
+                        ProgressView()
+                            .tint(.black)
+                    }
+                    Text("Continue")
+                        .font(.system(.headline, design: .default))
+                        .foregroundColor(.black)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
+            .disabled(state.isLoading)
         }
         .padding(24)
         .frame(width: 720)

@@ -2,7 +2,10 @@ import XCTest
 @testable import WorkspaceManager
 
 actor MockGitRepositoryService: GitRepositoryServicing {
+    private(set) var recordedMessages: [String] = []
+
     func status(at workspaceURL: URL) async -> GitRepositoryStatus {
+        _ = workspaceURL
         return GitRepositoryStatus(isRepository: true, branchName: "dev", disabledReason: nil)
     }
 
@@ -16,6 +19,28 @@ actor MockGitRepositoryService: GitRepositoryServicing {
             summary: GitChangeSummary(branchName: "dev", filesChanged: 1, additions: 1, deletions: 0),
             patchText: mode.rawValue
         )
+    }
+
+    func executeCommit(
+        at workspaceURL: URL,
+        stagePolicy: CommitStagePolicy,
+        message: String,
+        nextStep: CommitNextStep
+    ) async throws -> GitCommitResult {
+        _ = workspaceURL
+        _ = stagePolicy
+        _ = nextStep
+        recordedMessages.append(message)
+        return GitCommitResult(branchName: "dev", remoteURL: "https://github.com/example/workspace-manager.git", baseBranch: "main")
+    }
+
+    func autoCommitMessage(at workspaceURL: URL) async throws -> String {
+        _ = workspaceURL
+        return "chore: update 1 files in workspace"
+    }
+
+    func lastRecordedMessage() async -> String? {
+        recordedMessages.last
     }
 }
 
@@ -33,6 +58,24 @@ actor MockNonGitRepositoryService: GitRepositoryServicing {
         _ = workspaceURL
         _ = mode
         throw GitRepositoryServiceError.commandFailed("not repository")
+    }
+
+    func executeCommit(
+        at workspaceURL: URL,
+        stagePolicy: CommitStagePolicy,
+        message: String,
+        nextStep: CommitNextStep
+    ) async throws -> GitCommitResult {
+        _ = workspaceURL
+        _ = stagePolicy
+        _ = message
+        _ = nextStep
+        throw GitRepositoryServiceError.commandFailed("not repository")
+    }
+
+    func autoCommitMessage(at workspaceURL: URL) async throws -> String {
+        _ = workspaceURL
+        return "chore: update 1 files in workspace"
     }
 }
 
@@ -58,14 +101,33 @@ actor MockSlowDiffRepositoryService: GitRepositoryServicing {
             patchText: mode.rawValue
         )
     }
+
+    func executeCommit(
+        at workspaceURL: URL,
+        stagePolicy: CommitStagePolicy,
+        message: String,
+        nextStep: CommitNextStep
+    ) async throws -> GitCommitResult {
+        _ = workspaceURL
+        _ = stagePolicy
+        _ = message
+        _ = nextStep
+        return GitCommitResult(branchName: "dev", remoteURL: nil, baseBranch: "main")
+    }
+
+    func autoCommitMessage(at workspaceURL: URL) async throws -> String {
+        _ = workspaceURL
+        return "chore: update 1 files in workspace"
+    }
 }
 
 actor MockEditorLaunchService: EditorLaunching {
     func availableEditors() async -> [ExternalEditor] {
-        return [.zed, .vsCode, .finder]
+        [.zed, .vsCode, .finder]
     }
 
     func preferredEditor(for workspaceID: UUID) async -> ExternalEditor? {
+        _ = workspaceID
         return .zed
     }
 
@@ -88,6 +150,18 @@ struct MockPRLinkBuilder: PRLinkBuilding {
     }
 }
 
+actor MockURLOpener: URLOpening {
+    private(set) var openedURLs: [URL] = []
+
+    func open(_ url: URL) async {
+        openedURLs.append(url)
+    }
+
+    func lastOpenedURL() async -> URL? {
+        openedURLs.last
+    }
+}
+
 final class GitUIStateTests: XCTestCase {
     @MainActor
     func testAppStateSupportsInjectedBoundaries() {
@@ -95,7 +169,8 @@ final class GitUIStateTests: XCTestCase {
             configService: ConfigService.shared,
             gitRepositoryService: MockGitRepositoryService(),
             editorLaunchService: MockEditorLaunchService(),
-            prLinkBuilder: MockPRLinkBuilder()
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
         )
 
         XCTAssertNotNil(appState)
@@ -107,7 +182,8 @@ final class GitUIStateTests: XCTestCase {
             configService: ConfigService.shared,
             gitRepositoryService: MockNonGitRepositoryService(),
             editorLaunchService: MockEditorLaunchService(),
-            prLinkBuilder: MockPRLinkBuilder()
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
         )
 
         appState.refreshGitUIState()
@@ -123,7 +199,8 @@ final class GitUIStateTests: XCTestCase {
             configService: ConfigService.shared,
             gitRepositoryService: MockSlowDiffRepositoryService(),
             editorLaunchService: MockEditorLaunchService(),
-            prLinkBuilder: MockPRLinkBuilder()
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
         )
 
         appState.refreshGitUIState()
@@ -145,7 +222,8 @@ final class GitUIStateTests: XCTestCase {
             configService: ConfigService.shared,
             gitRepositoryService: MockGitRepositoryService(),
             editorLaunchService: MockEditorLaunchService(),
-            prLinkBuilder: MockPRLinkBuilder()
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
         )
 
         appState.gitPanelState.disabledReason = nil
@@ -162,33 +240,50 @@ final class GitUIStateTests: XCTestCase {
     }
 
     @MainActor
-    func testCommitSheetPlaceholderTransitions() {
+    func testCommitFlowUsesAutoGeneratedMessageWhenBlank() async {
+        let gitService = MockGitRepositoryService()
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: gitService,
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
+        )
+
+        appState.commitSheetState.disabledReason = nil
+        appState.presentCommitSheetPlaceholder()
+        appState.setCommitMessagePlaceholder("")
+        appState.setCommitNextStepPlaceholder(.commit)
+        appState.continueCommitFlowPlaceholder()
+
+        try? await Task.sleep(nanoseconds: 160_000_000)
+
+        let message = await gitService.lastRecordedMessage()
+        XCTAssertEqual(message, "chore: update 1 files in workspace")
+        XCTAssertFalse(appState.commitSheetState.isPresented)
+    }
+
+    @MainActor
+    func testCommitAndCreatePROpensCompareURL() async {
+        let urlOpener = MockURLOpener()
         let appState = AppState(
             configService: ConfigService.shared,
             gitRepositoryService: MockGitRepositoryService(),
             editorLaunchService: MockEditorLaunchService(),
-            prLinkBuilder: MockPRLinkBuilder()
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: urlOpener
         )
 
         appState.commitSheetState.disabledReason = nil
-        XCTAssertFalse(appState.commitSheetState.isPresented)
-
         appState.presentCommitSheetPlaceholder()
-        XCTAssertTrue(appState.commitSheetState.isPresented)
-
-        appState.setIncludeUnstagedPlaceholder(false)
-        appState.setCommitMessagePlaceholder("test")
-        appState.setCommitNextStepPlaceholder(.commitAndPush)
-
-        XCTAssertFalse(appState.commitSheetState.includeUnstaged)
-        XCTAssertEqual(appState.commitSheetState.message, "test")
-        XCTAssertEqual(appState.commitSheetState.nextStep, .commitAndPush)
-
+        appState.setCommitMessagePlaceholder("feat: test")
+        appState.setCommitNextStepPlaceholder(.commitAndCreatePR)
         appState.continueCommitFlowPlaceholder()
-        XCTAssertEqual(appState.commitSheetState.errorText, GitControlDisabledReason.unavailableInPhase.title)
 
-        appState.dismissCommitSheetPlaceholder()
-        XCTAssertFalse(appState.commitSheetState.isPresented)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        let openedURL = await urlOpener.lastOpenedURL()
+        XCTAssertNotNil(openedURL)
     }
 
     func testDiffPanelModeTitles() {
