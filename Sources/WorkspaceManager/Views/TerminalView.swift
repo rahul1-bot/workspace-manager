@@ -92,7 +92,7 @@ struct TerminalView: NSViewRepresentable {
                 execName: nil
             )
         } catch {
-            AppLogger.terminal.error("terminal launch policy rejected shell/cwd: \(String(describing: error), privacy: .public)")
+            AppLogger.terminal.error("terminal launch policy rejected shell/cwd: \(String(describing: error), privacy: .private)")
             terminalView.startProcess(
                 executable: "/bin/zsh",
                 args: ["-l"],
