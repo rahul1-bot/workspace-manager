@@ -122,6 +122,16 @@ struct WorkspaceManagerApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1200, height: 800)
         .commands {
+            // Remove the default Edit menu's Cut/Copy/Paste items.
+            // SwiftUI's default pasteboard commands can intercept Cmd+V/C/X
+            // at the Scene level before the NSEvent monitor or
+            // performKeyEquivalent: can handle them, causing the window
+            // to close on macOS 26 with .hiddenTitleBar.
+            // Text fields (commit sheet, command palette) still handle
+            // Cmd+V through NSTextView's built-in key equivalent handling.
+            // The terminal handles paste through libghostty's keybindings.
+            CommandGroup(replacing: .pasteboard) { }
+
             // Custom keyboard commands
             CommandGroup(after: .newItem) {
                 Button("New Terminal") {
