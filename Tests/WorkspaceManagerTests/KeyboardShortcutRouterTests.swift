@@ -69,6 +69,18 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertConsume(escapeRoute, expected: .closeCommandPalette)
     }
 
+    func testCommitSheetConsumesEscape() {
+        let visibleContext = makeContext(showCommitSheet: true)
+        let escapeRoute = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: visibleContext
+        )
+        assertConsume(escapeRoute, expected: .closeCommitSheet)
+    }
+
     func testSidebarArrowRouting() {
         let route = router.route(
             keyCode: 126,
@@ -115,6 +127,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         appIsActive: Bool = true,
         showCommandPalette: Bool = false,
         showShortcutsHelp: Bool = false,
+        showCommitSheet: Bool = false,
         sidebarFocused: Bool = false,
         selectedTerminalExists: Bool = true
     ) -> ShortcutContext {
@@ -122,6 +135,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
             appIsActive: appIsActive,
             showCommandPalette: showCommandPalette,
             showShortcutsHelp: showShortcutsHelp,
+            showCommitSheet: showCommitSheet,
             sidebarFocused: sidebarFocused,
             selectedTerminalExists: selectedTerminalExists
         )

@@ -39,7 +39,7 @@ struct WorkspaceActionBar: View {
             Button {
                 appState.presentCommitSheetPlaceholder()
             } label: {
-                WorkspaceActionPill(icon: "point.topleft.down.curvedto.point.bottomright.up", title: "Commit", showsChevron: true, isDisabled: commitDisabled)
+                WorkspaceActionPill(icon: "point.topleft.down.curvedto.point.bottomright.up", title: "Commit", showsChevron: false, isDisabled: commitDisabled)
             }
             .buttonStyle(.plain)
             .disabled(commitDisabled)

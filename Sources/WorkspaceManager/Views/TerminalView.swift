@@ -211,7 +211,7 @@ struct TerminalHeader: View {
     }
 
     var body: some View {
-        HStack {
+        HStack(alignment: .top) {
             Circle()
                 .fill(Color.green)
                 .frame(width: 8, height: 8)
@@ -232,28 +232,15 @@ struct TerminalHeader: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 6) {
-                Text(shortenedPath(workspace?.path ?? ""))
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.6))
-
-                WorkspaceActionBar(
-                    workspaceID: workspace?.id,
-                    terminalID: terminalId
-                )
-            }
+            WorkspaceActionBar(
+                workspaceID: workspace?.id,
+                terminalID: terminalId
+            )
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 6)
         .background(Color.clear)
-    }
-
-    func shortenedPath(_ path: String) -> String {
-        let components = path.split(separator: "/")
-        if components.count > 4 {
-            return "~/.../" + components.suffix(2).joined(separator: "/")
-        }
-        return path.replacingOccurrences(of: FileManager.default.homeDirectoryForCurrentUser.path, with: "~")
     }
 }
 

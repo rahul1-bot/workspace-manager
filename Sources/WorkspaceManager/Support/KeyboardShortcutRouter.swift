@@ -5,6 +5,7 @@ struct ShortcutContext {
     let appIsActive: Bool
     let showCommandPalette: Bool
     let showShortcutsHelp: Bool
+    let showCommitSheet: Bool
     let sidebarFocused: Bool
     let selectedTerminalExists: Bool
 }
@@ -12,6 +13,7 @@ struct ShortcutContext {
 enum ShortcutCommand: Hashable {
     case closeShortcutsHelp
     case closeCommandPalette
+    case closeCommitSheet
     case toggleSidebar
     case newTerminal
     case newWorkspace
@@ -89,6 +91,10 @@ final class KeyboardShortcutRouter {
                 return .consume(.closeCommandPalette)
             }
             return .passthrough
+        }
+
+        if context.showCommitSheet, keyCode == 53 {
+            return .consume(.closeCommitSheet)
         }
 
         // Preserve standard edit shortcuts through responder chain.

@@ -22,7 +22,13 @@ struct ContentView: View {
     @State private var showShortcutsHelp = false
     @State private var showCloseTerminalConfirm = false
     @State private var shortcutThrottle: [String: TimeInterval] = [:]
+    @State private var diffPanelWidthRatio: CGFloat = 0.5
+    @State private var diffPanelDragStartRatio: CGFloat?
+    @State private var isDiffResizeHandleHovering = false
     private let shortcutRouter = KeyboardShortcutRouter()
+    private let minDiffPanelWidthRatio: CGFloat = 0.2
+    private let maxDiffPanelWidthRatio: CGFloat = 1.0
+    private let defaultDiffPanelWidthRatio: CGFloat = 0.5
 
     var body: some View {
         ZStack {
@@ -44,29 +50,36 @@ struct ContentView: View {
                 }
 
                 // Terminal area
-                TerminalContainer(showHeader: !appState.focusMode)
-                    .overlay(alignment: .topLeading) {
-                        if appState.focusMode {
-                            FocusModeOverlay()
-                                .padding(.leading, 12)
-                                .padding(.top, 10)
+                GeometryReader { terminalGeometry in
+                    let terminalWidth = max(terminalGeometry.size.width, 1)
+
+                    TerminalContainer(showHeader: !appState.focusMode)
+                        .overlay(alignment: .topLeading) {
+                            if appState.focusMode {
+                                FocusModeOverlay()
+                                    .padding(.leading, 12)
+                                    .padding(.top, 10)
+                            }
                         }
-                    }
-                    .overlay(alignment: .trailing) {
-                        if appState.gitPanelState.isPresented {
-                            DiffPanelView(
-                                state: appState.gitPanelState,
-                                onClose: {
-                                    appState.dismissDiffPanelPlaceholder()
-                                },
-                                onModeSelected: { mode in
-                                    appState.setDiffPanelModePlaceholder(mode)
+                        .overlay(alignment: .trailing) {
+                            if appState.gitPanelState.isPresented {
+                                DiffPanelView(
+                                    state: appState.gitPanelState,
+                                    onClose: {
+                                        appState.dismissDiffPanelPlaceholder()
+                                    },
+                                    onModeSelected: { mode in
+                                        appState.setDiffPanelModePlaceholder(mode)
+                                    }
+                                )
+                                .frame(width: terminalWidth * diffPanelWidthRatio)
+                                .overlay(alignment: .leading) {
+                                    diffResizeHandle(terminalWidth: terminalWidth)
                                 }
-                            )
-                            .frame(width: 420)
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                            }
                         }
-                    }
+                }
             }
 
             if showCommandPalette {
@@ -144,6 +157,7 @@ struct ContentView: View {
                 appIsActive: NSApp.isActive,
                 showCommandPalette: showCommandPalette,
                 showShortcutsHelp: showShortcutsHelp,
+                showCommitSheet: appState.commitSheetState.isPresented,
                 sidebarFocused: sidebarFocused,
                 selectedTerminalExists: appState.selectedTerminalId != nil
             )
@@ -164,6 +178,8 @@ struct ContentView: View {
             showShortcutsHelp = false
         case .closeCommandPalette:
             showCommandPalette = false
+        case .closeCommitSheet:
+            appState.dismissCommitSheetPlaceholder()
         case .toggleSidebar:
             guard shouldExecuteShortcut("toggleSidebar") else { return }
             if appState.focusMode {
@@ -287,5 +303,48 @@ struct ContentView: View {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
         }
+    }
+
+    private func diffResizeHandle(terminalWidth: CGFloat) -> some View {
+        Rectangle()
+            .fill(Color.white.opacity(isDiffResizeHandleHovering ? 0.22 : 0.10))
+            .frame(width: 6)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if diffPanelDragStartRatio == nil {
+                            diffPanelDragStartRatio = diffPanelWidthRatio
+                        }
+                        let startRatio = diffPanelDragStartRatio ?? diffPanelWidthRatio
+                        let deltaRatio = -value.translation.width / max(terminalWidth, 1)
+                        let candidateRatio = startRatio + deltaRatio
+                        diffPanelWidthRatio = min(maxDiffPanelWidthRatio, max(0, candidateRatio))
+                    }
+                    .onEnded { _ in
+                        if diffPanelWidthRatio < minDiffPanelWidthRatio {
+                            appState.dismissDiffPanelPlaceholder()
+                            diffPanelWidthRatio = defaultDiffPanelWidthRatio
+                        } else {
+                            diffPanelWidthRatio = min(maxDiffPanelWidthRatio, max(minDiffPanelWidthRatio, diffPanelWidthRatio))
+                        }
+                        diffPanelDragStartRatio = nil
+                    }
+            )
+            .onHover { hovering in
+                guard hovering != isDiffResizeHandleHovering else { return }
+                isDiffResizeHandleHovering = hovering
+                if hovering {
+                    NSCursor.resizeLeftRight.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .onDisappear {
+                if isDiffResizeHandleHovering {
+                    NSCursor.pop()
+                    isDiffResizeHandleHovering = false
+                }
+            }
     }
 }

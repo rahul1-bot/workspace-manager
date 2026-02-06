@@ -64,12 +64,26 @@ struct DiffPanelView: View {
                         .font(.system(.callout, design: .default))
                         .foregroundColor(.white.opacity(0.7))
                 } else {
-                    ScrollView {
-                        Text(state.patchText)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.85))
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    ScrollView([.vertical, .horizontal]) {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(patchLines.enumerated()), id: \.offset) { _, line in
+                                let lineStyle = style(for: line)
+                                Text(line.isEmpty ? " " : line)
+                                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                    .foregroundColor(lineStyle.foreground)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 1)
+                                    .background(lineStyle.background)
+                            }
+                        }
                     }
+                    .background(Color.black.opacity(0.18))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
                 }
                 Spacer(minLength: 0)
             }
@@ -85,4 +99,35 @@ struct DiffPanelView: View {
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
     }
+
+    private var patchLines: [String] {
+        state.patchText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    }
+
+    private func style(for line: String) -> DiffLineStyle {
+        if line.hasPrefix("diff --git") {
+            return DiffLineStyle(foreground: Color.white, background: Color.white.opacity(0.06))
+        }
+        if line.hasPrefix("+++ ") || line.hasPrefix("--- ") {
+            return DiffLineStyle(foreground: Color.cyan.opacity(0.95), background: Color.cyan.opacity(0.08))
+        }
+        if line.hasPrefix("@@") {
+            return DiffLineStyle(foreground: Color.orange.opacity(0.95), background: Color.orange.opacity(0.12))
+        }
+        if line.hasPrefix("+"), !line.hasPrefix("+++") {
+            return DiffLineStyle(foreground: Color.green.opacity(0.95), background: Color.green.opacity(0.18))
+        }
+        if line.hasPrefix("-"), !line.hasPrefix("---") {
+            return DiffLineStyle(foreground: Color.red.opacity(0.95), background: Color.red.opacity(0.16))
+        }
+        if line.hasPrefix("index ") {
+            return DiffLineStyle(foreground: Color.white.opacity(0.65), background: .clear)
+        }
+        return DiffLineStyle(foreground: Color.white.opacity(0.88), background: .clear)
+    }
+}
+
+private struct DiffLineStyle {
+    let foreground: Color
+    let background: Color
 }
