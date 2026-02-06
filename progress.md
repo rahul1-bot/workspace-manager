@@ -210,6 +210,22 @@
 
 ---
 
+| Progress Todo | Terminal Process Persistence Across View Mode Switches | Date: 06 February 2026 | Time: 10:07 AM | Name: Lyra |
+
+    1. Delivered and compiling:
+        1. ✅ Fixed critical bug: switching between sidebar mode and graph mode (Cmd+G) no longer kills ALL terminal processes. Previously, the ContentView used a switch statement that removed sidebarModeContent from the SwiftUI view hierarchy when entering graph mode. This caused all TerminalView and GhosttyTerminalView NSViewRepresentable instances to be deallocated, terminating all shell processes. Switching back to sidebar mode recreated terminals from scratch, losing working directories, command history, and running processes.
+        2. ✅ ContentView.swift: Replaced switch statement with persistent overlay approach. sidebarModeContent is always present in the view hierarchy. When in graph mode, it is hidden via .opacity(0) and .allowsHitTesting(false). This preserves all terminal NSView instances and their underlying shell processes. GraphCanvasView is conditionally added on top when in graph mode.
+        3. ✅ TerminalContainer in TerminalView.swift: Updated isSelected computation to include view mode check. When currentViewMode is .graph, no terminal reports as selected, which prevents focus stealing (makeFirstResponder calls) and sets all terminal NSViews to isHidden=true for zero rendering overhead.
+        4. ✅ swift build passes, swift test passes (54 tests, 0 failures).
+    2. Root cause analysis:
+        1. SwiftUI's switch statement is a conditional view builder. When the case changes, the previous case's views are removed from the hierarchy. For NSViewRepresentable types, removal triggers dismantleNSView and deallocation of the underlying NSView. For LocalProcessTerminalView and GhosttySurfaceNSView, deallocation terminates the associated shell process.
+        2. The fix exploits SwiftUI's view identity: by keeping sidebarModeContent always present (even if invisible), its children maintain stable identity and their NSViews are never deallocated. The terminal processes continue running in the background during graph mode.
+    3. Files modified:
+        1. Sources/WorkspaceManager/ContentView.swift — persistent overlay instead of switch
+        2. Sources/WorkspaceManager/Views/TerminalView.swift — view mode guard on isSelected
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):

@@ -164,7 +164,11 @@ struct TerminalContainer: View {
         ZStack {
             ForEach(appState.workspaces) { workspace in
                 ForEach(workspace.terminals) { terminal in
+                    // When in graph mode, no terminal is "selected" from the view's
+                    // perspective. This prevents focus stealing and hides all terminal
+                    // NSViews, while keeping processes alive in the view hierarchy.
                     let isSelected = terminal.id == appState.selectedTerminal?.id
+                        && appState.currentViewMode == .sidebar
 
                     VStack(spacing: 0) {
                         if showHeader {
