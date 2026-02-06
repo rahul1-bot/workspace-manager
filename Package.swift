@@ -11,7 +11,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.2.0"),
-        .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0")
+        .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
+        .package(url: "https://github.com/li3zhen1/Grape.git", from: "1.0.0")
     ],
     targets: [
         .executableTarget(
@@ -19,6 +20,7 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 .product(name: "TOMLKit", package: "TOMLKit"),
+                .product(name: "ForceSimulation", package: "Grape"),
                 "GhosttyKit"
             ],
             path: "Sources/WorkspaceManager",
