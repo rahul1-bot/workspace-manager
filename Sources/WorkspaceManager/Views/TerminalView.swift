@@ -231,17 +231,17 @@ struct TerminalHeader: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .padding(.top, 2)
-
             Spacer()
 
-            WorkspaceActionBar(
-                workspaceID: workspace?.id,
-                terminalID: terminalId
-            )
+            if !appState.gitPanelState.isPresented {
+                WorkspaceActionBar(
+                    workspaceID: workspace?.id,
+                    terminalID: terminalId
+                )
+            }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 6)
+        .padding(.top, 14)
         .padding(.bottom, 6)
         .background(Color.clear)
     }
