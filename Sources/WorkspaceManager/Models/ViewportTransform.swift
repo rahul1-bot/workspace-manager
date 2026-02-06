@@ -24,4 +24,17 @@ struct ViewportTransform: Sendable {
     }
 
     static let identity: ViewportTransform = ViewportTransform()
+
+    init(from state: ViewportState) {
+        self.translation = SIMD2<Double>(state.panOffsetX, state.panOffsetY)
+        self.scale = max(0.1, min(state.zoomScale, 5.0))
+    }
+
+    func toViewportState() -> ViewportState {
+        ViewportState(
+            panOffsetX: translation.x,
+            panOffsetY: translation.y,
+            zoomScale: scale
+        )
+    }
 }

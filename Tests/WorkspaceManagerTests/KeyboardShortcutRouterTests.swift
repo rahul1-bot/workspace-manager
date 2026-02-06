@@ -144,7 +144,9 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         showPDFPanel: Bool = false,
         sidebarFocused: Bool = false,
         selectedTerminalExists: Bool = true,
-        isGraphMode: Bool = false
+        isGraphMode: Bool = false,
+        hasFocusedGraphNode: Bool = false,
+        hasSelectedGraphNode: Bool = false
     ) -> ShortcutContext {
         ShortcutContext(
             appIsActive: appIsActive,
@@ -155,7 +157,9 @@ final class KeyboardShortcutRouterTests: XCTestCase {
             showPDFPanel: showPDFPanel,
             sidebarFocused: sidebarFocused,
             selectedTerminalExists: selectedTerminalExists,
-            isGraphMode: isGraphMode
+            isGraphMode: isGraphMode,
+            hasFocusedGraphNode: hasFocusedGraphNode,
+            hasSelectedGraphNode: hasSelectedGraphNode
         )
     }
 

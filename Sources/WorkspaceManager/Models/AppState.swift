@@ -29,6 +29,8 @@ final class AppState: ObservableObject {
     @Published var currentViewMode: ViewMode = .sidebar
     @Published var graphDocument: GraphStateDocument = GraphStateDocument()
     @Published var focusedGraphNodeId: UUID?
+    @Published var selectedGraphNodeId: UUID?
+    @Published var graphViewport: ViewportTransform = .identity
 
     private let configService: ConfigService
     private let graphStateService: GraphStateService = GraphStateService()
@@ -993,11 +995,13 @@ final class AppState: ObservableObject {
         Task {
             let document: GraphStateDocument = await graphStateService.load()
             graphDocument = document
+            graphViewport = ViewportTransform(from: document.viewport)
             syncGraphFromWorkspaces()
         }
     }
 
     func saveGraphState() {
+        graphDocument.viewport = graphViewport.toViewportState()
         Task {
             await graphStateService.save(graphDocument)
         }
@@ -1099,6 +1103,11 @@ final class AppState: ObservableObject {
     func unfocusGraphNode() {
         focusedGraphNodeId = nil
         currentViewMode = .graph
+    }
+
+    func focusSelectedGraphNode() {
+        guard let nodeId = selectedGraphNodeId else { return }
+        focusGraphNode(nodeId)
     }
 
     func updateGraphNodePosition(_ nodeId: UUID, to position: CGPoint) {

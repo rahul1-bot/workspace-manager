@@ -332,6 +332,17 @@
 
 ---
 
+| Memory | Lifting Viewport State from View to AppState Solves View Mode Toggle Loss | Date: 06 February 2026 | Time: 10:20 PM | Name: Lyra |
+
+    1. Observation:
+        1. GraphCanvasView stored its viewport transform as a local @State property. SwiftUI recreates views inside conditional builders (if/switch) when the condition changes. Toggling between sidebar and graph mode via Cmd+G caused GraphCanvasView to be destroyed and recreated, resetting viewport zoom and pan to identity. Combined with the earlier fix of using .opacity(0) for sidebar persistence, the graph view itself was still inside a conditional if block.
+    2. Decision:
+        1. Moved the viewport transform and selection state from @State in GraphCanvasView to @Published properties on AppState (graphViewport: ViewportTransform, selectedGraphNodeId: UUID?). AppState is a long-lived @MainActor ObservableObject that survives view lifecycle events. Added serialization bridge methods (ViewportTransform.init(from:) and toViewportState()) so the viewport round-trips through the existing graph-state.json persistence layer via loadGraphState and saveGraphState.
+    3. Implication:
+        1. Any SwiftUI view state that must survive conditional view builder toggling (if/else, switch) should be lifted to a parent ObservableObject. Local @State is only safe for state that can be reset when the view is recreated. This pattern applies broadly: any interactive state (scroll position, selection, transform) on a view inside a conditional builder will be lost on toggle unless lifted.
+
+---
+
 | Memory | Cluster Drag Requires Hit-Test Priority Over Pan | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
 
     1. Observation:

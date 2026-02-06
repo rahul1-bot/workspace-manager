@@ -266,6 +266,31 @@
 
 ---
 
+| Progress Todo | Phase 1 Cleanup — State Lifting, Shortcut Fixes, Scroll Zoom, Dead Code Removal | Date: 06 February 2026 | Time: 10:20 PM | Name: Lyra |
+
+    1. Delivered and compiling (branch: feat/graph-phase1-cleanup):
+        1. ✅ Fix Cmd+L routing conflict. Graph-mode shortcuts (Cmd+=, Cmd+-, Cmd+L, Enter) moved before general shortcut block in KeyboardShortcutRouter.swift (lines 144-149). When isGraphMode is true, Cmd+L now returns graphRerunLayout instead of being shadowed by focusTerminal at line 159. Previously Cmd+L was dead code in graph mode because focusTerminal was checked first in the routing chain.
+        2. ✅ Fix Escape unfocusGraphNode. Added hasFocusedGraphNode and hasSelectedGraphNode fields to ShortcutContext. Added Escape key handler at line 126-128 of KeyboardShortcutRouter.swift that returns unfocusGraphNode when hasFocusedGraphNode is true. Context fields populated from appState.focusedGraphNodeId and appState.selectedGraphNodeId in ContentView.swift. Handler wired at line 370-371.
+        3. ✅ Fix viewport state loss across view mode toggles. Lifted viewport transform from local @State in GraphCanvasView into @Published graphViewport on AppState (line 33). Added serialization bridge: ViewportTransform.init(from:) and toViewportState() in ViewportTransform.swift (lines 28-39). loadGraphState hydrates graphViewport from saved document (AppState line 998). saveGraphState writes graphViewport back before persisting (AppState line 1004). All references in GraphCanvasView migrated from local viewportTransform to appState.graphViewport. Viewport now survives view mode toggles because AppState outlives the view lifecycle.
+        4. ✅ Add scroll wheel zoom to graph canvas. Added NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) in ContentView.swift (lines 402-421). Requires Cmd modifier and graph mode to activate. Zoom factor computed as 1.0 + scrollDelta * 0.01, clamped to [0.1, 5.0]. Returns nil to swallow consumed scroll events. Monitor setup on onAppear, teardown on onDisappear.
+        5. ✅ Add Enter key to focus selected graph node. Added focusSelectedGraphNode case to ShortcutCommand enum. Router at line 148 checks keyCode 36 with hasSelectedGraphNode context flag. AppState.focusSelectedGraphNode() (lines 1108-1111) delegates to focusGraphNode using selectedGraphNodeId. Handler wired in ContentView executeShortcut (lines 380-381).
+        6. ✅ Clean up dead code in graph implementation. Removed from GraphCanvasView: @State dragOffset (unused CGSize), @State selectedNodeId (replaced by appState.selectedGraphNodeId), @State viewportTransform (replaced by appState.graphViewport), hitTestRadius constant (unused, hit testing uses nodeWidth/nodeHeight). Removed dead Cmd+0 block from number-key handler in KeyboardShortcutRouter (was unreachable because digit >= 1 was guarded above it). Relocated Cmd+0 zoom-to-fit to standalone check at line 184.
+        7. ✅ Added selectedGraphNodeId (@Published UUID?) to AppState (line 32) for centralized graph node selection state. Used by GraphCanvasView for selection highlight rendering and by KeyboardShortcutRouter for Enter-to-focus context.
+        8. ✅ Fixed KeyboardShortcutRouterTests.swift test helper. Added hasFocusedGraphNode and hasSelectedGraphNode parameters with false defaults to makeContext function. All 54 tests pass with 0 failures.
+        9. ✅ swift build passes with -Xswiftc -warnings-as-errors. swift test passes (54 tests, 0 failures).
+    2. Files modified:
+        1. Sources/WorkspaceManager/Models/ViewportTransform.swift — serialization bridge methods
+        2. Sources/WorkspaceManager/Models/AppState.swift — selectedGraphNodeId, graphViewport, focusSelectedGraphNode, viewport persistence in load/save
+        3. Sources/WorkspaceManager/Views/GraphCanvasView.swift — migrated all local state to appState, removed dead code
+        4. Sources/WorkspaceManager/Support/KeyboardShortcutRouter.swift — graph shortcut priority reorder, Escape unfocus, Enter focus, dead Cmd+0 relocation
+        5. Sources/WorkspaceManager/ContentView.swift — scroll wheel zoom monitor, new context fields, new shortcut handler
+        6. Tests/WorkspaceManagerTests/KeyboardShortcutRouterTests.swift — test helper updated for new context fields
+    3. Remaining for graph Phase 1 completion:
+        1. Add graph shortcuts to help overlay and command palette (Cmd+G, Cmd+=, Cmd+-, Cmd+0, Cmd+L, Enter, Escape).
+        2. Add graph-mode keyboard shortcut tests to KeyboardShortcutRouterTests.swift.
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):

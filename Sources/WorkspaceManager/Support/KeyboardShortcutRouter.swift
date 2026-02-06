@@ -11,6 +11,8 @@ struct ShortcutContext {
     let sidebarFocused: Bool
     let selectedTerminalExists: Bool
     let isGraphMode: Bool
+    let hasFocusedGraphNode: Bool
+    let hasSelectedGraphNode: Bool
 }
 
 enum ShortcutCommand: Hashable {
@@ -54,6 +56,7 @@ enum ShortcutCommand: Hashable {
     case graphZoomOut
     case graphZoomToFit
     case graphRerunLayout
+    case focusSelectedGraphNode
     case swallow
 }
 
@@ -120,6 +123,10 @@ final class KeyboardShortcutRouter {
             return .consume(.closePDFPanel)
         }
 
+        if context.hasFocusedGraphNode, keyCode == 53 {
+            return .consume(.unfocusGraphNode)
+        }
+
         if context.showPDFPanel && cmd && shift {
             if char == "{" { return .consume(.previousPDFTab) }
             if char == "}" { return .consume(.nextPDFTab) }
@@ -132,6 +139,13 @@ final class KeyboardShortcutRouter {
 
         if cmd && isRepeat && !["i", "k", "[", "]"].contains(char) {
             return .consume(.swallow)
+        }
+
+        if context.isGraphMode {
+            if cmd && (char == "=" || char == "+") { return .consume(.graphZoomIn) }
+            if cmd && char == "-" { return .consume(.graphZoomOut) }
+            if cmd && char == "l" { return .consume(.graphRerunLayout) }
+            if keyCode == 36 && context.hasSelectedGraphNode { return .consume(.focusSelectedGraphNode) }
         }
 
         if cmd && char == "b" { return .consume(.toggleSidebar) }
@@ -158,16 +172,7 @@ final class KeyboardShortcutRouter {
         if cmd && char == "[" { return .consume(.previousWorkspace) }
         if cmd && char == "]" { return .consume(.nextWorkspace) }
 
-        if context.isGraphMode {
-            if cmd && (char == "=" || char == "+") { return .consume(.graphZoomIn) }
-            if cmd && char == "-" { return .consume(.graphZoomOut) }
-            if cmd && char == "l" { return .consume(.graphRerunLayout) }
-        }
-
         if let digit = numberRowKeyCodeToDigit[keyCode], digit >= 1 {
-            if context.isGraphMode && cmd && digit == 0 {
-                return .consume(.graphZoomToFit)
-            }
             if cmd && option {
                 return .consume(.jumpTerminal(index: digit - 1))
             }
