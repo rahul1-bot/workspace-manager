@@ -29,6 +29,7 @@ final class AppState: ObservableObject {
 
     private let configService: ConfigService
     private let graphStateService: GraphStateService = GraphStateService()
+    private let forceLayoutEngine: ForceLayoutEngine = ForceLayoutEngine()
     private let gitRepositoryService: any GitRepositoryServicing
     private let editorLaunchService: any EditorLaunching
     private let prLinkBuilder: any PRLinkBuilding
@@ -36,6 +37,7 @@ final class AppState: ObservableObject {
     private let defaultTerminalNames = ["Ghost", "Lyra"]
     private var diffLoadTask: Task<Void, Never>?
     private var commitTask: Task<Void, Never>?
+    private var forceLayoutTask: Task<Void, Never>?
     private var runtimePathObserver: NSObjectProtocol?
     private var terminalRuntimePaths: [UUID: String] = [:]
 
@@ -982,7 +984,9 @@ final class AppState: ObservableObject {
         case .sidebar:
             currentViewMode = .graph
             syncGraphFromWorkspaces()
+            startForceLayout()
         case .graph:
+            stopForceLayout()
             currentViewMode = .sidebar
         }
     }
@@ -1029,5 +1033,50 @@ final class AppState: ObservableObject {
     func removeGraphEdge(_ edgeId: UUID) {
         graphDocument.edges.removeAll { $0.id == edgeId }
         saveGraphState()
+    }
+
+    func startForceLayout() {
+        stopForceLayout()
+        forceLayoutEngine.configure(
+            graphNodes: graphDocument.nodes,
+            graphEdges: graphDocument.edges
+        )
+
+        forceLayoutTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            var tickCount: Int = 0
+            let maxTicks: Int = 300
+
+            while tickCount < maxTicks && !Task.isCancelled {
+                let isActive: Bool = forceLayoutEngine.tick()
+                let updatedPositions: [UUID: CGPoint] = forceLayoutEngine.positions()
+
+                for (nodeId, position) in updatedPositions {
+                    guard let index = graphDocument.nodes.firstIndex(where: { $0.id == nodeId }) else { continue }
+                    graphDocument.nodes[index].position = position
+                }
+
+                if !isActive { break }
+
+                tickCount += 1
+                try? await Task.sleep(for: .milliseconds(16))
+            }
+
+            saveGraphState()
+            AppLogger.graph.debug("force layout converged after \(tickCount) ticks")
+        }
+    }
+
+    func stopForceLayout() {
+        forceLayoutTask?.cancel()
+        forceLayoutTask = nil
+        forceLayoutEngine.invalidate()
+    }
+
+    func rerunForceLayout() {
+        for i in graphDocument.nodes.indices {
+            graphDocument.nodes[i].isPinned = false
+        }
+        startForceLayout()
     }
 }

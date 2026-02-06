@@ -142,7 +142,8 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         showCommitSheet: Bool = false,
         showDiffPanel: Bool = false,
         sidebarFocused: Bool = false,
-        selectedTerminalExists: Bool = true
+        selectedTerminalExists: Bool = true,
+        isGraphMode: Bool = false
     ) -> ShortcutContext {
         ShortcutContext(
             appIsActive: appIsActive,
@@ -151,7 +152,8 @@ final class KeyboardShortcutRouterTests: XCTestCase {
             showCommitSheet: showCommitSheet,
             showDiffPanel: showDiffPanel,
             sidebarFocused: sidebarFocused,
-            selectedTerminalExists: selectedTerminalExists
+            selectedTerminalExists: selectedTerminalExists,
+            isGraphMode: isGraphMode
         )
     }
 

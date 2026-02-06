@@ -164,7 +164,8 @@ struct ContentView: View {
                 showCommitSheet: appState.commitSheetState.isPresented,
                 showDiffPanel: appState.gitPanelState.isPresented,
                 sidebarFocused: sidebarFocused,
-                selectedTerminalExists: appState.selectedTerminalId != nil
+                selectedTerminalExists: appState.selectedTerminalId != nil,
+                isGraphMode: appState.currentViewMode == .graph
             )
 
             switch shortcutRouter.route(event: event, context: context) {
@@ -298,6 +299,14 @@ struct ContentView: View {
             sidebarFocused = false
         case .unfocusGraphNode:
             appState.unfocusGraphNode()
+        case .graphZoomIn:
+            NotificationCenter.default.post(name: .wmGraphZoomIn, object: nil)
+        case .graphZoomOut:
+            NotificationCenter.default.post(name: .wmGraphZoomOut, object: nil)
+        case .graphZoomToFit:
+            NotificationCenter.default.post(name: .wmGraphZoomToFit, object: nil)
+        case .graphRerunLayout:
+            appState.rerunForceLayout()
         case .swallow:
             break
         }

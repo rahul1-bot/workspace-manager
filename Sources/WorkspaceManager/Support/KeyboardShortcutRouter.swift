@@ -9,6 +9,7 @@ struct ShortcutContext {
     let showDiffPanel: Bool
     let sidebarFocused: Bool
     let selectedTerminalExists: Bool
+    let isGraphMode: Bool
 }
 
 enum ShortcutCommand: Hashable {
@@ -43,6 +44,10 @@ enum ShortcutCommand: Hashable {
     case sidebarReturnToTerminal
     case toggleViewMode
     case unfocusGraphNode
+    case graphZoomIn
+    case graphZoomOut
+    case graphZoomToFit
+    case graphRerunLayout
     case swallow
 }
 
@@ -137,13 +142,26 @@ final class KeyboardShortcutRouter {
         if cmd && char == "[" { return .consume(.previousWorkspace) }
         if cmd && char == "]" { return .consume(.nextWorkspace) }
 
+        if context.isGraphMode {
+            if cmd && (char == "=" || char == "+") { return .consume(.graphZoomIn) }
+            if cmd && char == "-" { return .consume(.graphZoomOut) }
+            if cmd && char == "l" { return .consume(.graphRerunLayout) }
+        }
+
         if let digit = numberRowKeyCodeToDigit[keyCode], digit >= 1 {
+            if context.isGraphMode && cmd && digit == 0 {
+                return .consume(.graphZoomToFit)
+            }
             if cmd && option {
                 return .consume(.jumpTerminal(index: digit - 1))
             }
             if cmd {
                 return .consume(.jumpWorkspace(index: digit - 1))
             }
+        }
+
+        if context.isGraphMode && cmd && keyCode == 29 {
+            return .consume(.graphZoomToFit)
         }
 
         if context.sidebarFocused {

@@ -153,3 +153,25 @@
         1. Render workspace name at the top-left corner of each cluster boundary using 11pt semibold monospaced font at 0.5 opacity. Add 24pt extra top padding to the cluster bounding box to create space for the label above the topmost node. Also changed cluster boundaries to render for single-node workspaces, not just multi-node clusters, so every workspace is labeled.
     3. Implication:
         1. The cluster boundary calculation now includes label space in the bounding box, preventing label overlap with node content. The workspace name lookup uses appState.workspaces to resolve workspaceId to a display name.
+
+---
+
+| Memory | Grape ForceSimulation Package Access Limitation | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
+
+    1. Observation:
+        1. Grape v1.1.0 ForceSimulation module declares Kinetics.position as package-level access (@usableFromInline package var). This makes node positions inaccessible from external packages. The UnsafeArray backing store has public subscripts, but the position property itself is gated behind package access. There is no public accessor method or alternative API to read computed positions from outside the Grape package.
+    2. Decision:
+        1. Instead of forking Grape or using unsafe memory access, a custom force simulation engine was written from scratch (ForceLayoutEngine.swift, approximately 155 lines). The engine implements velocity Verlet integration with ManyBody, Link, Center, and Collide forces using SIMD2<Double> vector math. At 14 nodes, each tick completes in microseconds, making O(n^2) ManyBody computation acceptable without Barnes-Hut optimization.
+    3. Implication:
+        1. The Grape SPM dependency remains in Package.swift but is not actively imported. If the upstream library changes position to public access in a future release, the custom engine can be replaced. For scale beyond 100 nodes, Barnes-Hut KDTree optimization would need to be added to the custom engine or the Grape access issue resolved.
+
+---
+
+| Memory | Cluster Drag Requires Hit-Test Priority Over Pan | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
+
+    1. Observation:
+        1. The canvas pan gesture (DragGesture on background) fires whenever the user drags on empty space. Adding cluster drag required differentiating between three drag targets: individual node (handled by node overlay gesture), cluster boundary area (new cluster drag), and empty canvas (viewport pan). The priority order matters: node drag must take precedence over cluster drag, which must take precedence over pan.
+    2. Decision:
+        1. The pan gesture handler checks the drag start location against cluster bounding boxes on first touch. If the point falls inside a cluster boundary but NOT on a node (hitTestCluster returns a workspaceId only after hitTestNode returns nil), the drag enters cluster mode. All nodes in that workspace are moved by the delta. If not inside any cluster, normal viewport panning occurs. The force layout is stopped when cluster drag begins to prevent simulation interference.
+    3. Implication:
+        1. Gesture priority is enforced by layering: node overlays sit above the canvas in the ZStack, so their DragGesture fires first. The canvas-level DragGesture only fires if no node overlay captured the gesture. Within the canvas gesture, the cluster hit-test determines pan vs cluster drag mode.

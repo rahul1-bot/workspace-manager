@@ -104,8 +104,30 @@
         5. ✅ Workspace name labels rendered on cluster boundaries. Each cluster boundary now displays the workspace name at the top-left corner using 11pt semibold monospaced font at 0.5 opacity. Cluster boundaries also now render for single-node workspaces, not just multi-node clusters. Extra top padding of 24pt added to the cluster boundary to accommodate the label without overlapping nodes.
         6. ✅ swift build passes, swift test passes (41 tests, 0 failures).
     2. Remaining for next session:
-        1. Integrate ForceSimulation to replace static grid layout with force-directed spatial positioning.
+        1. ✅ Integrate ForceSimulation to replace static grid layout with force-directed spatial positioning.
         2. Phase 1C interaction features: user-drawn edge creation, improved focus and unfocus flow.
+
+---
+
+| Progress Todo | Phase 1D and 1C — Force Layout, Cluster Drag, Zoom Controls, Minimap | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
+
+    1. Delivered and compiling:
+        1. ✅ Custom force-directed layout engine (ForceLayoutEngine.swift). Implements velocity Verlet integration with four composable forces: ManyBody repulsion (O(n^2), strength -600), Link attraction (stiffness 0.15, rest length 200), Center force (strength 0.05), and Collide force (radius 90). Uses SIMD2<Double> for all vector math. Supports pinned nodes excluded from force calculation. Alpha decay convergence with configurable alphaMin threshold.
+        2. ✅ Animated force layout in AppState. Task-based 60fps tick loop runs ForceLayoutEngine incrementally, reading positions each frame and updating graphDocument.nodes for smooth animated node spreading. Auto-triggers when entering graph mode via toggleViewMode. Stops on node drag to prevent simulation fighting user input. Maximum 300 ticks before auto-stop.
+        3. ✅ Re-run force layout (Cmd+L). Unpins all nodes and restarts the force simulation, causing the graph to reorganize from its current positions.
+        4. ✅ Cluster drag. Dragging on a workspace cluster boundary (not on an individual node) moves all terminal nodes in that workspace as a group. Hit-tests cluster bounding boxes in canvas coordinate space. All moved nodes pinned after drag ends. Stops force layout during drag.
+        5. ✅ Keyboard zoom (Cmd+Plus zoom in, Cmd+Minus zoom out). Step zoom at 1.25x factor per press. Routed through ShortcutCommand and NotificationCenter to GraphCanvasView.
+        6. ✅ Zoom-to-fit (Cmd+0). Computes bounding box of all nodes with 80pt padding, calculates scale to fit within viewport, and centers the view. Accessible via keyboard shortcut.
+        7. ✅ Minimap overlay in bottom-right corner. 160x100pt Canvas renders all nodes as white dots, edges as thin lines, and the current viewport as a white rectangle outline. Dark semi-transparent background with rounded corners and subtle border.
+        8. ✅ Pan and zoom sensitivity dampening. Pan at 55% sensitivity, zoom at 30% dampening for smooth controllable navigation.
+        9. ✅ ShortcutContext extended with isGraphMode flag. Graph-specific shortcuts (zoom, layout) only fire in graph mode.
+        10. ✅ swift build passes, swift test passes (41 tests, 0 failures).
+    2. Architecture note on Grape ForceSimulation:
+        1. Grape v1.1.0 ForceSimulation module exposes Kinetics.position as package-level access, making it inaccessible from external packages. Rather than forking Grape, a custom force simulation engine was written (approximately 155 lines) using SIMD2<Double> vector math. At 14 nodes this runs in microseconds per tick. The Grape SPM dependency remains in Package.swift for potential future use if the access level issue is resolved upstream.
+    3. Remaining for next session:
+        1. Phase 1C interaction features: user-drawn edge creation, improved focus and unfocus flow.
+        2. Performance validation at 50+ nodes.
+        3. Scroll wheel zoom (Cmd+scroll for zoom, currently only pinch and keyboard zoom supported).
 
 ---
 
