@@ -12,14 +12,13 @@ struct DiffPanelView: View {
     private static let syntaxService = DiffSyntaxHighlightingService()
 
     private enum DiffChromeStyle {
-        static let outerStrokeOpacity: Double = 0.07
-        static let dividerOpacity: Double = 0.05
-        static let panelOverlayTopOpacity: Double = 0.035
-        static let panelOverlayBottomOpacity: Double = 0.018
-        static let headerFillOpacity: Double = 0.010
-        static let summaryFillOpacity: Double = 0.010
-        static let contentStrokeOpacity: Double = 0.06
-        static let resizingFillOpacity: Double = 0.14
+        static let outerStrokeOpacity: Double = 0.12
+        static let dividerOpacity: Double = 0.08
+        static let darkOverlayOpacity: Double = 0.45
+        static let headerFillOpacity: Double = 0.04
+        static let summaryFillOpacity: Double = 0.06
+        static let contentStrokeOpacity: Double = 0.08
+        static let resizingFillOpacity: Double = 0.45
     }
 
     var body: some View {
@@ -54,14 +53,7 @@ struct DiffPanelView: View {
                 Color.black.opacity(DiffChromeStyle.resizingFillOpacity)
             } else {
                 VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
-                LinearGradient(
-                    colors: [
-                        Color.black.opacity(DiffChromeStyle.panelOverlayTopOpacity),
-                        Color.black.opacity(DiffChromeStyle.panelOverlayBottomOpacity)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                Color.black.opacity(DiffChromeStyle.darkOverlayOpacity)
             }
         }
     }
@@ -175,13 +167,13 @@ struct DiffPanelView: View {
 
             ForEach(0..<4, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.white.opacity(0.06))
                     .frame(height: index == 0 ? 24 : 18)
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.black.opacity(0.35))
+        .background(Color.black.opacity(0.25))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
