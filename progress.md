@@ -463,30 +463,45 @@
 
 ---
 
-| Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
+| Progress Todo | Phase 2 Cleanup — Bug List (5 Medium-Severity Issues) | Date: 07 February 2026 | Time: 12:08 AM | Name: Lyra |
 
-    1. Planned scope (not started):
-        1. Markdown node type with native SwiftUI editor.
-        2. Wikilink parsing in markdown nodes creates reference edges automatically.
-        3. Context injection: spawning an agent terminal injects content from nearby graph nodes.
-        4. Semantic search across all markdown nodes via command palette.
+    1. Bug 6 — MagnifyGesture cumulative zoom compounding:
+        1. Location: GraphCanvasView.swift zoomGesture method (line 436-443).
+        2. Problem: MagnifyGesture value.magnification is cumulative from gesture start, not a per-frame delta. The current code applies dampened magnification to the CURRENT scale each frame, compounding exponentially. Frame 1: scale * 1.0075. Frame 2: (scale * 1.0075) * 1.015. Should apply cumulative magnification to the BASELINE scale captured at gesture start.
+        3. Fix: Store scale at gesture start, multiply cumulative dampened magnification against that baseline.
+    2. Bug 7 — focusGraphNode does not stop force layout:
+        1. Location: AppState.swift focusGraphNode method (line 1096-1108).
+        2. Problem: When user focuses a node (switches to sidebar mode to use terminal), the force layout task keeps running and modifying graphDocument.nodes positions in the background. This wastes CPU and can cause a visual jump when returning to graph mode.
+        3. Fix: Call stopForceLayout() at the top of focusGraphNode.
+    3. Bug 8 — unfocusGraphNode does not re-sync from workspaces:
+        1. Location: AppState.swift unfocusGraphNode method (line 1110-1113).
+        2. Problem: When returning from focused terminal to graph mode, unfocusGraphNode only sets focusedGraphNodeId to nil and currentViewMode to .graph. If the user added or removed terminals while in sidebar mode, the graph will show stale nodes. toggleViewMode correctly calls syncGraphFromWorkspaces when switching to graph, but unfocusGraphNode does not.
+        3. Fix: Call syncGraphFromWorkspaces() in unfocusGraphNode before setting graph mode.
+    4. Bug 9 — addGraphEdge one-direction duplicate check:
+        1. Location: AppState.swift addGraphEdge method (line 1130-1138).
+        2. Problem: Duplicate check only verifies (sourceId, targetId). If an edge (B, A) already exists and the user tries to add (A, B), it passes the check and creates a duplicate relationship. For containment edges this is prevented by the chain-topology generation order, but for user-created dependency edges it could create visual duplicate connections.
+        3. Fix: Check both (sourceId, targetId) and (targetId, sourceId) in the exists guard.
+    5. Bug 10 — Dangling userdata pointer in ghostty clipboard callback:
+        1. Location: GhosttyTerminalView.swift read_clipboard_cb (line 74-78).
+        2. Problem: surfaceConfig.userdata is set to Unmanaged.passUnretained(self) which does not retain the NSView. If the NSView is deallocated while a clipboard read request is in-flight, the callback receives a dangling pointer. The fromOpaque(userdata).takeUnretainedValue() call would access freed memory before the guard let surface check can protect it.
+        3. Mitigation: The Bug 4 fix (releaseSurface in dismantleNSView) calls ghostty_surface_free before deallocation, which should cancel pending callbacks. However, the unretained reference is still fundamentally unsafe if any code path skips dismantleNSView.
+        4. Fix: Change to passRetained/takeRetainedValue or add explicit invalidation tracking.
 
 ---
 
-| Progress Todo | Phase 3 — Agent Orchestration (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
+| Progress Todo | Graph Feature Roadmap (Future Phases) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
-    1. Planned scope (not started):
+    1. Knowledge Layer (future):
+        1. Markdown node type with native SwiftUI editor.
+        2. Wikilink parsing creates reference edges automatically.
+        3. Context injection: spawning agent terminal injects content from nearby nodes.
+        4. Semantic search across markdown nodes via command palette.
+    2. Agent Orchestration (future):
         1. Agents spawn sub-agent nodes on the graph.
         2. Recursive task decomposition into sub-nodes.
-        3. Agent status visualization (active, idle, completed) on node appearance.
+        3. Agent status visualization on node appearance.
         4. Dependency graph execution: agents auto-start when upstream dependencies complete.
-
----
-
-| Progress Todo | Phase 4 — Advanced Features (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
-
-    1. Planned scope (not started):
+    3. Advanced Features (future):
         1. Voice input to create nodes.
         2. Embedding-based relationships via vector store.
         3. Time evolution: replay graph growth using git history.
-        4. Shared memory graph between human and agents.
