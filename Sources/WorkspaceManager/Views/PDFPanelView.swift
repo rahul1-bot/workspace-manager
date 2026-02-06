@@ -100,20 +100,6 @@ struct PDFPanelView: View {
             Spacer()
 
             pageIndicator
-
-            Spacer()
-                .frame(width: 12)
-
-            Button(action: onClose) {
-                Text("Esc")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.55))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.white.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

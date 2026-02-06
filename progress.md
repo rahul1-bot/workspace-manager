@@ -654,6 +654,19 @@
 
 ---
 
+| Progress Todo | UI Polish — Esc Badge Consistency Across Panels | Date: 07 February 2026 | Time: 12:59 AM | Name: Lyra |
+
+    1. Changes applied:
+        1. DiffPanelView header: replaced xmark close button with Esc badge matching the dark liquid glass pattern (caption2, white.opacity(0.55), 0.08 background, 6pt corner radius). Consistent with command palette, commit sheet, and shortcuts help overlay.
+        2. PDFPanelView header: removed close button entirely for a cleaner layout. The PDF panel is dismissed via Esc key (routed through KeyboardShortcutRouter) or by opening the diff panel (panel exclusivity). No visible dismiss affordance needed.
+    2. Build verification:
+        1. swift build passes.
+    3. Files modified:
+        1. Sources/WorkspaceManager/Views/DiffPanelView.swift — xmark replaced with Esc badge
+        2. Sources/WorkspaceManager/Views/PDFPanelView.swift — close button removed
+
+---
+
 | Progress Todo | Graph Feature Roadmap (Future Phases) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Knowledge Layer (future):
