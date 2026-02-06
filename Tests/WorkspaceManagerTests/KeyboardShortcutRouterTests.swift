@@ -327,6 +327,17 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertConsume(route, expected: .unfocusGraphNode)
     }
 
+    func testEscapeRenamePriorityOverDiffPanel() {
+        let route = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: makeContext(showDiffPanel: true, sidebarFocused: true, isRenaming: true)
+        )
+        assertConsume(route, expected: .sidebarCancelRename)
+    }
+
     private func makeContext(
         appIsActive: Bool = true,
         showCommandPalette: Bool = false,
@@ -335,6 +346,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         showDiffPanel: Bool = false,
         showPDFPanel: Bool = false,
         sidebarFocused: Bool = false,
+        isRenaming: Bool = false,
         selectedTerminalExists: Bool = true,
         isGraphMode: Bool = false,
         hasFocusedGraphNode: Bool = false,
@@ -348,6 +360,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
             showDiffPanel: showDiffPanel,
             showPDFPanel: showPDFPanel,
             sidebarFocused: sidebarFocused,
+            isRenaming: isRenaming,
             selectedTerminalExists: selectedTerminalExists,
             isGraphMode: isGraphMode,
             hasFocusedGraphNode: hasFocusedGraphNode,

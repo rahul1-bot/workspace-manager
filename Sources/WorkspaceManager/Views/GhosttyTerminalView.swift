@@ -192,6 +192,19 @@ class GhosttyAppManager {
         UInt(bitPattern: surface)
     }
 
+    func shutdown() {
+        guard initialized else { return }
+        if let app {
+            ghostty_app_free(app)
+            self.app = nil
+        }
+        if let config {
+            ghostty_config_free(config)
+            self.config = nil
+        }
+        initialized = false
+    }
+
     deinit {
         if let app = app {
             ghostty_app_free(app)

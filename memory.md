@@ -53,7 +53,7 @@
     1. Observation:
         1. Cmd+V crashed the app because ghostty_surface_complete_clipboard_request was called with wrong parameter order. The function signature is (surface, text, state, confirmed). Surface-specific callbacks in libghostty receive surfaceConfig.userdata (the NSView pointer), not the runtime config userdata (the app manager pointer).
     2. Decision:
-        1. surfaceConfig.userdata set to Unmanaged.passUnretained(self).toOpaque() per surface. read_clipboard_cb extracts NSView from userdata, gets surface pointer, calls completion synchronously with correct parameter order. CommandGroup(replacing: .pasteboard) {} added as defense-in-depth.
+        1. surfaceConfig.userdata set to Unmanaged.passRetained(self).toOpaque() per surface with balanced release in releaseSurface(). read_clipboard_cb extracts NSView from userdata, gets surface pointer, calls completion synchronously with correct parameter order. CommandGroup(replacing: .pasteboard) {} added as defense-in-depth.
     3. Implication:
         1. Any future libghostty callback needing the surface pointer must extract it from userdata following this pattern. The official Ghostty app calls clipboard completion synchronously without re-entrance issues.
 
@@ -100,6 +100,17 @@
         1. Node overlays sit above canvas in ZStack so their gesture fires first. Canvas-level DragGesture checks hitTestCluster on start to differentiate cluster drag from pan. Force layout stops during cluster drag.
     3. Implication:
         1. Gesture priority is enforced by view layering and hit-test checks within the canvas gesture handler.
+
+---
+
+| Memory | Avoid didSet for Expensive Side Effects — Use Explicit Call Sites | Date: 07 February 2026 | Time: 12:52 AM | Name: Lyra |
+
+    1. Observation:
+        1. @Published properties with didSet observers that trigger expensive operations (subprocess spawning, network calls) multiply when multiple properties are set in sequence. selectTerminal() setting two properties with didSet spawned 2 concurrent git subprocess chains per call. Workspace navigation added a third.
+    2. Decision:
+        1. Removed didSet observers from selectedWorkspaceId and selectedTerminalId. Added a single explicit refreshGitUIState() call at the end of selectTerminal() and in all paths that nil out selection (removeWorkspace, removeTerminal, closeSelectedTerminal, workspace navigation empty cases). Added Task cancellation tracking to prevent overlapping calls.
+    3. Implication:
+        1. Any @Published property whose didSet triggers an expensive operation should instead use explicit call sites at the end of the mutation method. This prevents N-way multiplication when multiple properties change in sequence. Combine this with cancellation tracking (cancel-before-launch pattern) to handle rapid invocations.
 
 ---
 

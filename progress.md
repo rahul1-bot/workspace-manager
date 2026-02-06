@@ -558,6 +558,102 @@
 
 ---
 
+| Progress Todo | Phase 3 Cleanup — Bug List (5 Issues Investigated) | Date: 07 February 2026 | Time: 12:52 AM | Name: Lyra |
+
+    1. Bug 11 — Double/triple refreshGitUIState calls:
+        1. Location: AppState.swift selectedWorkspaceId and selectedTerminalId didSet observers.
+        2. Problem: Both properties had didSet observers calling refreshGitUIStatePlaceholder(). selectTerminal() sets both properties, spawning 2 git subprocess chains per terminal switch. Workspace navigation sets selectedWorkspaceId directly before calling selectTerminal, adding a third. Startup fired 4-5 calls (init didSet + selectTerminal didSet x2 + explicit call + ContentView.onAppear).
+        3. Verdict: REAL BUG (Medium-High severity).
+    2. Bug 12 — No cancellation tracking for git status tasks:
+        1. Location: AppState.swift refreshGitUIState() line 817, loadCommitSummary() line 955.
+        2. Problem: Both methods created fire-and-forget Tasks with no stored reference. Combined with Bug 11 redundancy, rapid terminal switching spawned 4-8+ concurrent git subprocess chains all racing to write the same @Published properties. Unlike diffLoadTask, commitTask, graphLoadTask which all have proper cancellation, these two had none.
+        3. Verdict: REAL BUG (Medium-High severity).
+    3. Bug 13 — Shell processes not terminated on teardown:
+        1. Location: TerminalView.swift (SwiftTerm), GhosttyTerminalView.swift, WorkspaceManagerApp.swift applicationWillTerminate.
+        2. Problem: SwiftTerm TerminalView had no dismantleNSView hook. App quit via applicationWillTerminate only removed input monitors without freeing ghostty surfaces. GhosttyAppManager.shared is a static singleton whose deinit never runs.
+        3. Verdict: MINOR ISSUE (Medium severity). Ghostty path had reasonable coverage via dismantleNSView/deinit fallback. SwiftTerm path relied entirely on deallocation.
+    4. Bug 14 — Escape cascade panel exclusivity ordering:
+        1. Location: KeyboardShortcutRouter.swift Escape priority chain.
+        2. Problem: Sidebar rename cancel was priority 7 (last), below diff panel close (priority 4) and PDF panel close (priority 5). If user was renaming with diff panel open, Escape closed the panel instead of canceling the rename.
+        3. Verdict: MINOR ISSUE (Low severity). Very narrow edge case.
+    5. Bug 15 — NotificationCenter observer vs @MainActor isolation:
+        1. Location: AppState.swift installRuntimePathObserver, ContentView.swift onReceive, GraphCanvasView.swift onReceive.
+        2. Problem: None. All observers use queue: .main, DispatchQueue.main.async posting, or SwiftUI .onReceive which guarantees main-thread delivery.
+        3. Verdict: FALSE POSITIVE. No code changes required.
+
+---
+
+| Progress Todo | Bug Fix — refreshGitUIState Redundancy Eliminated | Date: 07 February 2026 | Time: 12:52 AM | Name: Lyra |
+
+    1. Root cause:
+        1. selectedWorkspaceId and selectedTerminalId each had a didSet observer calling refreshGitUIStatePlaceholder() which forwarded to refreshGitUIState(). Every terminal selection via selectTerminal() set both properties, spawning 2 concurrent git subprocess chains. Workspace navigation added a third. Startup fired 4-5 calls total.
+    2. Fix applied:
+        1. Removed didSet observers from both properties. Removed refreshGitUIStatePlaceholder() wrapper entirely.
+        2. Added explicit refreshGitUIState() call at the end of selectTerminal() — the single source of truth for selection changes.
+        3. Added refreshGitUIState() in paths that set selection to nil without calling selectTerminal: removeWorkspace(), removeTerminal(), closeSelectedTerminal() (empty workspace case), selectPreviousWorkspace/selectNextWorkspace (no-terminal workspace case).
+        4. Removed redundant appState.refreshGitUIState() from ContentView.onAppear (init's selectTerminal already triggers it).
+        5. Removed redundant refreshGitUIStatePlaceholder() call in init (selectTerminal already triggers it).
+    3. Build verification:
+        1. swift build passes. swift test passes (70 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift — removed didSet, removed placeholder, added explicit calls
+        2. Sources/WorkspaceManager/ContentView.swift — removed onAppear refresh call
+
+---
+
+| Progress Todo | Bug Fix — Git Task Cancellation Tracking Added | Date: 07 February 2026 | Time: 12:52 AM | Name: Lyra |
+
+    1. Root cause:
+        1. refreshGitUIState() and loadCommitSummary() created untracked Tasks. No stored reference meant no cancellation was possible. Rapid terminal switching or commit sheet toggling created overlapping concurrent git subprocess chains.
+    2. Fix applied:
+        1. Added private var gitStatusTask: Task<Void, Never>? and commitSummaryTask: Task<Void, Never>? to AppState.
+        2. refreshGitUIState() now cancels the previous gitStatusTask before creating a new one. Task body uses [weak self] capture and checks Task.isCancelled after each await to bail early on stale requests.
+        3. loadCommitSummary() follows the same pattern with commitSummaryTask.
+        4. Consistent with existing cancellation patterns for diffLoadTask, commitTask, and graphLoadTask.
+    3. Build verification:
+        1. swift build passes. swift test passes (70 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift — gitStatusTask, commitSummaryTask, cancellation in refreshGitUIState and loadCommitSummary
+
+---
+
+| Progress Todo | Bug Fix — Shell Process Teardown on View Removal and App Quit | Date: 07 February 2026 | Time: 12:52 AM | Name: Lyra |
+
+    1. Root cause:
+        1. SwiftTerm TerminalView had no dismantleNSView. Process cleanup relied entirely on NSView deallocation which could be delayed by reference cycles.
+        2. GhosttyAppManager is a static singleton whose deinit never runs. App quit via applicationWillTerminate only removed input monitors, leaving ghostty surfaces and their PTY processes to rely on OS-level process cleanup.
+    2. Fix applied:
+        1. Added static func dismantleNSView to TerminalView (SwiftTerm path). Hides the view on SwiftUI teardown, triggering prompt deallocation and process cleanup.
+        2. Added shutdown() method to GhosttyAppManager that explicitly calls ghostty_app_free (cascading to all surface cleanup) and ghostty_config_free, then nils both references and resets the initialized flag.
+        3. applicationWillTerminate now calls GhosttyAppManager.shared.shutdown() before removing input monitors.
+    3. Build verification:
+        1. swift build passes. swift test passes (70 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Views/TerminalView.swift — dismantleNSView
+        2. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift — GhosttyAppManager.shutdown()
+        3. Sources/WorkspaceManager/WorkspaceManagerApp.swift — applicationWillTerminate calls shutdown
+
+---
+
+| Progress Todo | Bug Fix — Escape Priority Elevated for Sidebar Rename | Date: 07 February 2026 | Time: 12:52 AM | Name: Lyra |
+
+    1. Root cause:
+        1. Sidebar rename cancel (sidebarCancelRename) was priority 7 in the Escape chain, below diff panel close (4) and PDF panel close (5). If user was actively renaming in the sidebar with a panel open, Escape closed the panel instead of canceling the rename.
+    2. Fix applied:
+        1. Added isRenaming field to ShortcutContext. Populated from appState.renamingWorkspaceId or renamingTerminalId being non-nil.
+        2. Added early Escape check in router: when sidebarFocused AND isRenaming, return sidebarCancelRename before checking panels. This puts active rename cancel above panel dismissal in the priority chain.
+        3. New Escape priority chain: shortcuts help → command palette → active rename (sidebar focused) → commit sheet → diff panel → PDF panel → graph unfocus → sidebar navigation.
+    3. Test added:
+        1. testEscapeRenamePriorityOverDiffPanel: verifies that Escape with showDiffPanel=true and sidebarFocused=true and isRenaming=true returns sidebarCancelRename, not closeDiffPanel. Test count increased to 70 with 0 failures.
+    4. Build verification:
+        1. swift build passes. swift test passes (70 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Support/KeyboardShortcutRouter.swift — isRenaming in ShortcutContext, early Escape check
+        2. Sources/WorkspaceManager/ContentView.swift — isRenaming populated from appState
+        3. Tests/WorkspaceManagerTests/KeyboardShortcutRouterTests.swift — isRenaming in makeContext helper, new test
+
+---
+
 | Progress Todo | Graph Feature Roadmap (Future Phases) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Knowledge Layer (future):

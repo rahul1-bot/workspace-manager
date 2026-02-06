@@ -9,6 +9,7 @@ struct ShortcutContext {
     let showDiffPanel: Bool
     let showPDFPanel: Bool
     let sidebarFocused: Bool
+    let isRenaming: Bool
     let selectedTerminalExists: Bool
     let isGraphMode: Bool
     let hasFocusedGraphNode: Bool
@@ -109,6 +110,10 @@ final class KeyboardShortcutRouter {
                 return .consume(.closeCommandPalette)
             }
             return .passthrough
+        }
+
+        if context.sidebarFocused && context.isRenaming && keyCode == 53 {
+            return .consume(.sidebarCancelRename)
         }
 
         if context.showCommitSheet, keyCode == 53 {

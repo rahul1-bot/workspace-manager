@@ -81,7 +81,7 @@ Native macOS terminal workspace manager focused on fast context switching, deter
 
 ## Spatial Graph View — Status
 
-| Decision Record | Spatial Graph View — Phase 1 Complete, Phase 2 Cleanup Active | Date: 07 February 2026 | Time: 12:08 AM | Name: Lyra |
+| Decision Record | Spatial Graph View — All Cleanup Phases Complete | Date: 07 February 2026 | Time: 12:52 AM | Name: Lyra |
 
     1. Phase 1 delivered:
         1. Full canvas takeover with SwiftUI Canvas rendering (nodes, edges, grid, cluster boundaries, minimap).
@@ -91,9 +91,12 @@ Native macOS terminal workspace manager focused on fast context switching, deter
         5. Graph state persists to graph-state.json. Viewport state survives view mode toggles via AppState.
         6. Terminal processes survive sidebar/graph switches via opacity-based hiding pattern.
         7. Phase 1 cleanup: 4 bugs fixed, 1 false positive closed, all independently verified.
-    2. Phase 2 cleanup active:
-        1. 5 medium-severity bugs identified for resolution (magnify zoom, focus/unfocus lifecycle, edge dedup, clipboard userdata).
-    3. Design documents:
+    2. Phase 2 complete:
+        1. 5 bugs fixed: magnify zoom compounding, focusGraphNode layout stop, unfocusGraphNode workspace sync, bidirectional edge dedup, clipboard userdata passRetained with balanced release.
+    3. Phase 3 complete:
+        1. 4 bugs fixed: git refresh redundancy (removed didSet, added explicit calls), git task cancellation (gitStatusTask + commitSummaryTask tracking), shell process teardown (dismantleNSView + GhosttyAppManager.shutdown), Escape rename priority (isRenaming context field).
+        2. 1 false positive closed: NotificationCenter threading (all observers properly main-thread-safe).
+    4. Design documents:
         1. Full specification at docs/spatial-graph-view.md.
         2. Design decisions at docs/spatial-graph-view-design-decisions.md.
 

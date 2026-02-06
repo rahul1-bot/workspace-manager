@@ -93,7 +93,6 @@ struct ContentView: View {
         .onAppear {
             setupKeyboardMonitor()
             setupScrollWheelMonitor()
-            appState.refreshGitUIState()
             appState.loadGraphState()
         }
         .onDisappear {
@@ -220,6 +219,7 @@ struct ContentView: View {
                 showDiffPanel: appState.gitPanelState.isPresented,
                 showPDFPanel: appState.pdfPanelState.isPresented,
                 sidebarFocused: sidebarFocused,
+                isRenaming: appState.renamingWorkspaceId != nil || appState.renamingTerminalId != nil,
                 selectedTerminalExists: appState.selectedTerminalId != nil,
                 isGraphMode: appState.currentViewMode == .graph,
                 hasFocusedGraphNode: appState.focusedGraphNodeId != nil,

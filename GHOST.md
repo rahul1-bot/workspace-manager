@@ -58,14 +58,15 @@
     10. Terminal processes survive view mode switches between sidebar and graph mode.
     11. Graph state persists across sessions via graph-state.json.
     12. Phase 1 cleanup complete: 4 bugs fixed (shortcut routing, cluster hit-test, ghostty threading, graph load race), 1 false positive closed.
+    13. Phase 2 cleanup complete: 5 bugs fixed (magnify zoom compounding, focus/unfocus lifecycle, edge dedup, clipboard userdata retain).
+    14. Phase 3 cleanup complete: 4 bugs fixed (git refresh redundancy, git task cancellation, shell teardown, Escape rename priority), 1 false positive closed (NotificationCenter threading).
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).
     2. Precompiled ghostty static artifact trust remains a supply-chain governance concern.
 
 ## Next Steps
-    1. Phase 2 cleanup: fix 5 medium-severity graph and ghostty bugs (magnify zoom, focus/unfocus lifecycle, edge dedup, clipboard userdata).
-    2. Design and implement Git Worktree Orchestration (second knowledge workspace feature).
+    1. Design and implement Git Worktree Orchestration (second knowledge workspace feature).
     3. Design and implement Read-only Code Viewer panel (third knowledge workspace feature).
     4. Resolve whisper hold-command integration gap for terminal focus path.
 

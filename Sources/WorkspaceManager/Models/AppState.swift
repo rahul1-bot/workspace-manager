@@ -6,16 +6,8 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppState: ObservableObject {
     @Published var workspaces: [Workspace] = []
-    @Published var selectedWorkspaceId: UUID? {
-        didSet {
-            refreshGitUIStatePlaceholder()
-        }
-    }
-    @Published var selectedTerminalId: UUID? {
-        didSet {
-            refreshGitUIStatePlaceholder()
-        }
-    }
+    @Published var selectedWorkspaceId: UUID?
+    @Published var selectedTerminalId: UUID?
     @Published var showSidebar: Bool
     @Published var focusMode: Bool
     @Published var showNewWorkspaceSheet: Bool = false
@@ -44,6 +36,8 @@ final class AppState: ObservableObject {
     private var commitTask: Task<Void, Never>?
     private var forceLayoutTask: Task<Void, Never>?
     private var graphLoadTask: Task<Void, Never>?
+    private var gitStatusTask: Task<Void, Never>?
+    private var commitSummaryTask: Task<Void, Never>?
     private var runtimePathObserver: NSObjectProtocol?
     private var terminalRuntimePaths: [UUID: String] = [:]
 
@@ -74,8 +68,6 @@ final class AppState: ObservableObject {
                 selectTerminal(id: firstTerminal.id, in: firstWorkspace.id)
             }
         }
-
-        refreshGitUIStatePlaceholder()
     }
 
     deinit {
@@ -222,6 +214,7 @@ final class AppState: ObservableObject {
         if selectedWorkspaceId == id {
             selectedWorkspaceId = nil
             selectedTerminalId = nil
+            refreshGitUIState()
         }
 
         configService.removeWorkspace(id: id.uuidString)
@@ -354,6 +347,7 @@ final class AppState: ObservableObject {
         terminalRuntimePaths.removeValue(forKey: id)
         if selectedTerminalId == id {
             selectedTerminalId = nil
+            refreshGitUIState()
         }
     }
 
@@ -370,6 +364,7 @@ final class AppState: ObservableObject {
 
         if workspaces[wsIndex].terminals.isEmpty {
             selectedTerminalId = nil
+            refreshGitUIState()
             return
         }
 
@@ -391,6 +386,7 @@ final class AppState: ObservableObject {
 
         selectedWorkspaceId = workspaceId
         selectedTerminalId = id
+        refreshGitUIState()
     }
 
     // MARK: - Getters
@@ -508,14 +504,13 @@ final class AppState: ObservableObject {
             let previousIndex = currentIndex == 0 ? workspaces.count - 1 : currentIndex - 1
             let prevWorkspace = workspaces[previousIndex]
             selectedWorkspaceId = prevWorkspace.id
-            // Auto-select first terminal in new workspace if any exist
             if let firstTerminal = prevWorkspace.terminals.first {
                 selectTerminal(id: firstTerminal.id, in: prevWorkspace.id)
             } else {
                 selectedTerminalId = nil
+                refreshGitUIState()
             }
         } else {
-            // No workspace selected, select last
             if let last = workspaces.last {
                 selectedWorkspaceId = last.id
                 if let firstTerminal = last.terminals.first {
@@ -533,14 +528,13 @@ final class AppState: ObservableObject {
             let nextIndex = (currentIndex + 1) % workspaces.count
             let nextWorkspace = workspaces[nextIndex]
             selectedWorkspaceId = nextWorkspace.id
-            // Auto-select first terminal in new workspace if any exist
             if let firstTerminal = nextWorkspace.terminals.first {
                 selectTerminal(id: firstTerminal.id, in: nextWorkspace.id)
             } else {
                 selectedTerminalId = nil
+                refreshGitUIState()
             }
         } else {
-            // No workspace selected, select first
             if let first = workspaces.first {
                 selectedWorkspaceId = first.id
                 if let firstTerminal = first.terminals.first {
@@ -814,10 +808,15 @@ final class AppState: ObservableObject {
         }
 
         let workspaceID = workspace.id
-        Task {
+        gitStatusTask?.cancel()
+        gitStatusTask = Task { [weak self] in
+            guard let self else { return }
             let status = await gitRepositoryService.status(at: actionTargetURL)
+            guard !Task.isCancelled else { return }
             let editors = await editorLaunchService.availableEditors()
+            guard !Task.isCancelled else { return }
             let preferred = await editorLaunchService.preferredEditor(for: workspaceID)
+            guard !Task.isCancelled else { return }
             let orderedEditors = orderEditors(editors, preferred: preferred)
 
             await MainActor.run {
@@ -844,10 +843,6 @@ final class AppState: ObservableObject {
                 commitSheetState.summary = GitChangeSummary(branchName: status.branchName)
             }
         }
-    }
-
-    private func refreshGitUIStatePlaceholder() {
-        refreshGitUIState()
     }
 
     private func orderEditors(_ editors: [ExternalEditor], preferred: ExternalEditor?) -> [ExternalEditor] {
@@ -952,14 +947,18 @@ final class AppState: ObservableObject {
         }
         let fallbackBranchName = commitSheetState.summary.branchName
 
-        Task {
+        commitSummaryTask?.cancel()
+        commitSummaryTask = Task { [weak self] in
+            guard let self else { return }
             do {
                 let snapshot = try await gitRepositoryService.diff(at: actionTargetURL, mode: .uncommitted)
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard selectedWorkspaceId == workspaceID else { return }
                     commitSheetState.summary = snapshot.summary
                 }
             } catch {
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard selectedWorkspaceId == workspaceID else { return }
                     commitSheetState.summary = GitChangeSummary(branchName: fallbackBranchName)
