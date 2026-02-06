@@ -167,6 +167,50 @@
 
 ---
 
+| Memory | Diff Panel Resize Handle Must Be a Sibling View Not a Nested Overlay | Date: 06 February 2026 | Time: 08:16 AM | Name: Lyra |
+
+    1. Observation:
+        1. The diff panel resize handle was originally implemented as an .overlay(alignment: .leading) on the DiffPanelView, which was itself an .overlay(alignment: .trailing) on the TerminalContainer. This deeply nested overlay structure caused the drag gesture on the resize handle to fail silently. The handle was visually present but the DragGesture never fired, likely due to gesture priority conflicts between nested overlay layers and the underlying ScrollView inside DiffPanelView.
+    2. Decision:
+        1. Restructured the layout to use a ZStack(alignment: .trailing) containing the TerminalContainer and an HStack of the resize handle plus DiffPanelView as siblings. The resize handle is now a direct sibling of the DiffPanelView in an HStack, not a nested overlay. Added .padding(.horizontal, 5) to the handle for a 16pt total hit area (6pt visible bar plus 5pt padding on each side).
+    3. Implication:
+        1. Sibling views in an HStack have clear, non-conflicting gesture boundaries. The resize handle's DragGesture fires reliably because it occupies its own view space rather than competing with the DiffPanelView's content for gesture recognition. This pattern should be used for any interactive elements adjacent to scrollable content.
+
+---
+
+| Memory | macOS Hidden Title Bar Safe Area Requires Careful Padding Balance | Date: 06 February 2026 | Time: 08:16 AM | Name: Lyra |
+
+    1. Observation:
+        1. The window uses .windowStyle(.hiddenTitleBar) with .fullSizeContentView and all traffic lights hidden. Despite this, macOS reserves approximately 28pt of safe area at the top for the invisible title bar region. The GlassSidebarBackground uses .ignoresSafeArea() to fill behind this area, but the actual content (sidebar and terminal) respects the safe area, creating a visible gap between the menu bar and the header content.
+    2. Decision:
+        1. Applied .ignoresSafeArea(.container, edges: .top) on the sidebarModeContent HStack to push content into the hidden title bar area. Combined with .padding(.top, 14) on the TerminalHeader to maintain visual balance. Using the full .ignoresSafeArea() on the body ZStack was too aggressive and caused content to clip behind the system menu bar. The .container variant specifically targets the window's container safe area without affecting the system menu bar boundary.
+    3. Implication:
+        1. The padding value of 14pt was determined through iterative visual testing across multiple builds. Values below 8pt placed content too close to the menu bar edge. Values above 14pt recreated the original gap. The sidebar header uses .padding(.vertical, 8) which aligns visually with the terminal header at 14pt because the WorkspaceActionPill adds 7pt internal vertical padding.
+
+---
+
+| Memory | Diff Panel Text Wrapping Requires fixedSize Removal Plus Explicit Leading Alignment | Date: 06 February 2026 | Time: 09:05 AM | Name: Lyra |
+
+    1. Observation:
+        1. The diff panel code rows originally used .fixedSize(horizontal: true, vertical: false) on the code Text view, which prevented text from wrapping. Each line extended to its full natural width. When combined with nested horizontal ScrollViews, this allowed horizontal scrolling per block. After removing the horizontal ScrollViews for performance, the .fixedSize still prevented wrapping, causing long lines to extend beyond the panel boundary and get clipped. Additionally, VStacks used default .center alignment, which caused narrower rows to shift right when mixed with wider rows (the staircase displacement pattern visible in screenshots).
+    2. Decision:
+        1. Removed .fixedSize(horizontal: true, vertical: false) from both renderedCodeText in codeRow and raw text in metadataRow. Changed HStack alignment to .top so line numbers stay at the top of multi-line wrapped rows. Changed all VStacks in DiffFileCardView to .leading alignment. Added maxWidth: .infinity to row and card frames so all elements fill the available width consistently. No horizontal ScrollView is used; all text wraps within the panel width.
+    3. Implication:
+        1. For diff viewers displaying code, wrapping text within a fixed-width panel requires three coordinated changes: removing .fixedSize from Text views, setting HStack alignment to .top for multi-line content, and setting all parent VStack alignment to .leading with maxWidth: .infinity on frames. Missing any one of these causes either no wrapping, vertically misaligned line numbers, or horizontal staircase displacement.
+
+---
+
+| Memory | Static Keyword Set Caching Eliminates Per-Call Set Allocation in Syntax Highlighting | Date: 06 February 2026 | Time: 08:31 AM | Name: Lyra |
+
+    1. Observation:
+        1. DiffSyntaxHighlightingService.keywordSet(for:) used a switch statement that created a new Set<String> literal containing 30 to 50 items on every invocation. The tokenize() method calls keywordSet(for:) once per line being tokenized. While the token cache prevents re-tokenization of identical content, new or uncached lines still trigger fresh Set allocation. For a large diff with hundreds of unique lines, this produced hundreds of unnecessary heap allocations during initial scroll.
+    2. Decision:
+        1. Replaced the instance method switch with a private static let keywordSets dictionary of type [SyntaxLanguage: Set<String>]. All keyword sets are computed once at static initialization time. The keywordSet(for:) method now performs a single dictionary lookup returning the pre-allocated Set. TypeScript was given its own explicit entry duplicating the JavaScript keywords rather than relying on a combined switch case, because static dictionary keys require distinct entries.
+    3. Implication:
+        1. Static let properties on actors and classes are initialized exactly once per process lifetime in Swift, making them ideal for immutable lookup tables. This pattern should be applied to any method that returns constant data structures and is called in a hot path.
+
+---
+
 | Memory | Cluster Drag Requires Hit-Test Priority Over Pan | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
 
     1. Observation:
