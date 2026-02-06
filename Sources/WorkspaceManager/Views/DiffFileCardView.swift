@@ -7,6 +7,12 @@ struct DiffFileCardView: View {
     let onToggleCollapsed: () -> Void
     let syntaxService: DiffSyntaxHighlightingService
 
+    private enum CardChromeStyle {
+        static let cardFillOpacity: Double = 0.012
+        static let cardStrokeOpacity: Double = 0.06
+        static let headerFillOpacity: Double = 0.014
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             headerView
@@ -15,11 +21,11 @@ struct DiffFileCardView: View {
                 contentView
             }
         }
-        .background(Color.white.opacity(0.018))
+        .background(Color.white.opacity(CardChromeStyle.cardFillOpacity))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(Color.white.opacity(CardChromeStyle.cardStrokeOpacity), lineWidth: 1)
         )
         .frame(minWidth: max(viewportWidth, 1), alignment: .leading)
     }
@@ -49,7 +55,7 @@ struct DiffFileCardView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color.white.opacity(0.022))
+            .background(Color.white.opacity(CardChromeStyle.headerFillOpacity))
         }
         .buttonStyle(.plain)
     }

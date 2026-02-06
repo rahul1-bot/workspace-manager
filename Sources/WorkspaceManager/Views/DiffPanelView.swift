@@ -11,12 +11,23 @@ struct DiffPanelView: View {
 
     private static let syntaxService = DiffSyntaxHighlightingService()
 
+    private enum DiffChromeStyle {
+        static let outerStrokeOpacity: Double = 0.07
+        static let dividerOpacity: Double = 0.05
+        static let panelOverlayTopOpacity: Double = 0.035
+        static let panelOverlayBottomOpacity: Double = 0.018
+        static let headerFillOpacity: Double = 0.010
+        static let summaryFillOpacity: Double = 0.010
+        static let contentStrokeOpacity: Double = 0.06
+        static let resizingFillOpacity: Double = 0.14
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             headerView
 
             Divider()
-                .overlay(Color.white.opacity(0.08))
+                .overlay(Color.white.opacity(DiffChromeStyle.dividerOpacity))
 
             VStack(alignment: .leading, spacing: 10) {
                 summaryView
@@ -30,7 +41,7 @@ struct DiffPanelView: View {
         .background(panelBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 0, style: .continuous)
-                .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                .stroke(Color.white.opacity(DiffChromeStyle.outerStrokeOpacity), lineWidth: 1)
         )
         .task(id: state.patchText) {
             await rebuildDocument(from: state.patchText)
@@ -40,13 +51,13 @@ struct DiffPanelView: View {
     private var panelBackground: some View {
         ZStack {
             if isResizing {
-                Color.black.opacity(0.18)
+                Color.black.opacity(DiffChromeStyle.resizingFillOpacity)
             } else {
                 VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
                 LinearGradient(
                     colors: [
-                        Color.black.opacity(0.11),
-                        Color.black.opacity(0.05)
+                        Color.black.opacity(DiffChromeStyle.panelOverlayTopOpacity),
+                        Color.black.opacity(DiffChromeStyle.panelOverlayBottomOpacity)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -85,7 +96,7 @@ struct DiffPanelView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.015))
+        .background(Color.white.opacity(DiffChromeStyle.headerFillOpacity))
     }
 
     private var summaryView: some View {
@@ -100,7 +111,7 @@ struct DiffPanelView: View {
         .font(.system(.caption, design: .monospaced))
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(Color.white.opacity(0.015))
+        .background(Color.white.opacity(DiffChromeStyle.summaryFillOpacity))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
@@ -152,7 +163,7 @@ struct DiffPanelView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(Color.white.opacity(DiffChromeStyle.contentStrokeOpacity), lineWidth: 1)
         )
     }
 
