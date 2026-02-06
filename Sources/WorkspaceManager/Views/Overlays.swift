@@ -115,6 +115,8 @@ private struct CommandPaletteView: View {
     let onDismiss: () -> Void
 
     @State private var query: String = ""
+    @State private var selectedIndex: Int = 0
+    @State private var paletteEventMonitor: Any?
     @FocusState private var queryFocused: Bool
 
     private var normalizedQuery: String {
@@ -223,9 +225,6 @@ private struct CommandPaletteView: View {
                     .font(.system(.body, design: .default))
                     .foregroundColor(.white)
                     .focused($queryFocused)
-                    .onSubmit {
-                        activateFirstEntry()
-                    }
 
                 Spacer()
 
@@ -243,48 +242,61 @@ private struct CommandPaletteView: View {
             Divider()
                 .overlay(Color.white.opacity(0.08))
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if entries.isEmpty {
-                        Text("No matches")
-                            .foregroundColor(.white.opacity(0.7))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                    } else {
-                        ForEach(entries) { entry in
-                            Button {
-                                activate(entry)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(entry.title)
-                                        .foregroundColor(.white)
-                                        .lineLimit(1)
-
-                                    if let subtitle = entry.subtitle, !subtitle.isEmpty {
-                                        Text(subtitle)
-                                            .font(.caption)
-                                            .foregroundColor(.white.opacity(0.65))
-                                            .lineLimit(1)
-                                            .truncationMode(.middle)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        if entries.isEmpty {
+                            Text("No matches")
+                                .foregroundColor(.white.opacity(0.7))
                                 .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
+                                .padding(.vertical, 12)
+                        } else {
+                            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                                Button {
+                                    activate(entry)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(entry.title)
+                                            .foregroundColor(.white)
+                                            .lineLimit(1)
+
+                                        if let subtitle = entry.subtitle, !subtitle.isEmpty {
+                                            Text(subtitle)
+                                                .font(.caption)
+                                                .foregroundColor(.white.opacity(0.65))
+                                                .lineLimit(1)
+                                                .truncationMode(.middle)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(index == selectedIndex ? Color.white.opacity(0.10) : Color.clear)
+                                        .padding(.horizontal, 4)
+                                )
+                                .id(entry.id)
                             }
-                            .buttonStyle(.plain)
-                            .background(Color.white.opacity(0.02))
                         }
                     }
                 }
+                .frame(maxHeight: 320)
+                .onChange(of: selectedIndex) { _, newIndex in
+                    if entries.indices.contains(newIndex) {
+                        proxy.scrollTo(entries[newIndex].id, anchor: .center)
+                    }
+                }
             }
-            .frame(maxHeight: 320)
 
             Divider()
                 .overlay(Color.white.opacity(0.08))
 
             HStack {
-                Text("Enter selects first match")
+                Text("↑↓ navigate  ⏎ select")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.6))
                 Spacer()
@@ -293,8 +305,11 @@ private struct CommandPaletteView: View {
             .padding(.vertical, 10)
         }
         .background(
-            VisualEffectBackground(material: .hudWindow, blendingMode: .withinWindow)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            ZStack {
+                VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
+                Color.black.opacity(0.45)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -302,12 +317,46 @@ private struct CommandPaletteView: View {
         )
         .onAppear {
             queryFocused = true
+            selectedIndex = 0
+            setupPaletteKeyMonitor()
+        }
+        .onDisappear {
+            removePaletteKeyMonitor()
+        }
+        .onChange(of: query) { _, _ in
+            selectedIndex = 0
         }
     }
 
-    private func activateFirstEntry() {
-        guard let first = entries.first else { return }
-        activate(first)
+    private func setupPaletteKeyMonitor() {
+        paletteEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
+            switch event.keyCode {
+            case 125: // down arrow
+                let count = entries.count
+                if count > 0 {
+                    selectedIndex = min(selectedIndex + 1, count - 1)
+                }
+                return nil
+            case 126: // up arrow
+                selectedIndex = max(selectedIndex - 1, 0)
+                return nil
+            case 36: // return/enter
+                let items = entries
+                if items.indices.contains(selectedIndex) {
+                    activate(items[selectedIndex])
+                }
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    private func removePaletteKeyMonitor() {
+        if let monitor = paletteEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            paletteEventMonitor = nil
+        }
     }
 
     private func activate(_ entry: PaletteEntry) {
