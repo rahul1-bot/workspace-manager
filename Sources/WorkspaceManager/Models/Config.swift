@@ -25,16 +25,18 @@ struct TerminalConfig: Codable, Sendable {
     var cursor_style: String
     var use_gpu_renderer: Bool
 
+    private static let maximumScrollback = 100_000
+
     init(
         font: String = "Cascadia Code",
         font_size: Int = 14,
-        scrollback: Int = 1_000_000,
+        scrollback: Int = 50_000,
         cursor_style: String = "bar",
         use_gpu_renderer: Bool = true
     ) {
         self.font = font
         self.font_size = font_size
-        self.scrollback = scrollback
+        self.scrollback = min(max(scrollback, 0), Self.maximumScrollback)
         self.cursor_style = cursor_style
         self.use_gpu_renderer = use_gpu_renderer
     }

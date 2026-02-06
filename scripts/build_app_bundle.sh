@@ -5,6 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 CONFIG="${CONFIG:-debug}"
+case "$CONFIG" in
+  debug|release) ;;
+  *) echo "error: invalid CONFIG value '$CONFIG' (expected debug or release)" >&2; exit 2 ;;
+esac
 swift build -c "$CONFIG"
 
 APP_DIR="$ROOT_DIR/Build/WorkspaceManager.app"

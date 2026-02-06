@@ -13,6 +13,15 @@ final class GhosttyClipboardBridge {
     private init() {}
 
     func completeReadRequest(state: UnsafeMutableRawPointer, location: ghostty_clipboard_e) {
+        guard presentClipboardAlert(
+            messageText: "Clipboard Read Request",
+            informativeText: "A terminal process wants to read your clipboard contents."
+        ) else {
+            ghostty_surface_complete_clipboard_request(state, "", nil, false)
+            AppLogger.ghostty.info("clipboard read denied by user")
+            return
+        }
+
         let clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
         guard let copied = strdup(clipboardText) else {
             AppLogger.ghostty.error("clipboard read strdup failed")
@@ -48,6 +57,17 @@ final class GhosttyClipboardBridge {
 
             let data = Data(bytes: dataPtr, count: byteCount)
             guard let decoded = String(data: data, encoding: .utf8) else { continue }
+
+            if confirm {
+                guard presentClipboardAlert(
+                    messageText: "Clipboard Write Request",
+                    informativeText: "A terminal process wants to set your clipboard to:\n\n\(String(decoded.prefix(200)))\(decoded.count > 200 ? "…" : "")"
+                ) else {
+                    AppLogger.ghostty.info("clipboard write denied by user")
+                    return
+                }
+            }
+
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(decoded, forType: .string)
 
@@ -75,5 +95,21 @@ final class GhosttyClipboardBridge {
             let oldest = retainedResponses.removeFirst()
             free(oldest)
         }
+    }
+
+    private func presentClipboardAlert(messageText: String, informativeText: String) -> Bool {
+        let work = {
+            let alert = NSAlert()
+            alert.messageText = messageText
+            alert.informativeText = informativeText
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Allow")
+            alert.addButton(withTitle: "Deny")
+            return alert.runModal() == .alertFirstButtonReturn
+        }
+        if Thread.isMainThread {
+            return work()
+        }
+        return DispatchQueue.main.sync { work() }
     }
 }

@@ -18,13 +18,13 @@ enum TerminalLaunchPolicy {
     ]
 
     static func buildPlan(shellFromEnvironment: String?, workingDirectory: String, fallbackShell: String = "/bin/zsh") throws -> TerminalLaunchPlan {
-        let shell = shellFromEnvironment ?? fallbackShell
-        try validateShell(shell)
-        try validateWorkingDirectory(workingDirectory)
+        let rawShell = shellFromEnvironment ?? fallbackShell
+        let shell = try canonicalizedShell(rawShell)
+        let resolvedCwd = try resolvedWorkingDirectory(workingDirectory)
 
         var environment = sanitizedEnvironment(from: ProcessInfo.processInfo.environment)
-        environment["PWD"] = workingDirectory
-        environment["WM_START_CWD"] = workingDirectory
+        environment["PWD"] = resolvedCwd
+        environment["WM_START_CWD"] = resolvedCwd
         environment["WM_EXEC_SHELL"] = shell
 
         let launchCommand = "cd -- \"$WM_START_CWD\" && exec \"$WM_EXEC_SHELL\" -l"
@@ -35,26 +35,39 @@ enum TerminalLaunchPolicy {
         )
     }
 
-    private static func validateShell(_ shell: String) throws {
+    private static func canonicalizedShell(_ shell: String) throws -> String {
         guard shell.hasPrefix("/") else {
             throw TerminalLaunchError.invalidShellPath(shell)
         }
-        guard allowedShellPrefixes.contains(where: { shell.hasPrefix($0) }) else {
+        guard !shell.contains("..") else {
             throw TerminalLaunchError.invalidShellPath(shell)
         }
-        guard FileManager.default.isExecutableFile(atPath: shell) else {
-            throw TerminalLaunchError.nonExecutableShell(shell)
+        let resolved = URL(fileURLWithPath: shell).standardizedFileURL.path
+        guard allowedShellPrefixes.contains(where: { resolved.hasPrefix($0) }) else {
+            throw TerminalLaunchError.invalidShellPath(resolved)
         }
+        guard FileManager.default.isExecutableFile(atPath: resolved) else {
+            throw TerminalLaunchError.nonExecutableShell(resolved)
+        }
+        return resolved
     }
 
-    private static func validateWorkingDirectory(_ path: String) throws {
+    private static func resolvedWorkingDirectory(_ path: String) throws -> String {
         guard !path.isEmpty, !path.contains("\0") else {
             throw TerminalLaunchError.unsafeWorkingDirectory(path)
         }
-        let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
-        guard FileManager.default.fileExists(atPath: standardized) else {
+        let resolved = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: resolved, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
             throw TerminalLaunchError.unsafeWorkingDirectory(path)
         }
+        return resolved
+    }
+
+    static func fallbackEnvironment() -> [String] {
+        sanitizedEnvironment(from: ProcessInfo.processInfo.environment)
+            .map { "\($0.key)=\($0.value)" }
     }
 
     private static func sanitizedEnvironment(from source: [String: String]) -> [String: String] {

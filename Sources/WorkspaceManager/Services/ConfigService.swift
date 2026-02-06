@@ -166,7 +166,7 @@ final class ConfigService {
             // IMPORTANT: Do NOT overwrite user config on parse failure
             // Keep existing config in memory and log the error clearly
             let wrapped = ConfigLoadError.parseFailed(configPath, String(describing: error))
-            AppLogger.config.error("config parse failed: \(String(describing: wrapped), privacy: .public)")
+            AppLogger.config.error("config parse failed: \(String(describing: wrapped), privacy: .private)")
             // Keep defaults in memory but don't overwrite the user's file.
             // Ensure the app still has a usable workspace even when the user's TOML is broken.
             self.config = AppConfig(
@@ -212,6 +212,7 @@ final class ConfigService {
     func saveConfig() {
         let configDir = configPath.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: configDir.path)
 
         var toml = """
         # Workspace Manager Configuration
@@ -250,9 +251,10 @@ final class ConfigService {
 
         do {
             try toml.write(to: configPath, atomically: true, encoding: .utf8)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configPath.path)
         } catch {
             let wrapped = ConfigLoadError.saveFailed(configPath, String(describing: error))
-            AppLogger.config.error("config save failed: \(String(describing: wrapped), privacy: .public)")
+            AppLogger.config.error("config save failed: \(String(describing: wrapped), privacy: .private)")
         }
     }
 
@@ -385,7 +387,7 @@ final class ConfigService {
                 workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath))
             } catch {
                 needsSave = true
-                AppLogger.config.error("workspace entry dropped during validation: \(String(describing: error), privacy: .public)")
+                AppLogger.config.error("workspace entry dropped during validation: \(String(describing: error), privacy: .private)")
             }
         }
 

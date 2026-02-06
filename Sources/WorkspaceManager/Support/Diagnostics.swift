@@ -2,8 +2,12 @@ import Foundation
 
 enum DiagnosticMode {
     static var isEnabled: Bool {
+#if DEBUG
         let value = ProcessInfo.processInfo.environment["WM_DIAGNOSTICS"]?.lowercased() ?? "0"
         return value == "1" || value == "true" || value == "yes"
+#else
+        return false
+#endif
     }
 }
 

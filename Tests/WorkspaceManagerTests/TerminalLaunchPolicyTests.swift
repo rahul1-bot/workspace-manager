@@ -40,6 +40,19 @@ final class TerminalLaunchPolicyTests: XCTestCase {
         }
     }
 
+    func testBuildPlanRejectsShellWithPathTraversal() {
+        let tempDirectory = FileManager.default.temporaryDirectory.path
+
+        XCTAssertThrowsError(
+            try TerminalLaunchPolicy.buildPlan(shellFromEnvironment: "/bin/../tmp/evil", workingDirectory: tempDirectory)
+        ) { error in
+            guard case TerminalLaunchError.invalidShellPath = error else {
+                XCTFail("expected invalidShellPath, got \(error)")
+                return
+            }
+        }
+    }
+
     func testBuildPlanRejectsInvalidWorkingDirectory() {
         XCTAssertThrowsError(
             try TerminalLaunchPolicy.buildPlan(shellFromEnvironment: "/bin/zsh", workingDirectory: "/path/that/does/not/exist")

@@ -45,6 +45,19 @@ final class SecureInputController {
         }
     }
 
+    func disableAllSecureInput() {
+        lock.lock()
+        defer { lock.unlock() }
+        while secureInputBalance > 0 {
+            let status = DisableSecureEventInput()
+            if status == noErr {
+                secureInputBalance -= 1
+            } else {
+                break
+            }
+        }
+    }
+
     private func disableSecureInput() {
         guard secureInputBalance > 0 else { return }
         let status = DisableSecureEventInput()
