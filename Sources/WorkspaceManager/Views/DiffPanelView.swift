@@ -5,6 +5,11 @@ struct DiffPanelView: View {
     let onClose: () -> Void
     let onModeSelected: (DiffPanelMode) -> Void
 
+    @State private var document: DiffDocument = .empty
+    @State private var collapsedSectionIDs: Set<String> = []
+
+    private static let syntaxService = DiffSyntaxHighlightingService()
+
     var body: some View {
         VStack(spacing: 0) {
             headerView
@@ -12,24 +17,37 @@ struct DiffPanelView: View {
             Divider()
                 .overlay(Color.white.opacity(0.08))
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 summaryView
                 contentView
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
         .frame(maxHeight: .infinity)
-        .background(Color.black.opacity(0.95))
+        .background(panelBackground)
         .overlay(
-            Rectangle()
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 0, style: .continuous)
+                .stroke(Color.white.opacity(0.16), lineWidth: 1)
         )
+        .task(id: state.patchText) {
+            await rebuildDocument(from: state.patchText)
+        }
     }
 
-    private var patchLines: [String] {
-        state.patchText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    private var panelBackground: some View {
+        ZStack {
+            VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.28),
+                    Color.black.opacity(0.18)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
     }
 
     private var headerView: some View {
@@ -47,7 +65,7 @@ struct DiffPanelView: View {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundColor(.white)
+                .foregroundColor(.white.opacity(0.95))
             }
             .menuStyle(.borderlessButton)
 
@@ -60,8 +78,9 @@ struct DiffPanelView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Color.white.opacity(0.03))
     }
 
     private var summaryView: some View {
@@ -74,6 +93,10 @@ struct DiffPanelView: View {
                 .foregroundColor(.red)
         }
         .font(.system(.caption, design: .monospaced))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     @ViewBuilder
@@ -86,7 +109,7 @@ struct DiffPanelView: View {
             ProgressView("Loading diff…")
                 .tint(.white)
                 .foregroundColor(.white.opacity(0.7))
-        } else if state.patchText.isEmpty {
+        } else if state.patchText.isEmpty || document.fileSections.isEmpty {
             Text("No changes for the selected mode.")
                 .font(.system(.callout, design: .default))
                 .foregroundColor(.white.opacity(0.7))
@@ -97,20 +120,21 @@ struct DiffPanelView: View {
 
     private var patchContentView: some View {
         ScrollView([.vertical, .horizontal]) {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(patchLines.enumerated()), id: \.offset) { _, line in
-                    let lineStyle = style(for: line)
-                    Text(line.isEmpty ? " " : line)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundColor(lineStyle.foreground)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 1)
-                        .background(lineStyle.background)
+            LazyVStack(alignment: .leading, spacing: 10) {
+                ForEach(document.fileSections) { section in
+                    DiffFileCardView(
+                        section: section,
+                        isCollapsed: collapsedSectionIDs.contains(section.id),
+                        onToggleCollapsed: {
+                            toggleCollapsedSection(section.id)
+                        },
+                        syntaxService: Self.syntaxService
+                    )
                 }
             }
+            .padding(.horizontal, 2)
+            .padding(.vertical, 2)
         }
-        .background(Color.black)
         .textSelection(.enabled)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
@@ -119,30 +143,23 @@ struct DiffPanelView: View {
         )
     }
 
-    private func style(for line: String) -> DiffLineStyle {
-        if line.hasPrefix("diff --git") {
-            return DiffLineStyle(foreground: Color.white.opacity(0.96), background: Color.white.opacity(0.08))
+    private func toggleCollapsedSection(_ sectionID: String) {
+        if collapsedSectionIDs.contains(sectionID) {
+            collapsedSectionIDs.remove(sectionID)
+        } else {
+            collapsedSectionIDs.insert(sectionID)
         }
-        if line.hasPrefix("+++ ") || line.hasPrefix("--- ") {
-            return DiffLineStyle(foreground: Color.cyan.opacity(0.95), background: Color.cyan.opacity(0.16))
-        }
-        if line.hasPrefix("@@") {
-            return DiffLineStyle(foreground: Color.orange.opacity(0.95), background: Color.orange.opacity(0.22))
-        }
-        if line.hasPrefix("+"), !line.hasPrefix("+++") {
-            return DiffLineStyle(foreground: Color.green.opacity(0.96), background: Color.green.opacity(0.24))
-        }
-        if line.hasPrefix("-"), !line.hasPrefix("---") {
-            return DiffLineStyle(foreground: Color.red.opacity(0.96), background: Color.red.opacity(0.24))
-        }
-        if line.hasPrefix("index ") {
-            return DiffLineStyle(foreground: Color.white.opacity(0.65), background: Color.white.opacity(0.02))
-        }
-        return DiffLineStyle(foreground: Color(red: 0.86, green: 0.89, blue: 0.94), background: .clear)
     }
-}
 
-private struct DiffLineStyle {
-    let foreground: Color
-    let background: Color
+    private func rebuildDocument(from patchText: String) async {
+        let parsed = await Task.detached(priority: .userInitiated) {
+            DiffPatchParser().parse(patchText)
+        }.value
+
+        await MainActor.run {
+            document = parsed
+            let validIDs = Set(parsed.fileSections.map(\.id))
+            collapsedSectionIDs = collapsedSectionIDs.intersection(validIDs)
+        }
+    }
 }
