@@ -54,6 +54,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        SecureInputController.shared.disableAllSecureInput()
         removeInputMonitors()
     }
 
