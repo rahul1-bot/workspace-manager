@@ -13,6 +13,15 @@ final class GhosttyClipboardBridge {
     private init() {}
 
     func completeReadRequest(state: UnsafeMutableRawPointer, location: ghostty_clipboard_e) {
+        guard presentClipboardAlert(
+            messageText: "Clipboard Read Request",
+            informativeText: "A terminal process wants to read your clipboard contents."
+        ) else {
+            ghostty_surface_complete_clipboard_request(state, "", nil, false)
+            AppLogger.ghostty.info("clipboard read denied by user")
+            return
+        }
+
         let clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
         guard let copied = strdup(clipboardText) else {
             AppLogger.ghostty.error("clipboard read strdup failed")
