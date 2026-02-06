@@ -1,5 +1,7 @@
+import AppKit
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppState: ObservableObject {
@@ -22,6 +24,7 @@ final class AppState: ObservableObject {
     @Published var renamingTerminalId: UUID?
     @Published var gitPanelState: GitPanelState = GitPanelState()
     @Published var commitSheetState: CommitSheetState = CommitSheetState()
+    @Published var pdfPanelState: PDFPanelState = PDFPanelState()
     @Published var availableEditors: [ExternalEditor] = []
     @Published var currentViewMode: ViewMode = .sidebar
     @Published var graphDocument: GraphStateDocument = GraphStateDocument()
@@ -555,6 +558,7 @@ final class AppState: ObservableObject {
         guard gitPanelState.disabledReason == nil else { return }
         gitPanelState.isPresented.toggle()
         if gitPanelState.isPresented {
+            dismissPDFPanel()
             loadDiffPanel()
         } else {
             diffLoadTask?.cancel()
@@ -571,6 +575,93 @@ final class AppState: ObservableObject {
         if gitPanelState.isPresented {
             loadDiffPanel()
         }
+    }
+
+    func togglePDFPanel() {
+        presentPDFFilePicker()
+    }
+
+    func dismissPDFPanel() {
+        pdfPanelState.isPresented = false
+    }
+
+    func openPDFFile(_ url: URL) {
+        dismissDiffPanelPlaceholder()
+
+        if let existingIndex = pdfPanelState.tabs.firstIndex(where: { $0.fileURL == url }) {
+            pdfPanelState.activeTabId = pdfPanelState.tabs[existingIndex].id
+            pdfPanelState.isPresented = true
+            return
+        }
+
+        let tab = PDFTab(fileURL: url)
+        pdfPanelState.tabs.append(tab)
+        pdfPanelState.activeTabId = tab.id
+        pdfPanelState.errorText = nil
+        pdfPanelState.isLoading = false
+        pdfPanelState.isPresented = true
+    }
+
+    func closePDFTab(id: UUID) {
+        pdfPanelState.tabs.removeAll { $0.id == id }
+
+        guard !pdfPanelState.tabs.isEmpty else {
+            pdfPanelState.activeTabId = nil
+            pdfPanelState.isPresented = false
+            return
+        }
+
+        if pdfPanelState.activeTabId == id {
+            pdfPanelState.activeTabId = pdfPanelState.tabs.first?.id
+        }
+    }
+
+    func selectPDFTab(id: UUID) {
+        guard pdfPanelState.tabs.contains(where: { $0.id == id }) else { return }
+        pdfPanelState.activeTabId = id
+    }
+
+    func selectNextPDFTab() {
+        guard let currentIndex = pdfPanelState.activeTabIndex else { return }
+        let nextIndex = (currentIndex + 1) % pdfPanelState.tabs.count
+        pdfPanelState.activeTabId = pdfPanelState.tabs[nextIndex].id
+    }
+
+    func selectPreviousPDFTab() {
+        guard let currentIndex = pdfPanelState.activeTabIndex else { return }
+        let prevIndex = (currentIndex - 1 + pdfPanelState.tabs.count) % pdfPanelState.tabs.count
+        pdfPanelState.activeTabId = pdfPanelState.tabs[prevIndex].id
+    }
+
+    func updatePDFPageIndex(_ index: Int) {
+        guard let activeTabId = pdfPanelState.activeTabId,
+              let tabIndex = pdfPanelState.tabs.firstIndex(where: { $0.id == activeTabId }) else {
+            return
+        }
+        pdfPanelState.tabs[tabIndex].currentPageIndex = index
+    }
+
+    func updatePDFTotalPages(_ count: Int) {
+        guard let activeTabId = pdfPanelState.activeTabId,
+              let tabIndex = pdfPanelState.tabs.firstIndex(where: { $0.id == activeTabId }) else {
+            return
+        }
+        pdfPanelState.tabs[tabIndex].totalPages = count
+    }
+
+    func presentPDFFilePicker() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.message = "Select a PDF file to open"
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else {
+            return
+        }
+
+        openPDFFile(selectedURL)
     }
 
     func presentCommitSheetPlaceholder() {

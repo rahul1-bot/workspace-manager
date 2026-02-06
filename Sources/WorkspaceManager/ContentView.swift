@@ -26,10 +26,14 @@ struct ContentView: View {
     @State private var diffPanelDragStartRatio: CGFloat?
     @State private var isDiffResizeHandleHovering = false
     @State private var isDiffPanelResizing = false
+    @State private var pdfPanelWidthRatio: CGFloat = 0.5
+    @State private var pdfPanelDragStartRatio: CGFloat?
+    @State private var isPDFResizeHandleHovering = false
+    @State private var isPDFPanelResizing = false
     private let shortcutRouter = KeyboardShortcutRouter()
-    private let minDiffPanelWidthRatio: CGFloat = 0.2
-    private let maxDiffPanelWidthRatio: CGFloat = 1.0
-    private let defaultDiffPanelWidthRatio: CGFloat = 0.5
+    private let minPanelWidthRatio: CGFloat = 0.2
+    private let maxPanelWidthRatio: CGFloat = 1.0
+    private let defaultPanelWidthRatio: CGFloat = 0.5
 
     var body: some View {
         ZStack {
@@ -103,6 +107,12 @@ struct ContentView: View {
                 isDiffPanelResizing = false
             }
         }
+        .onChange(of: appState.pdfPanelState.isPresented) { _, isPresented in
+            if !isPresented {
+                pdfPanelDragStartRatio = nil
+                isPDFPanelResizing = false
+            }
+        }
         .alert("Close Terminal?", isPresented: $showCloseTerminalConfirm) {
             Button("Cancel", role: .cancel) {}
             Button("Close", role: .destructive) {
@@ -153,6 +163,35 @@ struct ContentView: View {
                         }
                         .frame(width: terminalWidth * diffPanelWidthRatio)
                     }
+
+                    if appState.pdfPanelState.isPresented {
+                        HStack(spacing: 0) {
+                            pdfResizeHandle(terminalWidth: terminalWidth)
+                            PDFPanelView(
+                                state: appState.pdfPanelState,
+                                isResizing: isPDFPanelResizing,
+                                onClose: {
+                                    appState.dismissPDFPanel()
+                                },
+                                onPageChanged: { pageIndex in
+                                    appState.updatePDFPageIndex(pageIndex)
+                                },
+                                onTotalPagesChanged: { count in
+                                    appState.updatePDFTotalPages(count)
+                                },
+                                onTabSelected: { tabId in
+                                    appState.selectPDFTab(id: tabId)
+                                },
+                                onTabClosed: { tabId in
+                                    appState.closePDFTab(id: tabId)
+                                },
+                                onAddTab: {
+                                    appState.presentPDFFilePicker()
+                                }
+                            )
+                        }
+                        .frame(width: terminalWidth * pdfPanelWidthRatio)
+                    }
                 }
             }
         }
@@ -176,6 +215,7 @@ struct ContentView: View {
                 showShortcutsHelp: showShortcutsHelp,
                 showCommitSheet: appState.commitSheetState.isPresented,
                 showDiffPanel: appState.gitPanelState.isPresented,
+                showPDFPanel: appState.pdfPanelState.isPresented,
                 sidebarFocused: sidebarFocused,
                 selectedTerminalExists: appState.selectedTerminalId != nil,
                 isGraphMode: appState.currentViewMode == .graph
@@ -201,6 +241,18 @@ struct ContentView: View {
             appState.dismissCommitSheetPlaceholder()
         case .closeDiffPanel:
             appState.dismissDiffPanelPlaceholder()
+        case .togglePDFPanel:
+            guard shouldExecuteShortcut("togglePDFPanel") else { return }
+            appState.togglePDFPanel()
+        case .closePDFPanel:
+            appState.dismissPDFPanel()
+        case .nextPDFTab:
+            appState.selectNextPDFTab()
+        case .previousPDFTab:
+            appState.selectPreviousPDFTab()
+        case .closePDFTab:
+            guard let activeTabId = appState.pdfPanelState.activeTabId else { break }
+            appState.closePDFTab(id: activeTabId)
         case .toggleSidebar:
             guard shouldExecuteShortcut("toggleSidebar") else { return }
             if appState.focusMode {
@@ -355,7 +407,7 @@ struct ContentView: View {
                         }
                         let startRatio = diffPanelDragStartRatio ?? diffPanelWidthRatio
                         let deltaRatio = -value.translation.width / max(terminalWidth, 1)
-                        let newRatio = min(maxDiffPanelWidthRatio, max(0, startRatio + deltaRatio))
+                        let newRatio = min(maxPanelWidthRatio, max(0, startRatio + deltaRatio))
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
@@ -363,11 +415,11 @@ struct ContentView: View {
                         }
                     }
                     .onEnded { _ in
-                        if diffPanelWidthRatio < minDiffPanelWidthRatio {
+                        if diffPanelWidthRatio < minPanelWidthRatio {
                             appState.dismissDiffPanelPlaceholder()
-                            diffPanelWidthRatio = defaultDiffPanelWidthRatio
+                            diffPanelWidthRatio = defaultPanelWidthRatio
                         } else {
-                            diffPanelWidthRatio = min(maxDiffPanelWidthRatio, max(minDiffPanelWidthRatio, diffPanelWidthRatio))
+                            diffPanelWidthRatio = min(maxPanelWidthRatio, max(minPanelWidthRatio, diffPanelWidthRatio))
                         }
                         diffPanelDragStartRatio = nil
                         isDiffPanelResizing = false
@@ -388,6 +440,57 @@ struct ContentView: View {
                     isDiffResizeHandleHovering = false
                 }
                 isDiffPanelResizing = false
+            }
+    }
+
+    private func pdfResizeHandle(terminalWidth: CGFloat) -> some View {
+        Rectangle()
+            .fill(Color.white.opacity(isPDFResizeHandleHovering ? 0.22 : 0.10))
+            .frame(width: 6)
+            .padding(.horizontal, 5)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if pdfPanelDragStartRatio == nil {
+                            pdfPanelDragStartRatio = pdfPanelWidthRatio
+                            isPDFPanelResizing = true
+                        }
+                        let startRatio = pdfPanelDragStartRatio ?? pdfPanelWidthRatio
+                        let deltaRatio = -value.translation.width / max(terminalWidth, 1)
+                        let newRatio = min(maxPanelWidthRatio, max(0, startRatio + deltaRatio))
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            pdfPanelWidthRatio = newRatio
+                        }
+                    }
+                    .onEnded { _ in
+                        if pdfPanelWidthRatio < minPanelWidthRatio {
+                            appState.dismissPDFPanel()
+                            pdfPanelWidthRatio = defaultPanelWidthRatio
+                        } else {
+                            pdfPanelWidthRatio = min(maxPanelWidthRatio, max(minPanelWidthRatio, pdfPanelWidthRatio))
+                        }
+                        pdfPanelDragStartRatio = nil
+                        isPDFPanelResizing = false
+                    }
+            )
+            .onHover { hovering in
+                guard hovering != isPDFResizeHandleHovering else { return }
+                isPDFResizeHandleHovering = hovering
+                if hovering {
+                    NSCursor.resizeLeftRight.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .onDisappear {
+                if isPDFResizeHandleHovering {
+                    NSCursor.pop()
+                    isPDFResizeHandleHovering = false
+                }
+                isPDFPanelResizing = false
             }
     }
 }
