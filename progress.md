@@ -171,6 +171,31 @@
 
 ---
 
+| Progress Todo | Commit Sheet Redesign and Command Palette Keyboard Navigation | Date: 06 February 2026 | Time: 09:44 AM | Name: Lyra |
+
+    1. Delivered and compiling:
+        1. ✅ Redesigned CommitSheetView to match command palette dark glass aesthetic. Replaced bright white glass with dark translucent glass using VisualEffectBackground(.hudWindow, .behindWindow) plus Color.black.opacity(0.45) dark backing layer. Reduced corner radius from 16 to 12, border opacity from 0.14 to 0.12, matching command palette visual constants.
+        2. ✅ Restructured commit sheet layout from flat VStack with padding to sectioned VStack(spacing: 0) with explicit Divider().overlay(Color.white.opacity(0.08)) between logical sections (header, info, message, next steps, footer). All sections use .padding(.horizontal, 14) and .padding(.vertical, 10-12) matching command palette spacing.
+        3. ✅ Added Esc key badge to commit sheet header, identical to command palette (caption2 font, 0.55 opacity, 0.08 background, 6pt corner radius).
+        4. ✅ Replaced bright white Continue button with dark translucent pill. Background changed from solid white to Color.white.opacity(0.10) with 0.15 border stroke. Text changed from black to white at 0.9 opacity.
+        5. ✅ Replaced system Picker with custom radio buttons for Next Steps section. Each option is a Button with .plain style containing a Circle indicator (10x10pt, filled when selected, stroked when not) and Text label. Added Spacer() for full-width rows, .padding(.vertical, 4) for larger tap targets, and .contentShape(Rectangle()) to ensure the entire row is clickable regardless of transparent areas.
+        6. ✅ Darkened commit message text field from Color.white.opacity(0.06) to Color.black.opacity(0.25) with reduced border opacity (0.08) for recessed appearance.
+        7. ✅ Added parent VStack alignment: .leading to fix centered Next Steps section. All content now left-aligns consistently.
+        8. ✅ Darkened command palette glass to match commit sheet. Changed CommandPaletteView background from .withinWindow to .behindWindow blending mode and added Color.black.opacity(0.45) dark backing layer in a ZStack, identical to commit sheet.
+        9. ✅ Implemented keyboard navigation in command palette. Added @State selectedIndex tracking, NSEvent.addLocalMonitorForEvents intercepting down arrow (keyCode 125), up arrow (keyCode 126), and Enter (keyCode 36). Down arrow moves selection down clamped to last item, up arrow moves up clamped to first item, Enter activates highlighted item. All other keys pass through to the search TextField.
+        10. ✅ Added visual selection highlight. Selected row gets RoundedRectangle fill at Color.white.opacity(0.10) with 6pt corner radius and 4pt horizontal padding. Unselected rows have transparent background.
+        11. ✅ Added ScrollViewReader with auto-scroll. When selectedIndex changes, proxy.scrollTo scrolls to the selected entry ID with .center anchor, keeping the highlighted item visible during keyboard navigation.
+        12. ✅ Selection resets to index 0 when search query changes via .onChange(of: query).
+        13. ✅ Event monitor lifecycle managed: setupPaletteKeyMonitor on .onAppear, removePaletteKeyMonitor on .onDisappear.
+        14. ✅ Updated footer text from "Enter selects first match" to "↑↓ navigate  ⏎ select".
+        15. ✅ Added .contentShape(Rectangle()) on command palette row labels for proper hit testing.
+        16. ✅ swift build passes, swift test passes (54 tests, 0 failures).
+    2. Files modified:
+        1. Sources/WorkspaceManager/Views/CommitSheetView.swift — complete visual redesign
+        2. Sources/WorkspaceManager/Views/Overlays.swift — CommandPaletteView dark glass and keyboard navigation
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):

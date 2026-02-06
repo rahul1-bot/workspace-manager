@@ -211,6 +211,39 @@
 
 ---
 
+| Memory | Dark Glass Consistency Requires Explicit Black Overlay on VisualEffectBackground | Date: 06 February 2026 | Time: 09:44 AM | Name: Lyra |
+
+    1. Observation:
+        1. The commit sheet and command palette both used VisualEffectBackground(material: .hudWindow) but appeared drastically different. The commit sheet with .withinWindow blending appeared bright and washed out because it composites against window content. The command palette used the same material but looked different due to the content behind it. Neither consistently produced a dark glass appearance across different wallpapers and window states.
+    2. Decision:
+        1. Standardized all modal overlay backgrounds to use .behindWindow blending mode with an additional Color.black.opacity(0.45) layer in a ZStack. The .behindWindow mode composites against the desktop wallpaper rather than window content, providing more consistent darkness. The black overlay further tints the glass dark regardless of wallpaper color, ensuring text readability on any background. Both the commit sheet and command palette now use identical background stacks.
+    3. Implication:
+        1. Any new modal overlay or sheet in the application should use this same background pattern: ZStack containing VisualEffectBackground(.hudWindow, .behindWindow) followed by Color.black.opacity(0.45), clipped to the desired corner radius. This ensures visual consistency across all overlays without depending on wallpaper color or window content.
+
+---
+
+| Memory | buttonStyle(.plain) Requires contentShape for Transparent Hit Areas | Date: 06 February 2026 | Time: 09:44 AM | Name: Lyra |
+
+    1. Observation:
+        1. Custom radio buttons in the commit sheet used .buttonStyle(.plain) with Circle fill set to Color.clear for unselected states. The plain button style only registers hit testing on opaque pixels of the label view. With a transparent Circle fill, the hit area was limited to the visible stroke ring (1pt wide) and the Text label, making most of the row untappable. Users could not reliably click to change the selected option.
+    2. Decision:
+        1. Added .contentShape(Rectangle()) on the Button label's HStack to define the entire row rectangle as the hit-testable area regardless of visual content opacity. Also added Spacer() to make the HStack fill the full available width and .padding(.vertical, 4) to increase the vertical tap target.
+    3. Implication:
+        1. Any Button with .buttonStyle(.plain) that contains transparent or partially transparent content MUST include .contentShape(Rectangle()) on the label to ensure the full visual extent is tappable. This is a SwiftUI platform behavior, not a bug. The .plain style intentionally limits hit testing to drawn pixels unless overridden with contentShape.
+
+---
+
+| Memory | Command Palette Keyboard Navigation via NSEvent Local Monitor | Date: 06 February 2026 | Time: 09:44 AM | Name: Lyra |
+
+    1. Observation:
+        1. The command palette originally had no arrow key navigation. Pressing Enter always selected the first match. Standard command palette UX (VS Code, Spotlight, Alfred, Raycast) supports up/down arrow keys to move a selection highlight through results, with Enter activating the highlighted item. SwiftUI does not provide built-in keyboard navigation for custom list views with a focused TextField.
+    2. Decision:
+        1. Added an NSEvent.addLocalMonitorForEvents(matching: .keyDown) specifically for the command palette, registered on .onAppear and removed on .onDisappear. The monitor intercepts three key codes: down arrow (125), up arrow (126), and Enter (36). Arrow keys modify a @State selectedIndex clamped to valid bounds. Enter calls activate() on the entry at selectedIndex. All other key events pass through to the TextField for normal text input. The .onSubmit handler was removed from the TextField since Enter is now handled by the monitor.
+    3. Implication:
+        1. The palette event monitor is registered after ContentView's global event monitor, so it receives events first (LIFO order). It consumes only arrow keys and Enter (returning nil), allowing all other keys to propagate to both the TextField and ContentView's shortcut router. Escape handling remains in ContentView's router. The [self] capture in the closure accesses @State and @EnvironmentObject properties through their external storage, providing current values despite the struct-based View semantics.
+
+---
+
 | Memory | Cluster Drag Requires Hit-Test Priority Over Pan | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
 
     1. Observation:
