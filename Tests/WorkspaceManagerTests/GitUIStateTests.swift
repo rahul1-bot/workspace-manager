@@ -9,6 +9,14 @@ actor MockGitRepositoryService: GitRepositoryServicing {
     func initializeRepository(at workspaceURL: URL) async throws {
         _ = workspaceURL
     }
+
+    func diff(at workspaceURL: URL, mode: DiffPanelMode) async throws -> GitDiffSnapshot {
+        _ = workspaceURL
+        return GitDiffSnapshot(
+            summary: GitChangeSummary(branchName: "dev", filesChanged: 1, additions: 1, deletions: 0),
+            patchText: mode.rawValue
+        )
+    }
 }
 
 actor MockNonGitRepositoryService: GitRepositoryServicing {
@@ -19,6 +27,36 @@ actor MockNonGitRepositoryService: GitRepositoryServicing {
 
     func initializeRepository(at workspaceURL: URL) async throws {
         _ = workspaceURL
+    }
+
+    func diff(at workspaceURL: URL, mode: DiffPanelMode) async throws -> GitDiffSnapshot {
+        _ = workspaceURL
+        _ = mode
+        throw GitRepositoryServiceError.commandFailed("not repository")
+    }
+}
+
+actor MockSlowDiffRepositoryService: GitRepositoryServicing {
+    func status(at workspaceURL: URL) async -> GitRepositoryStatus {
+        _ = workspaceURL
+        return GitRepositoryStatus(isRepository: true, branchName: "dev", disabledReason: nil)
+    }
+
+    func initializeRepository(at workspaceURL: URL) async throws {
+        _ = workspaceURL
+    }
+
+    func diff(at workspaceURL: URL, mode: DiffPanelMode) async throws -> GitDiffSnapshot {
+        _ = workspaceURL
+        if mode == .allBranchChanges {
+            try await Task.sleep(nanoseconds: 200_000_000)
+        } else {
+            try await Task.sleep(nanoseconds: 40_000_000)
+        }
+        return GitDiffSnapshot(
+            summary: GitChangeSummary(branchName: "dev", filesChanged: 1, additions: 2, deletions: 1),
+            patchText: mode.rawValue
+        )
     }
 }
 
@@ -77,6 +115,28 @@ final class GitUIStateTests: XCTestCase {
 
         XCTAssertEqual(appState.commitSheetState.disabledReason, .notGitRepository)
         XCTAssertEqual(appState.gitPanelState.disabledReason, .notGitRepository)
+    }
+
+    @MainActor
+    func testModeSwitchKeepsLatestDiffResult() async {
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockSlowDiffRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder()
+        )
+
+        appState.refreshGitUIState()
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        appState.toggleDiffPanelPlaceholder()
+        appState.setDiffPanelModePlaceholder(.allBranchChanges)
+        appState.setDiffPanelModePlaceholder(.lastTurnChanges)
+
+        try? await Task.sleep(nanoseconds: 320_000_000)
+
+        XCTAssertEqual(appState.gitPanelState.mode, .lastTurnChanges)
+        XCTAssertEqual(appState.gitPanelState.patchText, DiffPanelMode.lastTurnChanges.rawValue)
     }
 
     @MainActor

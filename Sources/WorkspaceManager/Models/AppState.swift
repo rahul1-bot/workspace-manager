@@ -25,6 +25,7 @@ final class AppState: ObservableObject {
     private let editorLaunchService: any EditorLaunching
     private let prLinkBuilder: any PRLinkBuilding
     private let defaultTerminalNames = ["Ghost", "Lyra"]
+    private var diffLoadTask: Task<Void, Never>?
 
     init(
         configService: ConfigService = ConfigService.shared,
@@ -463,14 +464,23 @@ final class AppState: ObservableObject {
     func toggleDiffPanelPlaceholder() {
         guard gitPanelState.disabledReason == nil else { return }
         gitPanelState.isPresented.toggle()
+        if gitPanelState.isPresented {
+            loadDiffPanel()
+        } else {
+            diffLoadTask?.cancel()
+        }
     }
 
     func dismissDiffPanelPlaceholder() {
         gitPanelState.isPresented = false
+        diffLoadTask?.cancel()
     }
 
     func setDiffPanelModePlaceholder(_ mode: DiffPanelMode) {
         gitPanelState.mode = mode
+        if gitPanelState.isPresented {
+            loadDiffPanel()
+        }
     }
 
     func presentCommitSheetPlaceholder() {
@@ -560,10 +570,14 @@ final class AppState: ObservableObject {
                 if status.isRepository {
                     gitPanelState.disabledReason = nil
                     commitSheetState.disabledReason = nil
+                    if gitPanelState.isPresented {
+                        loadDiffPanel()
+                    }
                 } else {
                     gitPanelState.disabledReason = .notGitRepository
                     commitSheetState.disabledReason = .notGitRepository
                     gitPanelState.isPresented = false
+                    diffLoadTask?.cancel()
                     commitSheetState.isPresented = false
                 }
                 commitSheetState.summary = GitChangeSummary(branchName: status.branchName)
@@ -582,5 +596,58 @@ final class AppState: ObservableObject {
         var ordered = editors.filter { $0 != preferred }
         ordered.insert(preferred, at: 0)
         return ordered
+    }
+
+    private func loadDiffPanel() {
+        guard let workspace = selectedWorkspace else { return }
+        guard gitPanelState.disabledReason == nil else { return }
+
+        diffLoadTask?.cancel()
+        gitPanelState.isLoading = true
+        gitPanelState.errorText = nil
+        gitPanelState.patchText = ""
+
+        let workspaceID = workspace.id
+        let workspaceURL = URL(fileURLWithPath: workspace.path)
+        let mode = gitPanelState.mode
+
+        diffLoadTask = Task {
+            do {
+                let snapshot = try await gitRepositoryService.diff(at: workspaceURL, mode: mode)
+                await MainActor.run {
+                    guard selectedWorkspaceId == workspaceID else { return }
+                    guard gitPanelState.mode == mode else { return }
+                    gitPanelState.summary = snapshot.summary
+                    gitPanelState.patchText = snapshot.patchText
+                    gitPanelState.isLoading = false
+                }
+            } catch {
+                if Task.isCancelled {
+                    return
+                }
+                await MainActor.run {
+                    guard selectedWorkspaceId == workspaceID else { return }
+                    guard gitPanelState.mode == mode else { return }
+                    gitPanelState.summary = GitChangeSummary(branchName: workspace.name)
+                    gitPanelState.patchText = ""
+                    gitPanelState.isLoading = false
+                    gitPanelState.errorText = diffErrorText(error)
+                }
+            }
+        }
+    }
+
+    private func diffErrorText(_ error: Error) -> String {
+        if let gitError = error as? GitRepositoryServiceError {
+            switch gitError {
+            case .noHistory:
+                return "No commit history available for last turn changes."
+            case .missingBaseBranch:
+                return "Cannot resolve base branch. Expected origin/main, main, origin/master, or master."
+            case .commandFailed(let message):
+                return message.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return String(describing: error)
     }
 }

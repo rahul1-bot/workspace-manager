@@ -55,8 +55,12 @@ struct DiffPanelView: View {
                     Text(errorText)
                         .font(.system(.callout, design: .default))
                         .foregroundColor(.red.opacity(0.85))
+                } else if state.isLoading {
+                    ProgressView("Loading diff…")
+                        .tint(.white)
+                        .foregroundColor(.white.opacity(0.7))
                 } else if state.patchText.isEmpty {
-                    Text("Diff preview will be available in the next phase.")
+                    Text("No changes for the selected mode.")
                         .font(.system(.callout, design: .default))
                         .foregroundColor(.white.opacity(0.7))
                 } else {
