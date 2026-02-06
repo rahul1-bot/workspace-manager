@@ -6,7 +6,7 @@ struct WorkspaceActionBar: View {
     let workspaceURL: URL?
 
     private var openDisabled: Bool {
-        workspaceURL == nil
+        workspaceURL == nil || appState.availableEditors.isEmpty
     }
 
     private var commitDisabled: Bool {
@@ -17,10 +17,14 @@ struct WorkspaceActionBar: View {
         appState.gitPanelState.disabledReason != nil
     }
 
+    private var isNonGitRepository: Bool {
+        appState.gitPanelState.disabledReason == .notGitRepository
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Menu {
-                ForEach(ExternalEditor.allCases, id: \.self) { editor in
+                ForEach(appState.availableEditors, id: \.self) { editor in
                     Button(editor.title) {
                         appState.handleOpenActionPlaceholder(editor: editor, workspaceID: workspaceID)
                     }
@@ -53,6 +57,16 @@ struct WorkspaceActionBar: View {
             .buttonStyle(.plain)
             .disabled(diffDisabled)
             .help(appState.gitPanelState.disabledReason?.title ?? "Toggle diff panel")
+
+            if isNonGitRepository {
+                Button {
+                    appState.initializeGitRepositoryPlaceholder()
+                } label: {
+                    WorkspaceActionPill(icon: "plus.circle", title: "Initialize git", showsChevron: false, isDisabled: false)
+                }
+                .buttonStyle(.plain)
+                .help("Initialize git repository")
+            }
         }
     }
 }

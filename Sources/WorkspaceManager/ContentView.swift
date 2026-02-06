@@ -110,6 +110,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.18), value: appState.gitPanelState.isPresented)
         .onAppear {
             setupKeyboardMonitor()
+            appState.refreshGitUIState()
         }
         .onDisappear {
             removeKeyboardMonitor()

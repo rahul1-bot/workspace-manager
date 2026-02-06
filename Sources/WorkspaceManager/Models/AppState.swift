@@ -18,6 +18,7 @@ final class AppState: ObservableObject {
     @Published var renamingTerminalId: UUID?
     @Published var gitPanelState: GitPanelState = GitPanelState()
     @Published var commitSheetState: CommitSheetState = CommitSheetState()
+    @Published var availableEditors: [ExternalEditor] = []
 
     private let configService: ConfigService
     private let gitRepositoryService: any GitRepositoryServicing
@@ -499,12 +500,38 @@ final class AppState: ObservableObject {
     }
 
     func handleOpenActionPlaceholder(editor: ExternalEditor, workspaceID: UUID?) {
-        _ = editor
-        _ = workspaceID
+        guard let workspace = selectedWorkspace,
+              let workspaceID = workspaceID else {
+            return
+        }
+
+        let workspaceURL = URL(fileURLWithPath: workspace.path)
+        Task {
+            await editorLaunchService.setPreferredEditor(editor, for: workspaceID)
+            await editorLaunchService.openWorkspace(at: workspaceURL, using: editor)
+            refreshGitUIState()
+        }
     }
 
-    private func refreshGitUIStatePlaceholder() {
+    func initializeGitRepositoryPlaceholder() {
+        guard let workspaceURL = selectedWorkspaceURL else { return }
+        Task {
+            do {
+                try await gitRepositoryService.initializeRepository(at: workspaceURL)
+                refreshGitUIState()
+            } catch {
+                await MainActor.run {
+                    let message = String(describing: error)
+                    gitPanelState.errorText = message
+                    commitSheetState.errorText = message
+                }
+            }
+        }
+    }
+
+    func refreshGitUIState() {
         guard let workspace = selectedWorkspace else {
+            availableEditors = []
             gitPanelState.disabledReason = .noWorkspace
             gitPanelState.summary = GitChangeSummary()
             gitPanelState.isPresented = false
@@ -514,22 +541,46 @@ final class AppState: ObservableObject {
             return
         }
 
-        gitPanelState.disabledReason = .unavailableInPhase
-        gitPanelState.summary = GitChangeSummary(branchName: workspace.name)
-        gitPanelState.patchText = ""
-        gitPanelState.errorText = nil
-        gitPanelState.isLoading = false
-        gitPanelState.isPresented = false
-
-        commitSheetState.disabledReason = .unavailableInPhase
-        commitSheetState.summary = GitChangeSummary(branchName: workspace.name)
-        commitSheetState.errorText = nil
-        commitSheetState.isPresented = false
-
+        let workspaceID = workspace.id
+        let workspaceURL = URL(fileURLWithPath: workspace.path)
         Task {
-            _ = await gitRepositoryService.status(at: URL(fileURLWithPath: workspace.path))
-            _ = await editorLaunchService.availableEditors()
-            _ = prLinkBuilder.compareURL(remoteURL: "", baseBranch: "main", headBranch: "dev")
+            let status = await gitRepositoryService.status(at: workspaceURL)
+            let editors = await editorLaunchService.availableEditors()
+            let preferred = await editorLaunchService.preferredEditor(for: workspaceID)
+            let orderedEditors = orderEditors(editors, preferred: preferred)
+
+            await MainActor.run {
+                guard selectedWorkspaceId == workspaceID else { return }
+                availableEditors = orderedEditors
+
+                gitPanelState.summary = GitChangeSummary(branchName: status.branchName)
+                gitPanelState.errorText = nil
+                gitPanelState.isLoading = false
+                gitPanelState.patchText = ""
+                if status.isRepository {
+                    gitPanelState.disabledReason = nil
+                    commitSheetState.disabledReason = nil
+                } else {
+                    gitPanelState.disabledReason = .notGitRepository
+                    commitSheetState.disabledReason = .notGitRepository
+                    gitPanelState.isPresented = false
+                    commitSheetState.isPresented = false
+                }
+                commitSheetState.summary = GitChangeSummary(branchName: status.branchName)
+                _ = prLinkBuilder.compareURL(remoteURL: "", baseBranch: "main", headBranch: "dev")
+            }
         }
+    }
+
+    private func refreshGitUIStatePlaceholder() {
+        refreshGitUIState()
+    }
+
+    private func orderEditors(_ editors: [ExternalEditor], preferred: ExternalEditor?) -> [ExternalEditor] {
+        guard let preferred else { return editors }
+        guard editors.contains(preferred) else { return editors }
+        var ordered = editors.filter { $0 != preferred }
+        ordered.insert(preferred, at: 0)
+        return ordered
     }
 }

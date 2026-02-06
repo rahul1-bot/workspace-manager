@@ -5,6 +5,21 @@ actor MockGitRepositoryService: GitRepositoryServicing {
     func status(at workspaceURL: URL) async -> GitRepositoryStatus {
         return GitRepositoryStatus(isRepository: true, branchName: "dev", disabledReason: nil)
     }
+
+    func initializeRepository(at workspaceURL: URL) async throws {
+        _ = workspaceURL
+    }
+}
+
+actor MockNonGitRepositoryService: GitRepositoryServicing {
+    func status(at workspaceURL: URL) async -> GitRepositoryStatus {
+        _ = workspaceURL
+        return GitRepositoryStatus(isRepository: false, branchName: "-", disabledReason: .notGitRepository)
+    }
+
+    func initializeRepository(at workspaceURL: URL) async throws {
+        _ = workspaceURL
+    }
 }
 
 actor MockEditorLaunchService: EditorLaunching {
@@ -46,6 +61,22 @@ final class GitUIStateTests: XCTestCase {
         )
 
         XCTAssertNotNil(appState)
+    }
+
+    @MainActor
+    func testNonGitStateDisablesCommitAndDiff() async {
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockNonGitRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder()
+        )
+
+        appState.refreshGitUIState()
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertEqual(appState.commitSheetState.disabledReason, .notGitRepository)
+        XCTAssertEqual(appState.gitPanelState.disabledReason, .notGitRepository)
     }
 
     @MainActor
