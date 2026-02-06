@@ -367,6 +367,35 @@
 
 ---
 
+| Progress Todo | Bug Investigation — Node Hit-Test Scaling Is Correct (False Positive) | Date: 06 February 2026 | Time: 11:22 PM | Name: Lyra |
+
+    1. Investigation:
+        1. An audit flagged hitTestNode at GraphCanvasView.swift lines 475-487 for dividing nodeWidth and nodeHeight by 2*scale, claiming both coordinates are in world space so the division is incorrect. Manual verification with concrete scale values proved this is a false positive.
+    2. Why the current code is correct:
+        1. Nodes are drawn at fixed screen pixel size (nodeWidth=140, nodeHeight=48) in drawNodes (line 313-317) and nodeOverlays (line 359-361). They do not scale with zoom. The zoom only changes WHERE on screen the node center is drawn via appState.graphViewport.apply(node.position).
+        2. The click location is converted from screen space to canvas space via invert(location). The node position is stored in canvas space. To compare them, the node's visual extent must also be expressed in canvas space.
+        3. A fixed-pixel node covers LESS canvas area when zoomed in and MORE canvas area when zoomed out. The conversion factor is exactly 1/scale, which is what the code applies: nodeWidth/(2*scale) gives the canvas-space half-width of the screen-space node.
+        4. Verified at scale 2.0: click at node screen edge correctly maps to canvas-space hit-test boundary. Verified at scale 0.5: click outside node screen boundary correctly maps to canvas-space miss.
+    3. Status: Closed as not-a-bug. No code changes required.
+
+---
+
+| Progress Todo | Bug Fix — Cluster Hit-Test Coordinate Space Mismatch | Date: 06 February 2026 | Time: 11:22 PM | Name: Lyra |
+
+    1. Root cause:
+        1. drawClusterBoundaries operates in screen space: it converts node positions to screen space via appState.graphViewport.apply(node.position), then subtracts nodeWidth/2 and padding (30pt, 24pt) to compute the cluster boundary rectangle. These padding values are screen-space pixel values.
+        2. hitTestCluster operates in canvas space: it uses raw node.position.x and node.position.y, then subtracts the same nodeWidth/2 and padding values. But in canvas space, the visual extent of screen-space constants must be divided by the viewport scale to match the drawn boundary.
+        3. At scale 2.0 (zoomed in), the drawn cluster boundary extends 50 canvas units from the node center (100 screen pixels / 2.0 scale), but the hit-test checked 100 canvas units. The hit area was LARGER than the visual boundary, causing cluster drag triggers from clicks outside the visible boundary.
+        4. At scale 0.5 (zoomed out), the drawn boundary extends 200 canvas units, but the hit-test checked 100 canvas units. The hit area was SMALLER than the visual boundary, causing cluster drag to fail for clicks inside the visible boundary.
+    2. Fix applied:
+        1. GraphCanvasView.swift hitTestCluster method: Added scale-adjusted local variables (scaledPadding, scaledLabelTopPadding, scaledHalfWidth, scaledHalfHeight) that divide the screen-space constants by appState.graphViewport.scale. This matches the pattern used in hitTestNode which already correctly divides by scale. The cluster bounding box calculation now uses these scaled values, ensuring the hit-test area matches the drawn cluster boundary at all zoom levels.
+    3. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Views/GraphCanvasView.swift — hitTestCluster scale correction
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):

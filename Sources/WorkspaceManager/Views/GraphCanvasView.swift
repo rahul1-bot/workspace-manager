@@ -489,8 +489,11 @@ struct GraphCanvasView: View {
     private func hitTestCluster(at canvasPoint: CGPoint) -> UUID? {
         guard hitTestNode(at: canvasPoint) == nil else { return nil }
 
-        let padding: CGFloat = 30
-        let labelTopPadding: CGFloat = 24
+        let scale: CGFloat = appState.graphViewport.scale
+        let scaledPadding: CGFloat = 30 / scale
+        let scaledLabelTopPadding: CGFloat = 24 / scale
+        let scaledHalfWidth: CGFloat = nodeWidth / (2 * scale)
+        let scaledHalfHeight: CGFloat = nodeHeight / (2 * scale)
         let workspaceIds: Set<UUID> = Set(appState.graphDocument.nodes.map(\.workspaceId))
 
         for workspaceId in workspaceIds {
@@ -505,10 +508,10 @@ struct GraphCanvasView: View {
             var maxY: CGFloat = -.greatestFiniteMagnitude
 
             for node in clusterNodes {
-                minX = min(minX, node.position.x - nodeWidth / 2 - padding)
-                minY = min(minY, node.position.y - nodeHeight / 2 - padding - labelTopPadding)
-                maxX = max(maxX, node.position.x + nodeWidth / 2 + padding)
-                maxY = max(maxY, node.position.y + nodeHeight / 2 + padding)
+                minX = min(minX, node.position.x - scaledHalfWidth - scaledPadding)
+                minY = min(minY, node.position.y - scaledHalfHeight - scaledPadding - scaledLabelTopPadding)
+                maxX = max(maxX, node.position.x + scaledHalfWidth + scaledPadding)
+                maxY = max(maxY, node.position.y + scaledHalfHeight + scaledPadding)
             }
 
             if canvasPoint.x >= minX && canvasPoint.x <= maxX
