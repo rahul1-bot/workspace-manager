@@ -147,11 +147,19 @@ path = "~/code"
 
 ## Roadmap
 
-### Near-term
+### Knowledge Workspace (next major direction)
 
-- Continue input stability hardening and crash resistance.
-- Expand automated coverage for input routing and terminal launch policies.
-- Improve diagnostics ergonomics for reproduction and triage.
+The app solves the knowledge work bottleneck for research engineers who juggle multiple git worktrees, read research papers while coding, and constantly switch between AIML/PyTorch projects.
+
+Three high-value features, in priority order:
+
+1. **PDF/Paper Viewer Panel** — Side panel for reading research papers inline next to the terminal. Zero context-switching between Preview and code.
+2. **Git Worktree Orchestration** — First-class worktree awareness: visualize branches, fast-switch between worktrees, auto-create workspace+terminal per worktree.
+3. **Code Viewer Panel** — Read-only source file viewer with syntax highlighting. Quick reference without leaving the app.
+
+Design filter: if a feature can already be done efficiently via the terminal, it is skipped. Only high-value problems that reduce context-switching are worth building.
+
+Full design rationale: `docs/knowledge-workspace-roadmap.md`
 
 ### Spatial Graph phases
 
