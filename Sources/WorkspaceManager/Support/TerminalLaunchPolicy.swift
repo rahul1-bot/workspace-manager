@@ -20,11 +20,11 @@ enum TerminalLaunchPolicy {
     static func buildPlan(shellFromEnvironment: String?, workingDirectory: String, fallbackShell: String = "/bin/zsh") throws -> TerminalLaunchPlan {
         let rawShell = shellFromEnvironment ?? fallbackShell
         let shell = try canonicalizedShell(rawShell)
-        try validateWorkingDirectory(workingDirectory)
+        let resolvedCwd = try resolvedWorkingDirectory(workingDirectory)
 
         var environment = sanitizedEnvironment(from: ProcessInfo.processInfo.environment)
-        environment["PWD"] = workingDirectory
-        environment["WM_START_CWD"] = workingDirectory
+        environment["PWD"] = resolvedCwd
+        environment["WM_START_CWD"] = resolvedCwd
         environment["WM_EXEC_SHELL"] = shell
 
         let launchCommand = "cd -- \"$WM_START_CWD\" && exec \"$WM_EXEC_SHELL\" -l"
@@ -52,14 +52,17 @@ enum TerminalLaunchPolicy {
         return resolved
     }
 
-    private static func validateWorkingDirectory(_ path: String) throws {
+    private static func resolvedWorkingDirectory(_ path: String) throws -> String {
         guard !path.isEmpty, !path.contains("\0") else {
             throw TerminalLaunchError.unsafeWorkingDirectory(path)
         }
-        let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
-        guard FileManager.default.fileExists(atPath: standardized) else {
+        let resolved = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: resolved, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
             throw TerminalLaunchError.unsafeWorkingDirectory(path)
         }
+        return resolved
     }
 
     static func fallbackEnvironment() -> [String] {
