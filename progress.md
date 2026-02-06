@@ -443,6 +443,26 @@
 
 ---
 
+| Progress Todo | Phase 1 Cleanup — Independent Review and Verification Complete | Date: 07 February 2026 | Time: 12:08 AM | Name: Lyra |
+
+    1. Review methodology:
+        1. Five independent Opus subagents were launched in parallel to review each Phase 1 fix. Two agents returned full results before output file cleanup. Bugs 4 and 5 were reviewed manually using the already-loaded codebase context.
+    2. Bug 1 (Shift+Cmd+/ character mismatch):
+        1. ✅ Verified by Rahul via manual testing. Shortcut overlay now opens correctly on Shift+Cmd+/ keypress.
+    3. Bug 2 (Node hit-test scaling):
+        1. ✅ Independent Opus agent confirmed false positive with concrete mathematical proof. Traced apply/invert coordinate transforms at scale 2.0 and 0.5. The formula nodeWidth/(2*scale) correctly converts fixed screen-pixel node dimensions (140x48) to canvas space for comparison with canvas-space click coordinates. Without the scale division, hit-test would be misaligned at every zoom level except 1.0.
+    4. Bug 3 (Cluster hit-test coordinate space):
+        1. ✅ Independent Opus agent confirmed fix is correct and complete. The drawn cluster boundaries (screen space) and hit-test boundaries (canvas space) now produce mathematically identical regions when compared in the same coordinate space. Verified algebraically and at scale 2.0 and 0.5.
+    5. Bug 4 (ghostty_surface_free threading):
+        1. ✅ Manual review confirmed two-layer defense is correct. Primary path (dismantleNSView to releaseSurface) runs on main thread guaranteed by SwiftUI. Safety net (deinit) captures surface pointer and C string by value into DispatchQueue.main.async when on background thread. No double-free risk because releaseSurface nils the surface pointer before freeing, so deinit safety net is a no-op when primary path executes. Timer capture list [momentumTimer] correctly captures the reference type.
+    6. Bug 5 (loadGraphState race condition):
+        1. ✅ Manual review confirmed cancellation pattern eliminates the race. toggleViewMode cancels and nils graphLoadTask before modifying graph state. The Task checks Task.isCancelled after the actor-crossing await, discarding stale snapshots. Pattern is consistent with existing diffLoadTask and commitTask cancellation patterns in the same file. Edge cases (rapid Cmd+G toggling, immediate toggle after onAppear) are handled safely.
+    7. Shortcuts overlay redesign:
+        1. ✅ Verified by Rahul via visual inspection. Dark liquid glass pattern now matches command palette and commit sheet.
+    8. Phase 1 status: All 5 bugs investigated, 4 fixed, 1 false positive. All fixes independently verified. Phase 1 is complete. Ready for Phase 2.
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):
