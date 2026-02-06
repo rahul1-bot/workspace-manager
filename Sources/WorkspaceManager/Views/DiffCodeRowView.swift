@@ -8,6 +8,23 @@ struct DiffCodeRowView: View {
     @State private var tokens: [DiffToken] = []
 
     var body: some View {
+        Group {
+            if line.showsLineNumbers {
+                codeRow
+            } else {
+                metadataRow
+            }
+        }
+        .font(.system(size: 12, weight: .medium, design: .monospaced))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 1)
+        .background(backgroundColor)
+        .task(id: taskIdentity) {
+            await loadTokens()
+        }
+    }
+
+    private var codeRow: some View {
         HStack(spacing: 0) {
             Text(markerText)
                 .foregroundColor(markerColor)
@@ -19,23 +36,20 @@ struct DiffCodeRowView: View {
             lineNumberText(line.newLineNumber)
                 .frame(width: 54, alignment: .trailing)
 
-            if line.showsLineNumbers {
-                renderedCodeText
-                    .fixedSize(horizontal: true, vertical: false)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Text(verbatim: line.rawText)
-                    .foregroundColor(nonCodeForegroundColor)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            renderedCodeText
+                .fixedSize(horizontal: true, vertical: false)
         }
-        .font(.system(size: 12, weight: .medium, design: .monospaced))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 1)
-        .background(backgroundColor)
-        .task(id: taskIdentity) {
-            await loadTokens()
+    }
+
+    private var metadataRow: some View {
+        HStack(spacing: 8) {
+            Text(markerText)
+                .foregroundColor(markerColor)
+                .frame(width: 16, alignment: .center)
+
+            Text(verbatim: line.rawText)
+                .foregroundColor(nonCodeForegroundColor)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
