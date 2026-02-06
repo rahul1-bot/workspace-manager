@@ -131,6 +131,21 @@
 
 ---
 
+| Progress Todo | UI Polish — Header Alignment, Diff Panel Resize, Action Bar Cleanup | Date: 06 February 2026 | Time: 08:16 AM | Name: Lyra |
+
+    1. Delivered and compiling:
+        1. ✅ Terminal header button vertical alignment. Reduced TerminalHeader top padding from 6pt to 14pt combined with .ignoresSafeArea(.container, edges: .top) on sidebarModeContent to push content into the hidden title bar area. Iteratively tested values 0, 2, 4, 14pt across multiple builds to find the visual sweet spot.
+        2. ✅ Action buttons hidden when diff panel is open. Wrapped WorkspaceActionBar in conditional check for gitPanelState.isPresented. The Open, Commit, and Toggle diff panel buttons no longer bleed through behind the diff panel during resize operations.
+        3. ✅ Diff panel resize handle restructured. Replaced nested overlay layout (overlay on overlay) with sibling HStack layout (handle and DiffPanelView side by side in a ZStack). Added .padding(.horizontal, 5) for a 16pt total hit area. Drag gesture now fires reliably.
+        4. ✅ Diff panel resize math simplified. Removed stepping quantization (resizeStepRatio, steppedRatio, rounded()), dead zone guard, and 90fps rate limiter. Now uses direct continuous ratio calculation clamped to bounds. Eliminated lastDiffResizeUpdateTime and resizeStepRatio state.
+        5. ✅ Removed vertical divider line between Commit and Toggle diff panel buttons in WorkspaceActionBar.
+        6. ✅ swift build passes, swift test passes (54 tests, 0 failures).
+    2. Remaining for next session:
+        1. Investigate and fix diff panel scroll stuttering during content viewing.
+        2. Visual improvements to diff panel rendering quality.
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):

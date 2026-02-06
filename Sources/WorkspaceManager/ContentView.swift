@@ -26,12 +26,10 @@ struct ContentView: View {
     @State private var diffPanelDragStartRatio: CGFloat?
     @State private var isDiffResizeHandleHovering = false
     @State private var isDiffPanelResizing = false
-    @State private var lastDiffResizeUpdateTime: CFAbsoluteTime = 0
     private let shortcutRouter = KeyboardShortcutRouter()
     private let minDiffPanelWidthRatio: CGFloat = 0.2
     private let maxDiffPanelWidthRatio: CGFloat = 1.0
     private let defaultDiffPanelWidthRatio: CGFloat = 0.5
-    private let resizeStepRatio: CGFloat = 0.001
 
     var body: some View {
         ZStack {
@@ -100,7 +98,6 @@ struct ContentView: View {
             if !isPresented {
                 diffPanelDragStartRatio = nil
                 isDiffPanelResizing = false
-                lastDiffResizeUpdateTime = 0
             }
         }
         .alert("Close Terminal?", isPresented: $showCloseTerminalConfirm) {
@@ -127,16 +124,19 @@ struct ContentView: View {
             GeometryReader { terminalGeometry in
                 let terminalWidth = max(terminalGeometry.size.width, 1)
 
-                TerminalContainer(showHeader: !appState.focusMode)
-                    .overlay(alignment: .topLeading) {
-                        if appState.focusMode {
-                            FocusModeOverlay()
-                                .padding(.leading, 12)
-                                .padding(.top, 10)
+                ZStack(alignment: .trailing) {
+                    TerminalContainer(showHeader: !appState.focusMode)
+                        .overlay(alignment: .topLeading) {
+                            if appState.focusMode {
+                                FocusModeOverlay()
+                                    .padding(.leading, 12)
+                                    .padding(.top, 10)
+                            }
                         }
-                    }
-                    .overlay(alignment: .trailing) {
-                        if appState.gitPanelState.isPresented {
+
+                    if appState.gitPanelState.isPresented {
+                        HStack(spacing: 0) {
+                            diffResizeHandle(terminalWidth: terminalWidth)
                             DiffPanelView(
                                 state: appState.gitPanelState,
                                 isResizing: isDiffPanelResizing,
@@ -147,14 +147,13 @@ struct ContentView: View {
                                     appState.setDiffPanelModePlaceholder(mode)
                                 }
                             )
-                            .frame(width: terminalWidth * diffPanelWidthRatio)
-                            .overlay(alignment: .leading) {
-                                diffResizeHandle(terminalWidth: terminalWidth)
-                            }
                         }
+                        .frame(width: terminalWidth * diffPanelWidthRatio)
                     }
+                }
             }
         }
+        .ignoresSafeArea(.container, edges: .top)
     }
 
     private func setupKeyboardMonitor() {
@@ -342,6 +341,7 @@ struct ContentView: View {
         Rectangle()
             .fill(Color.white.opacity(isDiffResizeHandleHovering ? 0.22 : 0.10))
             .frame(width: 6)
+            .padding(.horizontal, 5)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -349,24 +349,14 @@ struct ContentView: View {
                         if diffPanelDragStartRatio == nil {
                             diffPanelDragStartRatio = diffPanelWidthRatio
                             isDiffPanelResizing = true
-                            lastDiffResizeUpdateTime = CFAbsoluteTimeGetCurrent()
                         }
                         let startRatio = diffPanelDragStartRatio ?? diffPanelWidthRatio
                         let deltaRatio = -value.translation.width / max(terminalWidth, 1)
-                        let candidateRatio = startRatio + deltaRatio
-                        let rawClampedRatio = min(maxDiffPanelWidthRatio, max(0, candidateRatio))
-                        let step = max(resizeStepRatio, 1 / max(terminalWidth, 1))
-                        let steppedRatio = (rawClampedRatio / step).rounded() * step
-                        let clampedRatio = min(maxDiffPanelWidthRatio, max(0, steppedRatio))
-                        guard abs(clampedRatio - diffPanelWidthRatio) >= (step / 2) else { return }
-                        let now = CFAbsoluteTimeGetCurrent()
-                        let minimumUpdateInterval = 1.0 / 90.0
-                        guard now - lastDiffResizeUpdateTime >= minimumUpdateInterval else { return }
-                        lastDiffResizeUpdateTime = now
+                        let newRatio = min(maxDiffPanelWidthRatio, max(0, startRatio + deltaRatio))
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
-                            diffPanelWidthRatio = clampedRatio
+                            diffPanelWidthRatio = newRatio
                         }
                     }
                     .onEnded { _ in
@@ -378,7 +368,6 @@ struct ContentView: View {
                         }
                         diffPanelDragStartRatio = nil
                         isDiffPanelResizing = false
-                        lastDiffResizeUpdateTime = 0
                     }
             )
             .onHover { hovering in
@@ -396,7 +385,6 @@ struct ContentView: View {
                     isDiffResizeHandleHovering = false
                 }
                 isDiffPanelResizing = false
-                lastDiffResizeUpdateTime = 0
             }
     }
 }

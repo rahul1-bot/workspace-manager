@@ -167,6 +167,28 @@
 
 ---
 
+| Memory | Diff Panel Resize Handle Must Be a Sibling View Not a Nested Overlay | Date: 06 February 2026 | Time: 08:16 AM | Name: Lyra |
+
+    1. Observation:
+        1. The diff panel resize handle was originally implemented as an .overlay(alignment: .leading) on the DiffPanelView, which was itself an .overlay(alignment: .trailing) on the TerminalContainer. This deeply nested overlay structure caused the drag gesture on the resize handle to fail silently. The handle was visually present but the DragGesture never fired, likely due to gesture priority conflicts between nested overlay layers and the underlying ScrollView inside DiffPanelView.
+    2. Decision:
+        1. Restructured the layout to use a ZStack(alignment: .trailing) containing the TerminalContainer and an HStack of the resize handle plus DiffPanelView as siblings. The resize handle is now a direct sibling of the DiffPanelView in an HStack, not a nested overlay. Added .padding(.horizontal, 5) to the handle for a 16pt total hit area (6pt visible bar plus 5pt padding on each side).
+    3. Implication:
+        1. Sibling views in an HStack have clear, non-conflicting gesture boundaries. The resize handle's DragGesture fires reliably because it occupies its own view space rather than competing with the DiffPanelView's content for gesture recognition. This pattern should be used for any interactive elements adjacent to scrollable content.
+
+---
+
+| Memory | macOS Hidden Title Bar Safe Area Requires Careful Padding Balance | Date: 06 February 2026 | Time: 08:16 AM | Name: Lyra |
+
+    1. Observation:
+        1. The window uses .windowStyle(.hiddenTitleBar) with .fullSizeContentView and all traffic lights hidden. Despite this, macOS reserves approximately 28pt of safe area at the top for the invisible title bar region. The GlassSidebarBackground uses .ignoresSafeArea() to fill behind this area, but the actual content (sidebar and terminal) respects the safe area, creating a visible gap between the menu bar and the header content.
+    2. Decision:
+        1. Applied .ignoresSafeArea(.container, edges: .top) on the sidebarModeContent HStack to push content into the hidden title bar area. Combined with .padding(.top, 14) on the TerminalHeader to maintain visual balance. Using the full .ignoresSafeArea() on the body ZStack was too aggressive and caused content to clip behind the system menu bar. The .container variant specifically targets the window's container safe area without affecting the system menu bar boundary.
+    3. Implication:
+        1. The padding value of 14pt was determined through iterative visual testing across multiple builds. Values below 8pt placed content too close to the menu bar edge. Values above 14pt recreated the original gap. The sidebar header uses .padding(.vertical, 8) which aligns visually with the terminal header at 14pt because the WorkspaceActionPill adds 7pt internal vertical padding.
+
+---
+
 | Memory | Cluster Drag Requires Hit-Test Priority Over Pan | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
 
     1. Observation:

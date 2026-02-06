@@ -45,10 +45,6 @@ struct WorkspaceActionBar: View {
             .disabled(commitDisabled)
             .help(appState.commitSheetState.disabledReason?.title ?? "Commit changes")
 
-            Divider()
-                .frame(height: 22)
-                .overlay(Color.white.opacity(0.15))
-
             Button {
                 appState.toggleDiffPanelPlaceholder()
             } label: {
