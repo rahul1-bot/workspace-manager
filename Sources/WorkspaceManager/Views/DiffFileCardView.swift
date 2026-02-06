@@ -8,9 +8,9 @@ struct DiffFileCardView: View {
     let syntaxService: DiffSyntaxHighlightingService
 
     private enum CardChromeStyle {
-        static let cardFillOpacity: Double = 0.012
-        static let cardStrokeOpacity: Double = 0.06
-        static let headerFillOpacity: Double = 0.014
+        static let cardFillOpacity: Double = 0.04
+        static let cardStrokeOpacity: Double = 0.10
+        static let headerFillOpacity: Double = 0.06
     }
 
     var body: some View {

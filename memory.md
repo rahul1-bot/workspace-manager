@@ -211,6 +211,17 @@
 
 ---
 
+| Memory | Unified Dark Glass Pattern Applied Across All UI Overlays | Date: 06 February 2026 | Time: 09:52 AM | Name: Lyra |
+
+    1. Observation:
+        1. The diff panel originally used a subtle LinearGradient overlay (0.035 to 0.018 opacity) over the VisualEffectBackground. This was barely visible and caused the wallpaper to bleed through significantly, creating a different visual temperature from the commit sheet and command palette which both use Color.black.opacity(0.45). The diff panel also had extremely low chrome opacities (0.01 for header fill, 0.012 for card fill) that were essentially invisible, making the panel structure hard to discern.
+    2. Decision:
+        1. All three major overlay panels (commit sheet, command palette, diff viewer) now use the identical background stack: VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow) with Color.black.opacity(0.45) on top. Chrome opacities were increased to match: 0.12 for outer strokes, 0.08 for dividers, 0.04-0.06 for fills. The standardized pattern is documented as the canonical dark glass recipe for any future overlay UI.
+    3. Implication:
+        1. A central DiffChromeStyle enum defines all opacity constants for the diff panel, making future adjustments a single-constant change. The same pattern of opacity constants should be used in any new panel or overlay to maintain visual consistency.
+
+---
+
 | Memory | Dark Glass Consistency Requires Explicit Black Overlay on VisualEffectBackground | Date: 06 February 2026 | Time: 09:44 AM | Name: Lyra |
 
     1. Observation:

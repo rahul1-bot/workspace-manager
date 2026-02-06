@@ -196,6 +196,20 @@
 
 ---
 
+| Progress Todo | Diff Viewer Dark Glass Visual Upgrade | Date: 06 February 2026 | Time: 09:52 AM | Name: Lyra |
+
+    1. Delivered and compiling:
+        1. ✅ Applied dark glass background to DiffPanelView. Replaced subtle LinearGradient overlay (0.035 to 0.018 opacity) with Color.black.opacity(0.45) matching the commit sheet and command palette dark glass pattern. The VisualEffectBackground(.hudWindow, .behindWindow) base layer is retained for frosted glass texture.
+        2. ✅ Updated DiffChromeStyle constants for visual consistency. Outer stroke increased from 0.07 to 0.12, divider from 0.05 to 0.08, header fill from 0.01 to 0.04, summary fill from 0.01 to 0.06, content stroke from 0.06 to 0.08. All values now match the visual language established by the commit sheet and command palette.
+        3. ✅ Updated DiffFileCardView CardChromeStyle constants. Card fill increased from 0.012 to 0.04, card stroke from 0.06 to 0.10, header fill from 0.014 to 0.06. Cards are now visually distinct against the darker panel background.
+        4. ✅ Darkened resizing state. Resizing fill increased from 0.14 to 0.45. Placeholder skeleton bars reduced from 0.08 to 0.06 opacity with background from 0.35 to 0.25 for better contrast in the darker context.
+        5. ✅ swift build passes, swift test passes (54 tests, 0 failures).
+    2. Files modified:
+        1. Sources/WorkspaceManager/Views/DiffPanelView.swift — dark glass background and DiffChromeStyle update
+        2. Sources/WorkspaceManager/Views/DiffFileCardView.swift — CardChromeStyle update
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):
