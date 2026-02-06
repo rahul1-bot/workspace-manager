@@ -202,36 +202,38 @@ actor DiffSyntaxHighlightingService {
         return tokens
     }
 
+    private static let keywordSets: [SyntaxLanguage: Set<String>] = [
+        .swift: [
+            "actor", "as", "async", "await", "break", "case", "catch", "class", "continue", "default", "defer", "do",
+            "else", "enum", "extension", "fallthrough", "false", "for", "func", "guard", "if", "import", "in", "init",
+            "internal", "let", "mutating", "nil", "private", "protocol", "public", "return", "self", "static", "struct",
+            "switch", "throw", "throws", "true", "try", "var", "where", "while"
+        ],
+        .python: [
+            "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del", "elif", "else",
+            "except", "False", "finally", "for", "from", "if", "import", "in", "is", "lambda", "None", "nonlocal",
+            "not", "or", "pass", "raise", "return", "True", "try", "while", "with", "yield"
+        ],
+        .javascript: [
+            "async", "await", "break", "case", "catch", "class", "const", "continue", "default", "delete", "else",
+            "enum", "export", "extends", "false", "finally", "for", "from", "function", "if", "import", "in", "instanceof",
+            "interface", "let", "new", "null", "return", "switch", "this", "throw", "true", "try", "type", "typeof",
+            "undefined", "var", "void", "while"
+        ],
+        .typescript: [
+            "async", "await", "break", "case", "catch", "class", "const", "continue", "default", "delete", "else",
+            "enum", "export", "extends", "false", "finally", "for", "from", "function", "if", "import", "in", "instanceof",
+            "interface", "let", "new", "null", "return", "switch", "this", "throw", "true", "try", "type", "typeof",
+            "undefined", "var", "void", "while"
+        ],
+        .json: ["true", "false", "null"],
+        .shell: ["case", "do", "done", "elif", "else", "esac", "fi", "for", "function", "if", "in", "then", "until", "while"],
+        .yaml: ["true", "false", "null", "yes", "no", "on", "off"],
+        .markdown: [],
+        .plain: []
+    ]
+
     private func keywordSet(for language: SyntaxLanguage) -> Set<String> {
-        switch language {
-        case .swift:
-            return [
-                "actor", "as", "async", "await", "break", "case", "catch", "class", "continue", "default", "defer", "do",
-                "else", "enum", "extension", "fallthrough", "false", "for", "func", "guard", "if", "import", "in", "init",
-                "internal", "let", "mutating", "nil", "private", "protocol", "public", "return", "self", "static", "struct",
-                "switch", "throw", "throws", "true", "try", "var", "where", "while"
-            ]
-        case .python:
-            return [
-                "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del", "elif", "else",
-                "except", "False", "finally", "for", "from", "if", "import", "in", "is", "lambda", "None", "nonlocal",
-                "not", "or", "pass", "raise", "return", "True", "try", "while", "with", "yield"
-            ]
-        case .javascript, .typescript:
-            return [
-                "async", "await", "break", "case", "catch", "class", "const", "continue", "default", "delete", "else",
-                "enum", "export", "extends", "false", "finally", "for", "from", "function", "if", "import", "in", "instanceof",
-                "interface", "let", "new", "null", "return", "switch", "this", "throw", "true", "try", "type", "typeof",
-                "undefined", "var", "void", "while"
-            ]
-        case .json:
-            return ["true", "false", "null"]
-        case .shell:
-            return ["case", "do", "done", "elif", "else", "esac", "fi", "for", "function", "if", "in", "then", "until", "while"]
-        case .yaml:
-            return ["true", "false", "null", "yes", "no", "on", "off"]
-        case .markdown, .plain:
-            return []
-        }
+        Self.keywordSets[language] ?? []
     }
 }

@@ -189,6 +189,28 @@
 
 ---
 
+| Memory | Diff Panel Text Wrapping Requires fixedSize Removal Plus Explicit Leading Alignment | Date: 06 February 2026 | Time: 09:05 AM | Name: Lyra |
+
+    1. Observation:
+        1. The diff panel code rows originally used .fixedSize(horizontal: true, vertical: false) on the code Text view, which prevented text from wrapping. Each line extended to its full natural width. When combined with nested horizontal ScrollViews, this allowed horizontal scrolling per block. After removing the horizontal ScrollViews for performance, the .fixedSize still prevented wrapping, causing long lines to extend beyond the panel boundary and get clipped. Additionally, VStacks used default .center alignment, which caused narrower rows to shift right when mixed with wider rows (the staircase displacement pattern visible in screenshots).
+    2. Decision:
+        1. Removed .fixedSize(horizontal: true, vertical: false) from both renderedCodeText in codeRow and raw text in metadataRow. Changed HStack alignment to .top so line numbers stay at the top of multi-line wrapped rows. Changed all VStacks in DiffFileCardView to .leading alignment. Added maxWidth: .infinity to row and card frames so all elements fill the available width consistently. No horizontal ScrollView is used; all text wraps within the panel width.
+    3. Implication:
+        1. For diff viewers displaying code, wrapping text within a fixed-width panel requires three coordinated changes: removing .fixedSize from Text views, setting HStack alignment to .top for multi-line content, and setting all parent VStack alignment to .leading with maxWidth: .infinity on frames. Missing any one of these causes either no wrapping, vertically misaligned line numbers, or horizontal staircase displacement.
+
+---
+
+| Memory | Static Keyword Set Caching Eliminates Per-Call Set Allocation in Syntax Highlighting | Date: 06 February 2026 | Time: 08:31 AM | Name: Lyra |
+
+    1. Observation:
+        1. DiffSyntaxHighlightingService.keywordSet(for:) used a switch statement that created a new Set<String> literal containing 30 to 50 items on every invocation. The tokenize() method calls keywordSet(for:) once per line being tokenized. While the token cache prevents re-tokenization of identical content, new or uncached lines still trigger fresh Set allocation. For a large diff with hundreds of unique lines, this produced hundreds of unnecessary heap allocations during initial scroll.
+    2. Decision:
+        1. Replaced the instance method switch with a private static let keywordSets dictionary of type [SyntaxLanguage: Set<String>]. All keyword sets are computed once at static initialization time. The keywordSet(for:) method now performs a single dictionary lookup returning the pre-allocated Set. TypeScript was given its own explicit entry duplicating the JavaScript keywords rather than relying on a combined switch case, because static dictionary keys require distinct entries.
+    3. Implication:
+        1. Static let properties on actors and classes are initialized exactly once per process lifetime in Swift, making them ideal for immutable lookup tables. This pattern should be applied to any method that returns constant data structures and is called in a hot path.
+
+---
+
 | Memory | Cluster Drag Requires Hit-Test Priority Over Pan | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
 
     1. Observation:

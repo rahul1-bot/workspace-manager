@@ -19,7 +19,7 @@ struct DiffCodeRowView: View {
         .font(.system(size: 12, weight: .medium, design: .monospaced))
         .padding(.horizontal, 8)
         .padding(.vertical, 1)
-        .frame(minWidth: max(minimumRowWidth, 1), alignment: .leading)
+        .frame(minWidth: max(minimumRowWidth, 1), maxWidth: .infinity, alignment: .leading)
         .background(backgroundColor)
         .task(id: taskIdentity) {
             await loadTokens()
@@ -27,7 +27,7 @@ struct DiffCodeRowView: View {
     }
 
     private var codeRow: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             Text(markerText)
                 .foregroundColor(markerColor)
                 .frame(width: 16, alignment: .center)
@@ -39,24 +39,22 @@ struct DiffCodeRowView: View {
                 .frame(width: 54, alignment: .trailing)
 
             renderedCodeText
-                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
     private var metadataRow: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             Text(markerText)
                 .foregroundColor(markerColor)
                 .frame(width: 16, alignment: .center)
 
             Text(verbatim: line.rawText)
                 .foregroundColor(nonCodeForegroundColor)
-                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
     private var taskIdentity: String {
-        "\(line.id)-\(fileExtension ?? "none")-\(line.codeText)"
+        "\(line.id)-\(fileExtension ?? "none")"
     }
 
     private func lineNumberText(_ value: Int?) -> Text {
@@ -74,12 +72,13 @@ struct DiffCodeRowView: View {
             ? [DiffToken(text: line.codeText, tokenClass: .plain, start: 0, end: line.codeText.count)]
             : tokens
 
-        return activeTokens.reduce(Text("")) { partial, token in
-            let fragment = Text(verbatim: token.text)
-                .foregroundColor(tokenColor(for: token.tokenClass))
-
-            return partial + fragment
+        var attributed = AttributedString()
+        for token in activeTokens {
+            var fragment = AttributedString(token.text)
+            fragment.foregroundColor = tokenColor(for: token.tokenClass)
+            attributed.append(fragment)
         }
+        return Text(attributed)
     }
 
     private var markerText: String {

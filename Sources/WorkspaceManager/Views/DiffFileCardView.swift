@@ -14,7 +14,7 @@ struct DiffFileCardView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             headerView
 
             if !isCollapsed {
@@ -27,7 +27,7 @@ struct DiffFileCardView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(Color.white.opacity(CardChromeStyle.cardStrokeOpacity), lineWidth: 1)
         )
-        .frame(minWidth: max(viewportWidth, 1), alignment: .leading)
+        .frame(minWidth: max(viewportWidth, 1), maxWidth: .infinity, alignment: .leading)
     }
 
     private var headerView: some View {
@@ -61,7 +61,7 @@ struct DiffFileCardView: View {
     }
 
     private var contentView: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             if !section.metadataLines.isEmpty {
                 metadataBlock
             }
@@ -75,16 +75,14 @@ struct DiffFileCardView: View {
     }
 
     private var metadataBlock: some View {
-        ScrollView(.horizontal) {
-            VStack(spacing: 0) {
-                ForEach(section.metadataLines) { line in
-                    DiffCodeRowView(
-                        line: line,
-                        fileExtension: section.fileExtension,
-                        minimumRowWidth: max(viewportWidth - 32, 1),
-                        syntaxService: syntaxService
-                    )
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(section.metadataLines) { line in
+                DiffCodeRowView(
+                    line: line,
+                    fileExtension: section.fileExtension,
+                    minimumRowWidth: max(viewportWidth - 32, 1),
+                    syntaxService: syntaxService
+                )
             }
         }
         .background(Color.black.opacity(0.76))
@@ -96,23 +94,21 @@ struct DiffFileCardView: View {
     }
 
     private func hunkBlock(for hunk: DiffHunk) -> some View {
-        ScrollView(.horizontal) {
-            VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            DiffCodeRowView(
+                line: hunkHeaderLine(for: hunk),
+                fileExtension: section.fileExtension,
+                minimumRowWidth: max(viewportWidth - 32, 1),
+                syntaxService: syntaxService
+            )
+
+            ForEach(hunk.lines) { line in
                 DiffCodeRowView(
-                    line: hunkHeaderLine(for: hunk),
+                    line: line,
                     fileExtension: section.fileExtension,
                     minimumRowWidth: max(viewportWidth - 32, 1),
                     syntaxService: syntaxService
                 )
-
-                ForEach(hunk.lines) { line in
-                    DiffCodeRowView(
-                        line: line,
-                        fileExtension: section.fileExtension,
-                        minimumRowWidth: max(viewportWidth - 32, 1),
-                        syntaxService: syntaxService
-                    )
-                }
             }
         }
         .background(Color.black.opacity(0.82))

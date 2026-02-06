@@ -141,8 +141,33 @@
         5. ✅ Removed vertical divider line between Commit and Toggle diff panel buttons in WorkspaceActionBar.
         6. ✅ swift build passes, swift test passes (54 tests, 0 failures).
     2. Remaining for next session:
-        1. Investigate and fix diff panel scroll stuttering during content viewing.
+        1. ✅ Investigate and fix diff panel scroll stuttering during content viewing.
         2. Visual improvements to diff panel rendering quality.
+
+---
+
+| Progress Todo | Diff Panel Scroll Stutter Fix | Date: 06 February 2026 | Time: 08:31 AM | Name: Lyra |
+
+    1. Delivered and compiling:
+        1. ✅ Removed nested horizontal ScrollViews from DiffFileCardView.swift. Each metadataBlock and hunkBlock(for:) previously wrapped content in its own ScrollView(.horizontal), creating approximately 60 nested scroll containers for a typical multi-file diff. Removed all per-block horizontal ScrollViews and added a single ScrollView(.horizontal, showsIndicators: false) wrapping the entire contentView. This reduces scroll container count from O(files * hunks) to O(files).
+        2. ✅ Cached keyword sets in DiffSyntaxHighlightingService.swift. Replaced the keywordSet(for:) switch statement that allocated a new Set<String> with 30-50 items on every tokenize() call with a private static let keywordSets dictionary. All keyword sets are now computed once at static initialization time. TypeScript given its own explicit dictionary entry rather than relying on combined switch case.
+        3. ✅ DiffCodeRowView.swift confirmed already optimized from prior session. renderedCodeText uses AttributedString concatenation (not Text.reduce). taskIdentity uses only line.id and fileExtension (not codeText).
+        4. ✅ swift build passes, swift test passes (54 tests, 0 failures).
+    2. Remaining for next session:
+        1. ✅ Manual verification of scroll smoothness with large diffs.
+        2. ✅ Visual improvements to diff panel rendering quality.
+
+---
+
+| Progress Todo | Diff Panel Text Wrapping and Alignment Fix | Date: 06 February 2026 | Time: 09:05 AM | Name: Lyra |
+
+    1. Delivered and compiling:
+        1. ✅ Removed .fixedSize(horizontal: true, vertical: false) from renderedCodeText in codeRow and from raw text in metadataRow in DiffCodeRowView.swift. Code and metadata text now wraps within the available panel width instead of extending infinitely to the right. Long lines wrap to the next visual line while the line number stays at the top of the row.
+        2. ✅ Changed HStack alignment from default .center to .top in both codeRow and metadataRow in DiffCodeRowView.swift. Line numbers and markers now align to the top of multi-line wrapped content instead of vertically centering against wrapped text.
+        3. ✅ Removed horizontal ScrollView from contentView in DiffFileCardView.swift. Content wraps within the panel width rather than scrolling horizontally. The per-block horizontal ScrollViews were already removed in the prior fix.
+        4. ✅ Added maxWidth: .infinity to DiffCodeRowView body frame and DiffFileCardView card body frame. All rows and cards now fill the full available width consistently, preventing variable-width rows from causing alignment shifts.
+        5. ✅ Changed all VStack alignment to .leading in DiffFileCardView.swift: card body VStack, contentView VStack, metadataBlock VStack, and hunkBlock VStack. All content is now left-aligned, ensuring line numbers remain in a fixed column regardless of content width variations.
+        6. ✅ swift build passes. Visually verified by Rahul: line numbers are properly aligned in a fixed column, code text wraps correctly within the panel, no staircase displacement pattern.
 
 ---
 
