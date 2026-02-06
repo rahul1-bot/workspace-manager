@@ -119,7 +119,7 @@ struct DiffPanelView: View {
     }
 
     private var patchContentView: some View {
-        ScrollView(.vertical) {
+        ScrollView([.vertical, .horizontal]) {
             LazyVStack(alignment: .leading, spacing: 10) {
                 ForEach(document.fileSections) { section in
                     DiffFileCardView(

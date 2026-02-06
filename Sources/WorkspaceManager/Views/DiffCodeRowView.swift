@@ -38,7 +38,10 @@ struct DiffCodeRowView: View {
 
             renderedCodeText
                 .fixedSize(horizontal: true, vertical: false)
+
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var metadataRow: some View {
@@ -50,7 +53,10 @@ struct DiffCodeRowView: View {
             Text(verbatim: line.rawText)
                 .foregroundColor(nonCodeForegroundColor)
                 .fixedSize(horizontal: true, vertical: false)
+
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var taskIdentity: String {

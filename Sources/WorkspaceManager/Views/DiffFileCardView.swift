@@ -67,17 +67,14 @@ struct DiffFileCardView: View {
     }
 
     private var metadataBlock: some View {
-        ScrollView(.horizontal) {
-            VStack(spacing: 0) {
-                ForEach(section.metadataLines) { line in
-                    DiffCodeRowView(
-                        line: line,
-                        fileExtension: section.fileExtension,
-                        syntaxService: syntaxService
-                    )
-                }
+        VStack(spacing: 0) {
+            ForEach(section.metadataLines) { line in
+                DiffCodeRowView(
+                    line: line,
+                    fileExtension: section.fileExtension,
+                    syntaxService: syntaxService
+                )
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Color.black.opacity(0.76))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -88,23 +85,20 @@ struct DiffFileCardView: View {
     }
 
     private func hunkBlock(for hunk: DiffHunk) -> some View {
-        ScrollView(.horizontal) {
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
+            DiffCodeRowView(
+                line: hunkHeaderLine(for: hunk),
+                fileExtension: section.fileExtension,
+                syntaxService: syntaxService
+            )
+
+            ForEach(hunk.lines) { line in
                 DiffCodeRowView(
-                    line: hunkHeaderLine(for: hunk),
+                    line: line,
                     fileExtension: section.fileExtension,
                     syntaxService: syntaxService
                 )
-
-                ForEach(hunk.lines) { line in
-                    DiffCodeRowView(
-                        line: line,
-                        fileExtension: section.fileExtension,
-                        syntaxService: syntaxService
-                    )
-                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Color.black.opacity(0.82))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
