@@ -1,6 +1,46 @@
-# Spatial Graph View — progress.md
+# Workspace Manager — progress.md
 
 ## Implementation Progress
+
+---
+
+| Progress Todo | PDF/Paper Viewer Panel — Feature Complete | Date: 06 February 2026 | Time: 06:57 PM | Name: Lyra |
+
+    1. Delivered and compiling (branch: feat/ui-ux-improvements):
+        1. ✅ PDFUIModels.swift created. PDFPanelState struct with isPresented, fileURL, fileName, currentPageIndex, totalPages, isLoading, and errorText fields. Follows GitUIModels.swift pattern. Equatable and Sendable conformance.
+        2. ✅ PDFViewWrapper.swift created. NSViewRepresentable bridge wrapping PDFKit PDFView. Handles document loading, page synchronization, dark background (NSColor.black.withAlphaComponent(0.3)), and page change notifications via Coordinator. Uses isSyncingPage flag to prevent infinite update loops between SwiftUI state and PDFView navigation.
+        3. ✅ PDFPanelView.swift created. Panel UI following DiffPanelView pattern exactly. Header with doc icon, filename, page indicator (3 / 24), and close button. Navigation bar with previous/next page chevrons. Content area with PDFViewWrapper, empty state, loading, error, and resizing placeholder. Chrome styling matches diff panel constants.
+        4. ✅ AppState.swift modified. Added pdfPanelState published property. Added togglePDFPanel, dismissPDFPanel, openPDFFile, updatePDFPageIndex, presentPDFFilePicker methods. Panel exclusivity: opening PDF closes diff panel and vice versa. NSOpenPanel for file selection filtered to UTType.pdf.
+        5. ✅ ContentView.swift modified. Added PDF panel state variables (pdfPanelWidthRatio, isPDFResizeHandleHovering, isPDFPanelResizing). Shared panel width ratio constants (renamed from diff-specific). Added PDF panel to ZStack trailing position. Added pdfResizeHandle method identical to diffResizeHandle pattern. Added showPDFPanel to ShortcutContext. Added togglePDFPanel and closePDFPanel to executeShortcut.
+        6. ✅ KeyboardShortcutRouter.swift modified. Added showPDFPanel to ShortcutContext. Added togglePDFPanel and closePDFPanel to ShortcutCommand enum. Cmd+Shift+P routes to togglePDFPanel. Esc routes to closePDFPanel when PDF panel is visible.
+        7. ✅ Overlays.swift modified. Added openPDF to PaletteAction enum with title and subtitle. Added activation handler calling appState.togglePDFPanel. Added shortcut help entry.
+        8. ✅ KeyboardShortcutRouterTests.swift modified. Added showPDFPanel parameter to test helper makeContext function.
+        9. ✅ swift build passes, swift test passes (54 tests, 0 failures).
+        10. ✅ Committed on feat/ui-ux-improvements. NOT merged to dev or main. NOT pushed.
+        11. ✅ Rahul visually verified: PDF viewer renders correctly, page navigation works, panel resizes properly.
+    2. Build errors encountered and resolved:
+        1. PDFDocument.index(for:) returns Int not Int?. Fixed by removing optional binding and using direct assignment with separate guard for currentPage.
+        2. Test file missing showPDFPanel parameter. Fixed by adding showPDFPanel: Bool = false to makeContext helper.
+    3. Next steps for PDF viewer enhancement (discussion phase):
+        1. ✅ Multi-PDF tab support (implemented below).
+        2. PDF search within document.
+        3. Thumbnail sidebar for page preview navigation.
+
+---
+
+| Progress Todo | Multi-PDF Tab Support — Feature Complete | Date: 06 February 2026 | Time: 07:22 PM | Name: Lyra |
+
+    1. Delivered and compiling (branch: feat/ui-ux-improvements):
+        1. ✅ PDFUIModels.swift restructured. New PDFTab struct (id, fileURL, fileName, currentPageIndex, totalPages) as Identifiable, Equatable, Sendable. PDFPanelState now holds tabs array plus activeTabId with computed properties activeTab and activeTabIndex. Replaced single-document fields with collection-based model.
+        2. ✅ AppState.swift PDF methods rewritten. openPDFFile appends to tabs array or switches to existing tab if URL already open. closePDFTab removes tab and dismisses panel when last tab is closed. selectPDFTab, selectNextPDFTab, selectPreviousPDFTab for tab navigation with wrap-around. updatePDFPageIndex and updatePDFTotalPages scoped to active tab. togglePDFPanel always opens file picker (no longer toggles close). Panel exclusivity preserved.
+        3. ✅ PDFPanelView.swift rebuilt with tab strip. Horizontal ScrollView tab strip with ScrollViewReader auto-scroll to active tab. Each tab shows truncated filename plus close button. Plus button at end to add another PDF. Tab strip only visible when more than one tab is open. Active tab highlighted with 0.10 white fill and subtle border. New callbacks: onTotalPagesChanged, onTabSelected, onTabClosed, onAddTab. Page sync resets on tab switch via onChange of activeTabId.
+        4. ✅ PDFViewWrapper.swift updated for tab page restoration. When document URL changes (tab switch), page position is restored from the tab's stored currentPageIndex instead of resetting to page 0. Uses pdfView.go(to:) after document load to navigate to restored page.
+        5. ✅ KeyboardShortcutRouter.swift extended. Three new ShortcutCommand cases: nextPDFTab, previousPDFTab, closePDFTab. Routed via Cmd+Shift+} (next), Cmd+Shift+{ (previous), Cmd+Shift+W (close tab). All three are context-gated on showPDFPanel. Placed before general shortcuts to ensure PDF-specific shortcuts take priority when panel is open.
+        6. ✅ ContentView.swift wired with new callbacks and shortcut handlers. PDFPanelView instantiation updated with onTotalPagesChanged, onTabSelected, onTabClosed, onAddTab. executeShortcut handles nextPDFTab, previousPDFTab, closePDFTab.
+        7. ✅ Overlays.swift command palette integration. PaletteEntryKind extended with pdfTab(UUID). Open PDF tabs appear as searchable entries in command palette. Score function ranks active PDF tab at 5, other tabs at 6. Activate handler switches to selected tab and ensures panel is presented.
+        8. ✅ Shortcuts help updated with new PDF Viewer section showing tab navigation and close shortcuts.
+        9. ✅ swift build passes, swift test passes (54 tests, 0 failures).
+        10. ✅ Committed on feat/ui-ux-improvements. NOT merged to dev or main. NOT pushed.
 
 ---
 

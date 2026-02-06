@@ -61,6 +61,7 @@ struct CommandPaletteOverlay: View {
 private enum PaletteEntryKind: Hashable {
     case workspace(UUID)
     case terminal(workspaceId: UUID, terminalId: UUID)
+    case pdfTab(UUID)
     case action(PaletteAction)
 }
 
@@ -69,6 +70,7 @@ private enum PaletteAction: String, CaseIterable, Hashable {
     case newWorkspace
     case toggleSidebar
     case toggleFocusMode
+    case openPDF
     case revealConfig
 
     var title: String {
@@ -81,6 +83,8 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Toggle sidebar"
         case .toggleFocusMode:
             return "Toggle Focus Mode"
+        case .openPDF:
+            return "Open PDF"
         case .revealConfig:
             return "Reveal config.toml"
         }
@@ -96,6 +100,8 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Show or hide the workspace sidebar"
         case .toggleFocusMode:
             return "Hide chrome and focus on one terminal"
+        case .openPDF:
+            return "Open a PDF file in the viewer panel (⇧⌘P)"
         case .revealConfig:
             return "Open ~/.config/workspace-manager/config.toml in Finder"
         }
@@ -166,6 +172,19 @@ private struct CommandPaletteView: View {
             }
         }
 
+        for tab in appState.pdfPanelState.tabs {
+            if match(tab.fileName) {
+                results.append(
+                    PaletteEntry(
+                        id: "pdf:\(tab.id.uuidString)",
+                        title: tab.fileName,
+                        subtitle: "Open PDF tab",
+                        kind: .pdfTab(tab.id)
+                    )
+                )
+            }
+        }
+
         if !q.isEmpty {
             for action in PaletteAction.allCases {
                 if match(action.title) || match(action.subtitle) {
@@ -190,6 +209,9 @@ private struct CommandPaletteView: View {
             case .workspace(let wsId):
                 if wsId == selectedWsId { return 2 }
                 return 4
+            case .pdfTab(let tabId):
+                if tabId == appState.pdfPanelState.activeTabId { return 5 }
+                return 6
             case .action:
                 return 10
             }
@@ -371,6 +393,9 @@ private struct CommandPaletteView: View {
             }
         case .terminal(let wsId, let termId):
             appState.selectTerminal(id: termId, in: wsId)
+        case .pdfTab(let tabId):
+            appState.selectPDFTab(id: tabId)
+            appState.pdfPanelState.isPresented = true
         case .action(let action):
             switch action {
             case .newTerminal:
@@ -388,6 +413,8 @@ private struct CommandPaletteView: View {
                 appState.toggleSidebar()
             case .toggleFocusMode:
                 appState.toggleFocusMode()
+            case .openPDF:
+                appState.togglePDFPanel()
             case .revealConfig:
                 NSWorkspace.shared.activateFileViewerSelecting([ConfigService.shared.configFileURL])
             }
@@ -469,8 +496,18 @@ private struct ShortcutsHelpCard: View {
                             ("⌥⌘C", "Copy selected workspace path"),
                             ("⌘,", "Reveal config.toml in Finder"),
                             ("⌘P", "Command palette"),
+                            ("⇧⌘P", "Open PDF file"),
                             ("⌘.", "Toggle Focus Mode"),
                             ("⇧⌘/", "Show this help")
+                        ]
+                    )
+
+                    ShortcutSection(
+                        title: "PDF Viewer (when open)",
+                        rows: [
+                            ("⇧⌘{ / ⇧⌘}", "Previous/next PDF tab"),
+                            ("⇧⌘W", "Close active PDF tab"),
+                            ("Esc", "Close PDF panel")
                         ]
                     )
 
