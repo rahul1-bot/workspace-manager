@@ -72,8 +72,10 @@ class GhosttyAppManager {
             return true
         }
         runtimeConfig.read_clipboard_cb = { userdata, location, state in
-            guard let state = state else { return }
-            GhosttyClipboardBridge.shared.completeReadRequest(state: state, location: location)
+            guard let userdata = userdata, let state = state else { return }
+            let nsView = Unmanaged<GhosttySurfaceNSView>.fromOpaque(userdata).takeUnretainedValue()
+            guard let surface = nsView.surface else { return }
+            GhosttyClipboardBridge.shared.completeReadRequest(surface: surface, state: state, location: location)
         }
         runtimeConfig.confirm_read_clipboard_cb = nil
         runtimeConfig.write_clipboard_cb = { (userdata: UnsafeMutableRawPointer?, location: ghostty_clipboard_e, content: UnsafePointer<ghostty_clipboard_content_s>?, len: Int, confirm: Bool) in
@@ -191,7 +193,6 @@ class GhosttyAppManager {
     }
 
     deinit {
-        GhosttyClipboardBridge.shared.cleanupRetainedResponses()
         if let app = app {
             ghostty_app_free(app)
         }
@@ -204,7 +205,7 @@ class GhosttyAppManager {
 // MARK: - Ghostty Surface View (NSView)
 /// NSView subclass that hosts a libghostty terminal surface
 class GhosttySurfaceNSView: NSView {
-    private var surface: ghostty_surface_t?
+    private(set) var surface: ghostty_surface_t?
 
     let terminalID: UUID
     let workingDirectory: String
@@ -271,6 +272,10 @@ class GhosttySurfaceNSView: NSView {
             let macosPtr = UnsafeMutableRawPointer(platformPtr).assumingMemoryBound(to: ghostty_platform_macos_s.self)
             macosPtr.pointee.nsview = Unmanaged.passUnretained(self).toOpaque()
         }
+
+        // Surface userdata lets runtime callbacks (read_clipboard_cb etc.) locate
+        // the originating NSView and its surface pointer.
+        surfaceConfig.userdata = Unmanaged.passUnretained(self).toOpaque()
 
         surfaceConfig.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2.0)
         surfaceConfig.font_size = 0  // Use default from config

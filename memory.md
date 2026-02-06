@@ -266,6 +266,17 @@
 
 ---
 
+| Memory | ghostty_surface_complete_clipboard_request Crashed Due to Wrong Parameter Order | Date: 06 February 2026 | Time: 12:10 PM | Name: Lyra |
+
+    1. Observation:
+        1. Pressing Cmd+V terminated the app instantly with no crash report, no signal handler output, and no atexit handler output. Diagnostic fputs logging to stderr traced the crash to inside ghostty_surface_complete_clipboard_request. The initial theory was re-entrance (calling the completion while ghostty_surface_key was on the call stack), but three successive fix attempts based on that theory all failed. Reading the official Ghostty macOS source revealed the actual root cause: the parameters to ghostty_surface_complete_clipboard_request were in the wrong order. The function signature is (ghostty_surface_t, const char*, void*, bool) — surface, text, state, confirmed. Our code was calling it as (state, text, nil, false) — passing the state pointer where surface should be and nil where state should be. This caused libghostty to dereference a request token as a surface struct, triggering immediate process termination.
+    2. Decision:
+        1. Three coordinated fixes applied. First, set surfaceConfig.userdata to Unmanaged.passUnretained(self).toOpaque() in GhosttySurfaceNSView.createSurfaceWithConfig so that each surface's NSView is retrievable from the callback's userdata parameter. Second, updated read_clipboard_cb to extract the GhosttySurfaceNSView from the userdata parameter and obtain its surface pointer. Third, rewrote GhosttyClipboardBridge.completeReadRequest to accept the surface parameter and call ghostty_surface_complete_clipboard_request(surface, cstr, state, false) with correct parameter order, synchronously using withCString (matching the official Ghostty implementation). The previous strdup/retainedResponses/DispatchQueue.main.async mechanism was removed as it was a workaround for a non-existent re-entrance problem.
+    3. Implication:
+        1. The official Ghostty macOS app calls ghostty_surface_complete_clipboard_request synchronously from within read_clipboard_cb without issue. Re-entrance is not the problem; correct parameter order is. Surface-specific runtime callbacks in libghostty receive the surface's userdata (set via ghostty_surface_config_s.userdata), not the app-level runtime config userdata. Any future callback that requires the surface pointer must extract it from userdata following this pattern. Additionally, CommandGroup(replacing: .pasteboard) { } was added to WorkspaceManagerApp.swift as defense-in-depth to prevent SwiftUI's default Edit menu from intercepting Cmd+V/C/X at the Scene level.
+
+---
+
 | Memory | Cluster Drag Requires Hit-Test Priority Over Pan | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
 
     1. Observation:

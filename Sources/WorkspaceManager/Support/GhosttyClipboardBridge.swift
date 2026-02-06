@@ -5,27 +5,20 @@ import GhosttyKit
 final class GhosttyClipboardBridge {
     static let shared = GhosttyClipboardBridge()
 
-    private let lock = NSLock()
-    private var retainedResponses: [UnsafeMutablePointer<CChar>] = []
-    private let maxRetainedResponses = 8
     private let maxIncomingBytes = 10_000_000
 
     private init() {}
 
-    func completeReadRequest(state: UnsafeMutableRawPointer, location: ghostty_clipboard_e) {
+    func completeReadRequest(surface: ghostty_surface_t, state: UnsafeMutableRawPointer, location: ghostty_clipboard_e) {
         let clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
-        guard let copied = strdup(clipboardText) else {
-            AppLogger.ghostty.error("clipboard read strdup failed")
-            ghostty_surface_complete_clipboard_request(state, "", nil, false)
-            return
+
+        // Complete the clipboard request synchronously, matching the official
+        // Ghostty implementation. withCString keeps the C string alive for the
+        // duration of the call — no manual strdup/free needed.
+        clipboardText.withCString { cstr in
+            ghostty_surface_complete_clipboard_request(surface, cstr, state, false)
         }
 
-        lock.lock()
-        retainedResponses.append(copied)
-        trimRetainedResponsesIfNeeded()
-        lock.unlock()
-
-        ghostty_surface_complete_clipboard_request(state, UnsafePointer(copied), nil, false)
         InputEventRecorder.shared.record(
             kind: .ghosttyCallback,
             keyCode: nil,
@@ -61,19 +54,4 @@ final class GhosttyClipboardBridge {
         }
     }
 
-    func cleanupRetainedResponses() {
-        lock.lock()
-        defer { lock.unlock() }
-        for pointer in retainedResponses {
-            free(pointer)
-        }
-        retainedResponses.removeAll()
-    }
-
-    private func trimRetainedResponsesIfNeeded() {
-        while retainedResponses.count > maxRetainedResponses {
-            let oldest = retainedResponses.removeFirst()
-            free(oldest)
-        }
-    }
 }
