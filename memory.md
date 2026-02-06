@@ -343,6 +343,17 @@
 
 ---
 
+| Memory | NSView deinit Runs on Arbitrary Threads and Requires Main-Thread Dispatch for GPU Resources | Date: 06 February 2026 | Time: 11:24 PM | Name: Lyra |
+
+    1. Observation:
+        1. NSView deinit can execute on any thread when the last strong reference is released from a background context. This includes autorelease pool drains on GCD threads, Task closure captures in structured concurrency, and NotificationCenter observer removal during termination. For NSViews that wrap GPU resources (Metal surfaces, CAMetalLayers, libghostty surfaces), deallocation on a background thread corrupts the GPU pipeline state.
+    2. Decision:
+        1. Implemented a two-layer cleanup pattern for GhosttySurfaceNSView. The primary cleanup path is a releaseSurface() method called from GhosttyTerminalView.dismantleNSView (SwiftUI guarantees main thread). The safety-net path is in deinit: if the surface is still alive, the surface pointer and C string pointer are captured by value into a DispatchQueue.main.async block. Timer invalidation is also dispatched to main since Timer.invalidate must be called from the scheduling thread.
+    3. Implication:
+        1. Any NSViewRepresentable wrapping a view that holds GPU resources, file handles, or thread-sensitive C library objects must implement dismantleNSView for main-thread cleanup. Relying solely on deinit is unsafe because Swift does not guarantee which thread deinit runs on. The pattern is: dismantleNSView calls a cleanup method that nils the resource, deinit checks for non-nil as a safety net and dispatches to main if needed.
+
+---
+
 | Memory | Shifted Punctuation Keys Require Matching the Shifted Character in Router | Date: 06 February 2026 | Time: 11:19 PM | Name: Lyra |
 
     1. Observation:

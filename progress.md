@@ -396,6 +396,21 @@
 
 ---
 
+| Progress Todo | Bug Fix — ghostty_surface_free Threading Safety | Date: 06 February 2026 | Time: 11:24 PM | Name: Lyra |
+
+    1. Root cause:
+        1. GhosttySurfaceNSView.deinit called ghostty_surface_free directly. NSView deinit can execute on any thread when the last reference is released from a background context (autorelease pool draining, Task closure, etc.). The libghostty API requires ghostty_surface_free to be called from the main thread because it interacts with the Metal rendering pipeline and the app's internal surface list. Calling it from a background thread can corrupt libghostty state, trigger Metal validation errors, or crash with EXC_BAD_ACCESS in the render loop.
+        2. The momentum timer (Timer.scheduledTimer on main run loop) was also invalidated in deinit. Timer.invalidate must be called from the thread that scheduled it. Invalidating a main-thread timer from a background-thread deinit is undefined behavior.
+    2. Fix applied (two-layer defense):
+        1. Primary path: Added releaseSurface() method to GhosttySurfaceNSView that stops the momentum timer, unregisters the surface, calls ghostty_surface_free, and frees the working directory C string. This method is called from GhosttyTerminalView.dismantleNSView, which SwiftUI guarantees to call on the main thread when the NSViewRepresentable is removed from the view hierarchy. After releaseSurface(), the surface pointer is nil, so the deinit safety net is a no-op.
+        2. Safety net: Rewrote deinit to check Thread.isMainThread. If on main thread, cleanup proceeds inline. If on a background thread, the surface pointer and C string pointer are captured by value into a DispatchQueue.main.async block that performs the cleanup. The momentum timer is captured and invalidated on the main queue. This handles edge cases where deinit fires without dismantleNSView having been called (e.g., if a strong reference leak delays deallocation past the view lifecycle).
+    3. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift — releaseSurface method, deinit rewrite, dismantleNSView addition
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):
