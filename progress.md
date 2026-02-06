@@ -287,7 +287,7 @@
         6. Tests/WorkspaceManagerTests/KeyboardShortcutRouterTests.swift — test helper updated for new context fields
     3. Remaining for graph Phase 1 completion:
         1. ✅ Add graph shortcuts to help overlay and command palette (completed below).
-        2. Add graph-mode keyboard shortcut tests to KeyboardShortcutRouterTests.swift.
+        2. ✅ Add graph-mode keyboard shortcut tests to KeyboardShortcutRouterTests.swift (completed below).
 
 ---
 
@@ -302,7 +302,33 @@
     2. Files modified:
         1. Sources/WorkspaceManager/Views/Overlays.swift — PaletteAction enum (3 new cases with title/subtitle/activate), ShortcutsHelpCard (new Graph View section)
     3. Remaining for graph Phase 1 completion:
-        1. Add graph-mode keyboard shortcut tests to KeyboardShortcutRouterTests.swift.
+        1. ✅ Add graph-mode keyboard shortcut tests (completed below).
+
+---
+
+| Progress Todo | Graph-Mode Keyboard Shortcut Tests | Date: 06 February 2026 | Time: 10:41 PM | Name: Lyra |
+
+    1. Delivered and compiling (branch: feat/graph-phase1-cleanup):
+        1. ✅ Added 14 new test methods to KeyboardShortcutRouterTests.swift covering all graph-mode routing paths. Test count increased from 54 to 68 with 0 failures.
+        2. ✅ testToggleViewModeWorksOutsideGraphMode: Cmd+G outside graph mode returns toggleViewMode. Verifies Cmd+G is a global toggle not gated by isGraphMode.
+        3. ✅ testToggleViewModeWorksInsideGraphMode: Cmd+G inside graph mode also returns toggleViewMode.
+        4. ✅ testGraphModeZoomIn: Cmd+= (keyCode 24) in graph mode returns graphZoomIn.
+        5. ✅ testGraphModeZoomInWithPlusVariant: Cmd++ (keyCode 24, char "+") in graph mode also returns graphZoomIn. Covers the Shift+= producing "+" variant.
+        6. ✅ testGraphModeZoomOut: Cmd+- (keyCode 27) in graph mode returns graphZoomOut.
+        7. ✅ testGraphModeZoomToFit: Cmd+0 (keyCode 29) in graph mode returns graphZoomToFit. Validates the standalone check at router line 184 that fires after the digit-to-workspace jump block (which skips digit 0).
+        8. ✅ testGraphModeRerunLayout: Cmd+L (keyCode 37) in graph mode returns graphRerunLayout.
+        9. ✅ testGraphModeEnterFocusesSelectedNode: Enter (keyCode 36) with hasSelectedGraphNode true returns focusSelectedGraphNode.
+        10. ✅ testGraphModeEnterWithoutSelectionPassesThrough: Enter (keyCode 36) with hasSelectedGraphNode false falls through to passthrough. Negative case ensures Enter is not unconditionally consumed in graph mode.
+        11. ✅ testGraphModeEscapeUnfocusesNode: Escape (keyCode 53) with hasFocusedGraphNode true returns unfocusGraphNode.
+        12. ✅ testGraphModeCmdLOverridesFocusTerminal: Two-part test. In non-graph mode, Cmd+L returns focusTerminal (line 159). In graph mode, Cmd+L returns graphRerunLayout (line 147). Validates the priority ordering where graph-mode block at lines 144-149 takes precedence over general shortcuts.
+        13. ✅ testGraphZoomShortcutsIgnoredOutsideGraphMode: Three-part test. Cmd+=, Cmd+-, and Cmd+0 all return passthrough when isGraphMode is false. Ensures graph zoom shortcuts are strictly scoped to graph mode.
+        14. ✅ testEscapePriorityPDFPanelOverGraphNode: When showPDFPanel and hasFocusedGraphNode are both true, Escape returns closePDFPanel. Validates that PDF panel dismissal at router line 122 takes priority over graph node unfocus at line 126.
+        15. ✅ testEscapeUnfocusGraphNodeOverSidebar: When sidebarFocused and hasFocusedGraphNode are both true, Escape returns unfocusGraphNode. Validates that graph node unfocus at line 126 takes priority over sidebarCancelRename at line 189.
+        16. ✅ swift build passes with -Xswiftc -warnings-as-errors. swift test passes (68 tests, 0 failures).
+    2. Files modified:
+        1. Tests/WorkspaceManagerTests/KeyboardShortcutRouterTests.swift — 14 new test methods
+    3. Graph Phase 1 cleanup complete:
+        1. All planned items from the Phase 1 audit have been delivered and verified.
 
 ---
 
