@@ -945,6 +945,34 @@ final class AppState: ObservableObject {
             !validNodeIds.contains(edge.sourceNodeId) || !validNodeIds.contains(edge.targetNodeId)
         }
 
+        let existingContainmentPairs: Set<String> = Set(
+            updatedEdges
+                .filter { $0.edgeType == .containment }
+                .map { "\($0.sourceNodeId)-\($0.targetNodeId)" }
+        )
+
+        for workspace in workspaces {
+            let workspaceNodes: [GraphNode] = updatedNodes.filter { $0.workspaceId == workspace.id }
+            guard workspaceNodes.count > 1 else { continue }
+
+            for i in 0..<(workspaceNodes.count - 1) {
+                let sourceId: UUID = workspaceNodes[i].id
+                let targetId: UUID = workspaceNodes[i + 1].id
+                let forwardKey: String = "\(sourceId)-\(targetId)"
+                let reverseKey: String = "\(targetId)-\(sourceId)"
+
+                guard !existingContainmentPairs.contains(forwardKey),
+                      !existingContainmentPairs.contains(reverseKey) else { continue }
+
+                let edge: GraphEdge = GraphEdge(
+                    sourceNodeId: sourceId,
+                    targetNodeId: targetId,
+                    edgeType: .containment
+                )
+                updatedEdges.append(edge)
+            }
+        }
+
         graphDocument.nodes = updatedNodes
         graphDocument.edges = updatedEdges
     }

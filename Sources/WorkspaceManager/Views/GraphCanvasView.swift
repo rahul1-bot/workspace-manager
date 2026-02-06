@@ -31,7 +31,24 @@ struct GraphCanvasView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.black.opacity(0.85))
+            .onAppear {
+                centerViewportOnContent(canvasSize: geometry.size)
+            }
         }
+    }
+
+    private func centerViewportOnContent(canvasSize: CGSize) {
+        let nodes: [GraphNode] = appState.graphDocument.nodes
+        guard !nodes.isEmpty else { return }
+        guard viewportTransform.translation == .zero else { return }
+
+        let avgX: Double = nodes.map(\.positionX).reduce(0, +) / Double(nodes.count)
+        let avgY: Double = nodes.map(\.positionY).reduce(0, +) / Double(nodes.count)
+
+        viewportTransform.translation = SIMD2<Double>(
+            canvasSize.width / 2 - avgX * viewportTransform.scale,
+            canvasSize.height / 2 - avgY * viewportTransform.scale
+        )
     }
 
     private func canvas(size: CGSize) -> some View {
@@ -52,7 +69,7 @@ struct GraphCanvasView: View {
         let offsetY: CGFloat = viewportTransform.translation.y.truncatingRemainder(dividingBy: scaledSpacing)
 
         var gridContext: GraphicsContext = context
-        gridContext.opacity = 0.08
+        gridContext.opacity = 0.15
 
         var x: CGFloat = offsetX
         while x < size.width {
@@ -76,9 +93,13 @@ struct GraphCanvasView: View {
 
         for workspaceId in workspaceIds {
             let clusterNodes: [GraphNode] = appState.graphDocument.nodes(in: workspaceId)
-            guard clusterNodes.count > 1 else { continue }
+            guard !clusterNodes.isEmpty else { continue }
+
+            let workspaceName: String = appState.workspaces
+                .first { $0.id == workspaceId }?.name ?? "Workspace"
 
             let padding: CGFloat = 30
+            let labelTopPadding: CGFloat = 24
             var minX: CGFloat = .greatestFiniteMagnitude
             var minY: CGFloat = .greatestFiniteMagnitude
             var maxX: CGFloat = -.greatestFiniteMagnitude
@@ -87,7 +108,7 @@ struct GraphCanvasView: View {
             for node in clusterNodes {
                 let screenPos: CGPoint = viewportTransform.apply(node.position)
                 minX = min(minX, screenPos.x - nodeWidth / 2 - padding)
-                minY = min(minY, screenPos.y - nodeHeight / 2 - padding)
+                minY = min(minY, screenPos.y - nodeHeight / 2 - padding - labelTopPadding)
                 maxX = max(maxX, screenPos.x + nodeWidth / 2 + padding)
                 maxY = max(maxY, screenPos.y + nodeHeight / 2 + padding)
             }
@@ -101,6 +122,18 @@ struct GraphCanvasView: View {
 
             clusterContext.opacity = 0.1
             clusterContext.stroke(clusterPath, with: .color(.white), lineWidth: 1)
+
+            let labelText: Text = Text(workspaceName)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundColor(.white)
+            let resolvedLabel = context.resolve(labelText)
+            var labelContext: GraphicsContext = context
+            labelContext.opacity = 0.5
+            labelContext.draw(
+                resolvedLabel,
+                at: CGPoint(x: minX + 12, y: minY + 8),
+                anchor: .topLeading
+            )
         }
     }
 
@@ -118,7 +151,7 @@ struct GraphCanvasView: View {
             let targetScreen: CGPoint = viewportTransform.apply(targetNode.position)
 
             let edgeColor: Color = edgeColor(for: edge.edgeType)
-            let lineWidth: CGFloat = edge.edgeType == .containment ? 1.0 : 1.5
+            let lineWidth: CGFloat = edge.edgeType == .containment ? 3.0 : 3.5
 
             var path: Path = Path()
             path.move(to: sourceScreen)
@@ -132,7 +165,7 @@ struct GraphCanvasView: View {
             )
 
             var edgeContext: GraphicsContext = context
-            edgeContext.opacity = edge.edgeType == .containment ? 0.15 : 0.4
+            edgeContext.opacity = edge.edgeType == .containment ? 0.7 : 0.8
             edgeContext.stroke(path, with: .color(edgeColor), lineWidth: lineWidth)
         }
     }
