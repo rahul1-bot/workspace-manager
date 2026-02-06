@@ -1,6 +1,31 @@
-# Spatial Graph View — progress.md
+# Workspace Manager — progress.md
 
 ## Implementation Progress
+
+---
+
+| Progress Todo | PDF/Paper Viewer Panel — Feature Complete | Date: 06 February 2026 | Time: 06:57 PM | Name: Lyra |
+
+    1. Delivered and compiling (branch: feat/ui-ux-improvements):
+        1. ✅ PDFUIModels.swift created. PDFPanelState struct with isPresented, fileURL, fileName, currentPageIndex, totalPages, isLoading, and errorText fields. Follows GitUIModels.swift pattern. Equatable and Sendable conformance.
+        2. ✅ PDFViewWrapper.swift created. NSViewRepresentable bridge wrapping PDFKit PDFView. Handles document loading, page synchronization, dark background (NSColor.black.withAlphaComponent(0.3)), and page change notifications via Coordinator. Uses isSyncingPage flag to prevent infinite update loops between SwiftUI state and PDFView navigation.
+        3. ✅ PDFPanelView.swift created. Panel UI following DiffPanelView pattern exactly. Header with doc icon, filename, page indicator (3 / 24), and close button. Navigation bar with previous/next page chevrons. Content area with PDFViewWrapper, empty state, loading, error, and resizing placeholder. Chrome styling matches diff panel constants.
+        4. ✅ AppState.swift modified. Added pdfPanelState published property. Added togglePDFPanel, dismissPDFPanel, openPDFFile, updatePDFPageIndex, presentPDFFilePicker methods. Panel exclusivity: opening PDF closes diff panel and vice versa. NSOpenPanel for file selection filtered to UTType.pdf.
+        5. ✅ ContentView.swift modified. Added PDF panel state variables (pdfPanelWidthRatio, isPDFResizeHandleHovering, isPDFPanelResizing). Shared panel width ratio constants (renamed from diff-specific). Added PDF panel to ZStack trailing position. Added pdfResizeHandle method identical to diffResizeHandle pattern. Added showPDFPanel to ShortcutContext. Added togglePDFPanel and closePDFPanel to executeShortcut.
+        6. ✅ KeyboardShortcutRouter.swift modified. Added showPDFPanel to ShortcutContext. Added togglePDFPanel and closePDFPanel to ShortcutCommand enum. Cmd+Shift+P routes to togglePDFPanel. Esc routes to closePDFPanel when PDF panel is visible.
+        7. ✅ Overlays.swift modified. Added openPDF to PaletteAction enum with title and subtitle. Added activation handler calling appState.togglePDFPanel. Added shortcut help entry.
+        8. ✅ KeyboardShortcutRouterTests.swift modified. Added showPDFPanel parameter to test helper makeContext function.
+        9. ✅ swift build passes, swift test passes (54 tests, 0 failures).
+        10. ✅ Committed on feat/ui-ux-improvements. NOT merged to dev or main. NOT pushed.
+        11. ✅ Rahul visually verified: PDF viewer renders correctly, page navigation works, panel resizes properly.
+    2. Build errors encountered and resolved:
+        1. PDFDocument.index(for:) returns Int not Int?. Fixed by removing optional binding and using direct assignment with separate guard for currentPage.
+        2. Test file missing showPDFPanel parameter. Fixed by adding showPDFPanel: Bool = false to makeContext helper.
+    3. Next steps for PDF viewer enhancement (discussion phase):
+        1. Multi-PDF support (currently single PDF only — sequential open/close workflow).
+        2. Potential tab bar or stack for multiple open PDFs.
+        3. PDF search within document.
+        4. Thumbnail sidebar for page preview navigation.
 
 ---
 

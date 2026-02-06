@@ -1,6 +1,39 @@
-# Spatial Graph View — memory.md
+# Workspace Manager — memory.md
 
 ## Engineering Memory
+
+---
+
+| Memory | PDF/Paper Viewer Panel — NSViewRepresentable Bridge Pattern | Date: 06 February 2026 | Time: 06:57 PM | Name: Lyra |
+
+    1. Observation:
+        1. PDFKit's PDFView manages its own internal scrolling via an embedded NSScrollView. Wrapping it inside a SwiftUI ScrollView causes the view content to disappear entirely because both scroll containers fight for layout control. PDFView must be the sole scroll container.
+    2. Decision:
+        1. PDFViewWrapper uses NSViewRepresentable with a Coordinator that observes PDFViewPageChanged notifications. A boolean isSyncingPage flag prevents infinite update loops between SwiftUI state changes (currentPageIndex binding) and PDFView's internal page navigation callbacks. The Coordinator dispatches page index updates back to SwiftUI on the main queue.
+    3. Implication:
+        1. Any NSViewRepresentable bridge wrapping a view with internal scroll behavior must never be nested inside SwiftUI ScrollView. The bidirectional sync pattern (SwiftUI binding to NSView state to notification back to binding) requires a loop-breaking flag to prevent infinite recursion.
+
+---
+
+| Memory | Panel Exclusivity Pattern for Right-Side Panels | Date: 06 February 2026 | Time: 06:57 PM | Name: Lyra |
+
+    1. Observation:
+        1. The app has two right-side panels (diff and PDF) that occupy the same screen real estate. Having both open simultaneously causes layout conflicts and visual clutter. Users conceptually work with one reference context at a time.
+    2. Decision:
+        1. Panel exclusivity is enforced in AppState: togglePDFPanel calls dismissDiffPanelPlaceholder, and toggleDiffPanelPlaceholder calls dismissPDFPanel. Both panels share the same width ratio constants (minPanelWidthRatio, maxPanelWidthRatio, defaultPanelWidthRatio) and the same resize handle pattern in ContentView. The Esc key routing in KeyboardShortcutRouter checks panels in priority order: commit sheet, diff panel, PDF panel.
+    3. Implication:
+        1. Any future right-side panel (code viewer, worktree panel) must follow the same exclusivity pattern and integrate into the same priority chain for Esc dismissal. The shared width ratio constants and resize handle pattern should be reused rather than duplicated.
+
+---
+
+| Memory | Terminal Color Vibrancy Abandoned After Four Attempts | Date: 06 February 2026 | Time: 06:57 PM | Name: Lyra |
+
+    1. Observation:
+        1. Four successive attempts to make terminal colors more vibrant all failed. Attempt 1 targeted the wrong Ghostty config path. Attempt 2 used the correct path with a Snazzy palette but colors remained washed out. Attempt 3 added a dark layer backdrop behind the terminal. Attempt 4 tried P3 colorspace with minimum-contrast and font-thicken at background-opacity 0.85. None produced satisfactory color vibrancy.
+    2. Decision:
+        1. Abandoned the effort. Reverted background-opacity to 0.0. The root cause is likely NSVisualEffectView glass compositing desaturating terminal colors when background-opacity is low. A proper fix would require an architectural change: opaque background behind the terminal with glass only on chrome elements. Deferred to a future session.
+    3. Implication:
+        1. Glass compositing on macOS inherently desaturates layered content. Terminal emulators rendering behind glass will always lose color vibrancy. The solution is to render terminals on opaque backgrounds and restrict glass to UI chrome only. This is an architectural concern, not a config tweak.
 
 ---
 
