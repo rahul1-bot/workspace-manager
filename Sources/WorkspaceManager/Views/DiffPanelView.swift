@@ -119,21 +119,27 @@ struct DiffPanelView: View {
     }
 
     private var patchContentView: some View {
-        ScrollView([.vertical, .horizontal]) {
-            LazyVStack(alignment: .leading, spacing: 10) {
-                ForEach(document.fileSections) { section in
-                    DiffFileCardView(
-                        section: section,
-                        isCollapsed: collapsedSectionIDs.contains(section.id),
-                        onToggleCollapsed: {
-                            toggleCollapsedSection(section.id)
-                        },
-                        syntaxService: Self.syntaxService
-                    )
+        GeometryReader { geometry in
+            let viewportWidth = max(geometry.size.width, 1)
+
+            ScrollView(.vertical) {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(document.fileSections) { section in
+                        DiffFileCardView(
+                            section: section,
+                            viewportWidth: viewportWidth - 4,
+                            isCollapsed: collapsedSectionIDs.contains(section.id),
+                            onToggleCollapsed: {
+                                toggleCollapsedSection(section.id)
+                            },
+                            syntaxService: Self.syntaxService
+                        )
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 2)
+                .padding(.vertical, 2)
             }
-            .padding(.horizontal, 2)
-            .padding(.vertical, 2)
         }
         .textSelection(.enabled)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

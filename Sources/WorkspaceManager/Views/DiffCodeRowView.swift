@@ -3,6 +3,7 @@ import SwiftUI
 struct DiffCodeRowView: View {
     let line: DiffRenderableLine
     let fileExtension: String?
+    let minimumRowWidth: CGFloat
     let syntaxService: DiffSyntaxHighlightingService
 
     @State private var tokens: [DiffToken] = []
@@ -18,6 +19,7 @@ struct DiffCodeRowView: View {
         .font(.system(size: 12, weight: .medium, design: .monospaced))
         .padding(.horizontal, 8)
         .padding(.vertical, 1)
+        .frame(minWidth: max(minimumRowWidth, 1), alignment: .leading)
         .background(backgroundColor)
         .task(id: taskIdentity) {
             await loadTokens()
@@ -38,10 +40,7 @@ struct DiffCodeRowView: View {
 
             renderedCodeText
                 .fixedSize(horizontal: true, vertical: false)
-
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var metadataRow: some View {
@@ -53,10 +52,7 @@ struct DiffCodeRowView: View {
             Text(verbatim: line.rawText)
                 .foregroundColor(nonCodeForegroundColor)
                 .fixedSize(horizontal: true, vertical: false)
-
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var taskIdentity: String {

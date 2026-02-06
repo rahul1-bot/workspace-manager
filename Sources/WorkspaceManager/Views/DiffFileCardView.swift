@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiffFileCardView: View {
     let section: DiffFileSection
+    let viewportWidth: CGFloat
     let isCollapsed: Bool
     let onToggleCollapsed: () -> Void
     let syntaxService: DiffSyntaxHighlightingService
@@ -20,6 +21,7 @@ struct DiffFileCardView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(Color.white.opacity(0.11), lineWidth: 1)
         )
+        .frame(minWidth: max(viewportWidth, 1), alignment: .leading)
     }
 
     private var headerView: some View {
@@ -67,13 +69,16 @@ struct DiffFileCardView: View {
     }
 
     private var metadataBlock: some View {
-        VStack(spacing: 0) {
-            ForEach(section.metadataLines) { line in
-                DiffCodeRowView(
-                    line: line,
-                    fileExtension: section.fileExtension,
-                    syntaxService: syntaxService
-                )
+        ScrollView(.horizontal) {
+            VStack(spacing: 0) {
+                ForEach(section.metadataLines) { line in
+                    DiffCodeRowView(
+                        line: line,
+                        fileExtension: section.fileExtension,
+                        minimumRowWidth: max(viewportWidth - 32, 1),
+                        syntaxService: syntaxService
+                    )
+                }
             }
         }
         .background(Color.black.opacity(0.76))
@@ -85,19 +90,23 @@ struct DiffFileCardView: View {
     }
 
     private func hunkBlock(for hunk: DiffHunk) -> some View {
-        VStack(spacing: 0) {
-            DiffCodeRowView(
-                line: hunkHeaderLine(for: hunk),
-                fileExtension: section.fileExtension,
-                syntaxService: syntaxService
-            )
-
-            ForEach(hunk.lines) { line in
+        ScrollView(.horizontal) {
+            VStack(spacing: 0) {
                 DiffCodeRowView(
-                    line: line,
+                    line: hunkHeaderLine(for: hunk),
                     fileExtension: section.fileExtension,
+                    minimumRowWidth: max(viewportWidth - 32, 1),
                     syntaxService: syntaxService
                 )
+
+                ForEach(hunk.lines) { line in
+                    DiffCodeRowView(
+                        line: line,
+                        fileExtension: section.fileExtension,
+                        minimumRowWidth: max(viewportWidth - 32, 1),
+                        syntaxService: syntaxService
+                    )
+                }
             }
         }
         .background(Color.black.opacity(0.82))
