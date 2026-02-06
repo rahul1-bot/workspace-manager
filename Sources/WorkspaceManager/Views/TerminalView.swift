@@ -96,7 +96,7 @@ struct TerminalView: NSViewRepresentable {
             terminalView.startProcess(
                 executable: "/bin/zsh",
                 args: ["-l"],
-                environment: nil,
+                environment: TerminalLaunchPolicy.fallbackEnvironment(),
                 execName: nil
             )
         }

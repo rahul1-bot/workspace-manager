@@ -62,6 +62,11 @@ enum TerminalLaunchPolicy {
         }
     }
 
+    static func fallbackEnvironment() -> [String] {
+        sanitizedEnvironment(from: ProcessInfo.processInfo.environment)
+            .map { "\($0.key)=\($0.value)" }
+    }
+
     private static func sanitizedEnvironment(from source: [String: String]) -> [String: String] {
         var sanitized: [String: String] = [:]
         for key in allowedEnvironmentKeys {
