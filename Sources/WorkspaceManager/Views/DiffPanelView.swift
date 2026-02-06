@@ -40,13 +40,13 @@ struct DiffPanelView: View {
     private var panelBackground: some View {
         ZStack {
             if isResizing {
-                Color.black.opacity(0.48)
+                Color.black.opacity(0.18)
             } else {
                 VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
                 LinearGradient(
                     colors: [
-                        Color.black.opacity(0.28),
-                        Color.black.opacity(0.18)
+                        Color.black.opacity(0.11),
+                        Color.black.opacity(0.05)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -85,7 +85,7 @@ struct DiffPanelView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.03))
+        .background(Color.white.opacity(0.015))
     }
 
     private var summaryView: some View {
@@ -100,7 +100,7 @@ struct DiffPanelView: View {
         .font(.system(.caption, design: .monospaced))
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(Color.white.opacity(0.03))
+        .background(Color.white.opacity(0.015))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
@@ -152,7 +152,7 @@ struct DiffPanelView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
 

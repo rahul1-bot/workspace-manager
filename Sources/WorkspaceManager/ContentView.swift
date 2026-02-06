@@ -134,6 +134,13 @@ struct ContentView: View {
             showCommandPalette.toggle()
             sidebarFocused = false
         }
+        .onChange(of: appState.gitPanelState.isPresented) { _, isPresented in
+            if !isPresented {
+                diffPanelDragStartRatio = nil
+                isDiffPanelResizing = false
+                lastDiffResizeUpdateTime = 0
+            }
+        }
         .alert("Close Terminal?", isPresented: $showCloseTerminalConfirm) {
             Button("Cancel", role: .cancel) {}
             Button("Close", role: .destructive) {

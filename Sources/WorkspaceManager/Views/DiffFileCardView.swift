@@ -15,11 +15,11 @@ struct DiffFileCardView: View {
                 contentView
             }
         }
-        .background(Color.white.opacity(0.03))
+        .background(Color.white.opacity(0.018))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.white.opacity(0.11), lineWidth: 1)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
         .frame(minWidth: max(viewportWidth, 1), alignment: .leading)
     }
@@ -49,7 +49,7 @@ struct DiffFileCardView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color.white.opacity(0.05))
+            .background(Color.white.opacity(0.022))
         }
         .buttonStyle(.plain)
     }
