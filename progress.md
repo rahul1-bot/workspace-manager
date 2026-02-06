@@ -424,6 +424,25 @@
 
 ---
 
+| Progress Todo | UI Polish — Shortcuts Help Overlay Dark Liquid Glass Redesign | Date: 06 February 2026 | Time: 11:34 PM | Name: Lyra |
+
+    1. Problem:
+        1. The ShortcutsHelpOverlay used a lighter visual style (VisualEffectBackground with .withinWindow blending, basic Close text button, single header divider) that was visually inconsistent with the command palette and commit sheet which both use the dark liquid glass pattern (VisualEffectBackground with .behindWindow blending plus Color.black.opacity(0.45) dark backing layer, Esc badge, section dividers).
+    2. Changes applied:
+        1. ShortcutsHelpOverlay backdrop opacity increased from 0.25 to 0.4 to match the darker scrim used by commit sheet and command palette. Added maxHeight constraint (680pt) to prevent the card from filling the entire screen on smaller displays.
+        2. ShortcutsHelpCard background changed from VisualEffectBackground(.hudWindow, .withinWindow) to ZStack of VisualEffectBackground(.hudWindow, .behindWindow) plus Color.black.opacity(0.45), matching the exact dark liquid glass pattern used by CommitSheetView and CommandPaletteView.
+        3. Replaced text Close button with Esc badge matching the commit sheet and command palette pattern: caption2 font, white.opacity(0.55) foreground, 8pt horizontal and 4pt vertical padding, white.opacity(0.08) background, 6pt corner radius.
+        4. Added section dividers (Divider with Color.white.opacity(0.08) overlay) between each shortcut group: Navigation, Actions, PDF Viewer, Graph View, Sidebar. Previously only a single divider existed between the header and content.
+        5. Restructured ShortcutSection from a standalone struct to a private shortcutGroup method on ShortcutsHelpCard. Each group uses 14pt horizontal and 12pt vertical padding consistent with command palette section spacing. Section title opacity reduced from 0.75 to 0.5, key text opacity set to 0.9, action text opacity reduced from 0.75 to 0.6 for improved visual hierarchy.
+        6. Removed unused ShortcutSection struct (replaced by inline shortcutGroup method).
+        7. Added .clipShape on the outer card to ensure the ScrollView content clips to the rounded corner boundary.
+    3. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Views/Overlays.swift — ShortcutsHelpOverlay and ShortcutsHelpCard redesign
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):
