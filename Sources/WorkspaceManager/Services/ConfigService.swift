@@ -212,6 +212,7 @@ final class ConfigService {
     func saveConfig() {
         let configDir = configPath.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: configDir.path)
 
         var toml = """
         # Workspace Manager Configuration
@@ -250,6 +251,7 @@ final class ConfigService {
 
         do {
             try toml.write(to: configPath, atomically: true, encoding: .utf8)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configPath.path)
         } catch {
             let wrapped = ConfigLoadError.saveFailed(configPath, String(describing: error))
             AppLogger.config.error("config save failed: \(String(describing: wrapped), privacy: .public)")
