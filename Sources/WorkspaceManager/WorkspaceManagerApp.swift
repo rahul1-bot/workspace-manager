@@ -26,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.logActivationState(context: "didFinishLaunching")
         }
 
+        removeSystemHelpMenu()
         installInputMonitors()
     }
 
@@ -68,6 +69,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let mainWindow = String(describing: NSApp.mainWindow)
         let firstResponder = String(describing: NSApp.keyWindow?.firstResponder)
         AppLogger.app.debug("activation context=\(context, privacy: .public) active=\(NSApp.isActive, privacy: .public) policy=\(String(describing: NSApp.activationPolicy()), privacy: .public) key=\(keyWindow, privacy: .private(mask: .hash)) main=\(mainWindow, privacy: .private(mask: .hash)) responder=\(firstResponder, privacy: .private(mask: .hash))")
+    }
+
+    private func removeSystemHelpMenu() {
+        guard let mainMenu = NSApp.mainMenu else { return }
+        for item in mainMenu.items where item.title == "Help" {
+            mainMenu.removeItem(item)
+        }
     }
 
     private func installInputMonitors() {
@@ -131,6 +139,7 @@ struct WorkspaceManagerApp: App {
             // Cmd+V through NSTextView's built-in key equivalent handling.
             // The terminal handles paste through libghostty's keybindings.
             CommandGroup(replacing: .pasteboard) { }
+            CommandGroup(replacing: .help) { }
 
             // Custom keyboard commands
             CommandGroup(after: .newItem) {

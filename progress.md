@@ -332,6 +332,24 @@
 
 ---
 
+| Progress Todo | Bug — Shift+Cmd+/ Shortcuts Help Overlay Not Triggering | Date: 06 February 2026 | Time: 10:56 PM | Name: Lyra |
+
+    1. Bug description:
+        1. Pressing Shift+Cmd+/ (⇧⌘/) does not open the ShortcutsHelpOverlay. Reproduces in both terminal sidebar mode and graph canvas mode. Instead of showing the custom shortcuts help card, macOS displayed the system "Help isn't available for WorkspaceManager" dialog.
+    2. Attempted fixes (none resolved the issue):
+        1. Added CommandGroup(replacing: .help) { } to WorkspaceManagerApp.swift .commands block. This suppressed the system Help dialog but the shortcuts help overlay still did not appear. The event appears to not reach the NSEvent.addLocalMonitorForEvents keyboard monitor at all.
+        2. Added removeSystemHelpMenu() in AppDelegate.applicationDidFinishLaunching that iterates NSApp.mainMenu and removes any item with title "Help". System dialog suppressed but overlay still did not appear.
+    3. Root cause analysis needed:
+        1. The keyboard event for Shift+Cmd+/ may be intercepted at the NSMenu performKeyEquivalent level before reaching the local event monitor. Even after removing the Help menu item, another menu-level handler may consume the event.
+        2. The character produced by Shift+/ is "?" not "/". The router checks char == "/" but charactersIgnoringModifiers for Shift+Cmd+/ may return "?" instead of "/", causing the router match at line 168 to fail silently.
+        3. The NSEvent local monitor order relative to NSMenu key equivalent processing needs investigation. Menu key equivalents fire in performKeyEquivalent before local monitors receive the event.
+        4. A diagnostic test should be added: temporarily log every keyDown event that reaches the monitor to confirm whether the Shift+Cmd+/ event arrives at all, and if so, what character value it carries.
+    4. Files modified (partial fix, committed for history):
+        1. Sources/WorkspaceManager/WorkspaceManagerApp.swift — CommandGroup(replacing: .help), removeSystemHelpMenu() in AppDelegate
+    5. Status: Open. Requires proper investigation in next session.
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):
