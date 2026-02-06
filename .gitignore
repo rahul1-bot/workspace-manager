@@ -6,11 +6,7 @@ DerivedData/
 *.xcodeproj
 Frameworks/
 
-# Private operational docs (local only, never publish)
-GHOST.md
-LYRA.md
-memory.md
-progress.md
+# Legacy docs (superseded, not tracked)
 review.md
 problems.md
 logs/
