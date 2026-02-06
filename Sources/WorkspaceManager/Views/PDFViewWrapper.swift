@@ -59,9 +59,14 @@ struct PDFViewWrapper: NSViewRepresentable {
         pdfView.layoutDocumentView()
 
         let pageCount = document.pageCount
+        let restoredIndex = min(max(currentPageIndex, 0), max(pageCount - 1, 0))
         DispatchQueue.main.async {
             totalPages = pageCount
-            currentPageIndex = 0
+            currentPageIndex = restoredIndex
+        }
+
+        if let targetPage = document.page(at: restoredIndex) {
+            pdfView.go(to: targetPage)
         }
 
         context.coordinator.isSyncingPage = false

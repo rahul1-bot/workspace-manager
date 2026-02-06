@@ -578,11 +578,7 @@ final class AppState: ObservableObject {
     }
 
     func togglePDFPanel() {
-        if pdfPanelState.isPresented {
-            dismissPDFPanel()
-        } else {
-            presentPDFFilePicker()
-        }
+        presentPDFFilePicker()
     }
 
     func dismissPDFPanel() {
@@ -591,17 +587,66 @@ final class AppState: ObservableObject {
 
     func openPDFFile(_ url: URL) {
         dismissDiffPanelPlaceholder()
-        pdfPanelState.fileURL = url
-        pdfPanelState.fileName = url.lastPathComponent
-        pdfPanelState.currentPageIndex = 0
-        pdfPanelState.totalPages = 0
+
+        if let existingIndex = pdfPanelState.tabs.firstIndex(where: { $0.fileURL == url }) {
+            pdfPanelState.activeTabId = pdfPanelState.tabs[existingIndex].id
+            pdfPanelState.isPresented = true
+            return
+        }
+
+        let tab = PDFTab(fileURL: url)
+        pdfPanelState.tabs.append(tab)
+        pdfPanelState.activeTabId = tab.id
         pdfPanelState.errorText = nil
         pdfPanelState.isLoading = false
         pdfPanelState.isPresented = true
     }
 
+    func closePDFTab(id: UUID) {
+        pdfPanelState.tabs.removeAll { $0.id == id }
+
+        guard !pdfPanelState.tabs.isEmpty else {
+            pdfPanelState.activeTabId = nil
+            pdfPanelState.isPresented = false
+            return
+        }
+
+        if pdfPanelState.activeTabId == id {
+            pdfPanelState.activeTabId = pdfPanelState.tabs.first?.id
+        }
+    }
+
+    func selectPDFTab(id: UUID) {
+        guard pdfPanelState.tabs.contains(where: { $0.id == id }) else { return }
+        pdfPanelState.activeTabId = id
+    }
+
+    func selectNextPDFTab() {
+        guard let currentIndex = pdfPanelState.activeTabIndex else { return }
+        let nextIndex = (currentIndex + 1) % pdfPanelState.tabs.count
+        pdfPanelState.activeTabId = pdfPanelState.tabs[nextIndex].id
+    }
+
+    func selectPreviousPDFTab() {
+        guard let currentIndex = pdfPanelState.activeTabIndex else { return }
+        let prevIndex = (currentIndex - 1 + pdfPanelState.tabs.count) % pdfPanelState.tabs.count
+        pdfPanelState.activeTabId = pdfPanelState.tabs[prevIndex].id
+    }
+
     func updatePDFPageIndex(_ index: Int) {
-        pdfPanelState.currentPageIndex = index
+        guard let activeTabId = pdfPanelState.activeTabId,
+              let tabIndex = pdfPanelState.tabs.firstIndex(where: { $0.id == activeTabId }) else {
+            return
+        }
+        pdfPanelState.tabs[tabIndex].currentPageIndex = index
+    }
+
+    func updatePDFTotalPages(_ count: Int) {
+        guard let activeTabId = pdfPanelState.activeTabId,
+              let tabIndex = pdfPanelState.tabs.firstIndex(where: { $0.id == activeTabId }) else {
+            return
+        }
+        pdfPanelState.tabs[tabIndex].totalPages = count
     }
 
     func presentPDFFilePicker() {

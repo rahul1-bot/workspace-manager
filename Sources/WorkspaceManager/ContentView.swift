@@ -175,6 +175,18 @@ struct ContentView: View {
                                 },
                                 onPageChanged: { pageIndex in
                                     appState.updatePDFPageIndex(pageIndex)
+                                },
+                                onTotalPagesChanged: { count in
+                                    appState.updatePDFTotalPages(count)
+                                },
+                                onTabSelected: { tabId in
+                                    appState.selectPDFTab(id: tabId)
+                                },
+                                onTabClosed: { tabId in
+                                    appState.closePDFTab(id: tabId)
+                                },
+                                onAddTab: {
+                                    appState.presentPDFFilePicker()
                                 }
                             )
                         }
@@ -234,6 +246,13 @@ struct ContentView: View {
             appState.togglePDFPanel()
         case .closePDFPanel:
             appState.dismissPDFPanel()
+        case .nextPDFTab:
+            appState.selectNextPDFTab()
+        case .previousPDFTab:
+            appState.selectPreviousPDFTab()
+        case .closePDFTab:
+            guard let activeTabId = appState.pdfPanelState.activeTabId else { break }
+            appState.closePDFTab(id: activeTabId)
         case .toggleSidebar:
             guard shouldExecuteShortcut("toggleSidebar") else { return }
             if appState.focusMode {

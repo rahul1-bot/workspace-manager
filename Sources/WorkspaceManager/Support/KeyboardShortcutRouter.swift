@@ -20,6 +20,9 @@ enum ShortcutCommand: Hashable {
     case closeDiffPanel
     case togglePDFPanel
     case closePDFPanel
+    case nextPDFTab
+    case previousPDFTab
+    case closePDFTab
     case toggleSidebar
     case newTerminal
     case newWorkspace
@@ -117,7 +120,12 @@ final class KeyboardShortcutRouter {
             return .consume(.closePDFPanel)
         }
 
-        // Preserve standard edit shortcuts through responder chain.
+        if context.showPDFPanel && cmd && shift {
+            if char == "{" { return .consume(.previousPDFTab) }
+            if char == "}" { return .consume(.nextPDFTab) }
+            if char == "w" { return .consume(.closePDFTab) }
+        }
+
         if cmd && !shift && !option && ["c", "v", "x", "z", "a"].contains(char) {
             return .passthrough
         }

@@ -6,6 +6,10 @@ struct PDFPanelView: View {
     let isResizing: Bool
     let onClose: () -> Void
     let onPageChanged: (Int) -> Void
+    let onTotalPagesChanged: (Int) -> Void
+    let onTabSelected: (UUID) -> Void
+    let onTabClosed: (UUID) -> Void
+    let onAddTab: () -> Void
 
     @State private var localPageIndex: Int = 0
     @State private var localTotalPages: Int = 0
@@ -17,6 +21,8 @@ struct PDFPanelView: View {
         static let headerFillOpacity: Double = 0.04
         static let navBarFillOpacity: Double = 0.04
         static let resizingFillOpacity: Double = 0.45
+        static let activeTabFillOpacity: Double = 0.10
+        static let tabStripFillOpacity: Double = 0.02
     }
 
     var body: some View {
@@ -25,6 +31,13 @@ struct PDFPanelView: View {
 
             Divider()
                 .overlay(Color.white.opacity(ChromeStyle.dividerOpacity))
+
+            if state.tabs.count > 1 {
+                tabStripView
+
+                Divider()
+                    .overlay(Color.white.opacity(ChromeStyle.dividerOpacity))
+            }
 
             navigationBar
 
@@ -42,13 +55,20 @@ struct PDFPanelView: View {
         .onChange(of: localPageIndex) { _, newIndex in
             onPageChanged(newIndex)
         }
-        .onChange(of: state.currentPageIndex) { _, newIndex in
-            if localPageIndex != newIndex {
-                localPageIndex = newIndex
-            }
+        .onChange(of: localTotalPages) { _, newTotal in
+            onTotalPagesChanged(newTotal)
         }
-        .onChange(of: state.totalPages) { _, newTotal in
+        .onChange(of: state.activeTab?.currentPageIndex) { _, newIndex in
+            guard let newIndex, localPageIndex != newIndex else { return }
+            localPageIndex = newIndex
+        }
+        .onChange(of: state.activeTab?.totalPages) { _, newTotal in
+            guard let newTotal else { return }
             localTotalPages = newTotal
+        }
+        .onChange(of: state.activeTabId) { _, _ in
+            localPageIndex = state.activeTab?.currentPageIndex ?? 0
+            localTotalPages = state.activeTab?.totalPages ?? 0
         }
     }
 
@@ -70,7 +90,7 @@ struct PDFPanelView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.7))
 
-                Text(state.fileName.isEmpty ? "PDF Viewer" : state.fileName)
+                Text(state.activeTab?.fileName ?? "PDF Viewer")
                     .font(.system(.headline, design: .default))
                     .foregroundColor(.white.opacity(0.95))
                     .lineLimit(1)
@@ -94,6 +114,74 @@ struct PDFPanelView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(Color.white.opacity(ChromeStyle.headerFillOpacity))
+    }
+
+    private var tabStripView: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                    ForEach(state.tabs) { tab in
+                        tabButton(for: tab)
+                            .id(tab.id)
+                    }
+
+                    Button(action: onAddTab) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+            }
+            .background(Color.white.opacity(ChromeStyle.tabStripFillOpacity))
+            .onChange(of: state.activeTabId) { _, newId in
+                guard let newId else { return }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(newId, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private func tabButton(for tab: PDFTab) -> some View {
+        let isActive = tab.id == state.activeTabId
+
+        return Button {
+            onTabSelected(tab.id)
+        } label: {
+            HStack(spacing: 6) {
+                Text(tab.fileName)
+                    .font(.system(.caption, design: .default))
+                    .foregroundColor(.white.opacity(isActive ? 0.9 : 0.55))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 140)
+
+                Button {
+                    onTabClosed(tab.id)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white.opacity(isActive ? 0.6 : 0.3))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.white.opacity(isActive ? ChromeStyle.activeTabFillOpacity : 0))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Color.white.opacity(isActive ? 0.08 : 0), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var pageIndicator: some View {
@@ -153,13 +241,13 @@ struct PDFPanelView: View {
                     .padding(14)
                 Spacer()
             }
-        } else if state.fileURL == nil {
+        } else if state.activeTab == nil {
             emptyStateView
         } else if isResizing {
             resizingPlaceholderView
         } else {
             PDFViewWrapper(
-                fileURL: state.fileURL,
+                fileURL: state.activeTab?.fileURL,
                 currentPageIndex: $localPageIndex,
                 totalPages: $localTotalPages
             )

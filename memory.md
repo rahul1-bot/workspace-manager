@@ -26,6 +26,28 @@
 
 ---
 
+| Memory | Multi-PDF Tab Architecture Follows Collection Plus Selected ID Pattern | Date: 06 February 2026 | Time: 07:22 PM | Name: Lyra |
+
+    1. Observation:
+        1. The app already uses a collection-plus-selected-ID pattern for workspaces ([Workspace] plus selectedWorkspaceId) and terminals ([Terminal] plus selectedTerminalId). The initial PDF viewer used a flat single-document state struct, which forced sequential open-close workflow for multiple papers.
+    2. Decision:
+        1. Restructured PDFPanelState to hold tabs: [PDFTab] plus activeTabId: UUID?. Each PDFTab stores its own fileURL, fileName, currentPageIndex, and totalPages. Tab switching preserves page position per document. Opening an already-open URL switches to that tab instead of creating a duplicate. Closing the last tab dismisses the entire panel.
+    3. Implication:
+        1. This pattern is now established for any future panel that needs multi-document support (e.g., code viewer panel with multiple open files). The collection-plus-selected-ID approach with computed activeTab property provides clean access to the current item while maintaining the full collection.
+
+---
+
+| Memory | Cmd+Shift+BracketKey Produces Brace Characters in charactersIgnoringModifiers | Date: 06 February 2026 | Time: 07:22 PM | Name: Lyra |
+
+    1. Observation:
+        1. Apple's NSEvent.charactersIgnoringModifiers ignores Command and Option modifiers but preserves Shift. On a US keyboard layout, pressing Shift+[ produces { and Shift+] produces }. After the router's .lowercased() normalization, the char value is { or } respectively. This means Cmd+Shift+[ routes as cmd=true, shift=true, char="{".
+    2. Decision:
+        1. PDF tab cycling shortcuts use Cmd+Shift+{ and Cmd+Shift+} which correspond to Cmd+Shift+[ and Cmd+Shift+] on a US keyboard. The router checks for cmd && shift && char == "{" and char == "}". These do not conflict with existing Cmd+[ and Cmd+] (previousWorkspace/nextWorkspace) because the Shift modifier produces different characters.
+    3. Implication:
+        1. Shortcuts that rely on Shift-modified punctuation characters should always check the resulting character (e.g., {) rather than the base key (e.g., [) combined with a shift flag. This is because charactersIgnoringModifiers already applies the Shift transformation for non-letter keys.
+
+---
+
 | Memory | Terminal Color Vibrancy Abandoned After Four Attempts | Date: 06 February 2026 | Time: 06:57 PM | Name: Lyra |
 
     1. Observation:
