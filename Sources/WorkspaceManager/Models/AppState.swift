@@ -43,6 +43,7 @@ final class AppState: ObservableObject {
     private var diffLoadTask: Task<Void, Never>?
     private var commitTask: Task<Void, Never>?
     private var forceLayoutTask: Task<Void, Never>?
+    private var graphLoadTask: Task<Void, Never>?
     private var runtimePathObserver: NSObjectProtocol?
     private var terminalRuntimePaths: [UUID: String] = [:]
 
@@ -992,11 +993,15 @@ final class AppState: ObservableObject {
     }
 
     func loadGraphState() {
-        Task {
+        graphLoadTask?.cancel()
+        graphLoadTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             let document: GraphStateDocument = await graphStateService.load()
+            guard !Task.isCancelled else { return }
             graphDocument = document
             graphViewport = ViewportTransform(from: document.viewport)
             syncGraphFromWorkspaces()
+            graphLoadTask = nil
         }
     }
 
@@ -1075,6 +1080,8 @@ final class AppState: ObservableObject {
     }
 
     func toggleViewMode() {
+        graphLoadTask?.cancel()
+        graphLoadTask = nil
         switch currentViewMode {
         case .sidebar:
             currentViewMode = .graph

@@ -411,6 +411,19 @@
 
 ---
 
+| Progress Todo | Bug Fix — loadGraphState Race Condition | Date: 06 February 2026 | Time: 11:26 PM | Name: Lyra |
+
+    1. Root cause:
+        1. loadGraphState() launched a bare Task that awaited GraphStateService.load() (actor boundary crossing). The Task had no cancellation tracking. If the user toggled to graph mode (Cmd+G) before the async load completed, toggleViewMode() called syncGraphFromWorkspaces() and startForceLayout(), which began mutating graphDocument node positions. When the load Task eventually completed, it overwrote graphDocument and graphViewport with the on-disk snapshot, silently discarding the in-progress force layout positions and any user interactions that occurred during the race window.
+    2. Fix applied:
+        1. Added graphLoadTask property (Task<Void, Never>?) to AppState following the existing pattern used by diffLoadTask and commitTask. loadGraphState() now cancels any existing graphLoadTask before launching a new one. The new Task uses @MainActor and [weak self] capture, checks Task.isCancelled after the await returns, and sets graphLoadTask to nil on completion. toggleViewMode() cancels and nils graphLoadTask at the top of the method before modifying graph state, ensuring no late-arriving load can overwrite user-driven state changes.
+    3. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift — graphLoadTask property, loadGraphState rewrite, toggleViewMode cancellation
+
+---
+
 | Progress Todo | Phase 2 — Knowledge Layer (Future) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Planned scope (not started):
