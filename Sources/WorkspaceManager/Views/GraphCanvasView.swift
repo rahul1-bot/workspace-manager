@@ -6,6 +6,7 @@ struct GraphCanvasView: View {
     @State private var panStartTranslation: SIMD2<Double>?
     @State private var draggedClusterWorkspaceId: UUID?
     @State private var clusterDragStartPositions: [UUID: CGPoint] = [:]
+    @State private var magnifyBaseScale: Double?
 
     private let nodeWidth: CGFloat = 140
     private let nodeHeight: CGFloat = 48
@@ -435,12 +436,17 @@ struct GraphCanvasView: View {
     private func zoomGesture(center: CGSize) -> some Gesture {
         MagnifyGesture()
             .onChanged { value in
+                let baseScale: Double = magnifyBaseScale ?? appState.graphViewport.scale
+                if magnifyBaseScale == nil { magnifyBaseScale = baseScale }
                 let dampened: Double = 1.0 + (value.magnification - 1.0) * zoomSensitivity
-                let newScale: Double = max(0.1, min(appState.graphViewport.scale * dampened, 5.0))
+                let newScale: Double = max(0.1, min(baseScale * dampened, 5.0))
                 appState.graphViewport = ViewportTransform(
                     translation: appState.graphViewport.translation,
                     scale: newScale
                 )
+            }
+            .onEnded { _ in
+                magnifyBaseScale = nil
             }
     }
 

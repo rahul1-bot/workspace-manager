@@ -489,6 +489,75 @@
 
 ---
 
+| Progress Todo | Bug Fix — MagnifyGesture Cumulative Zoom Compounding | Date: 07 February 2026 | Time: 12:26 AM | Name: Lyra |
+
+    1. Root cause:
+        1. MagnifyGesture's value.magnification is cumulative from gesture start (1.0 → 1.1 → 1.2), not a per-frame delta. The code applied dampened magnification to the CURRENT scale each frame, compounding exponentially: frame 1 scale*1.0075, frame 2 (scale*1.0075)*1.015, etc. The correct behavior is to multiply the cumulative magnification against the BASELINE scale captured at gesture start.
+    2. Fix applied:
+        1. Added @State magnifyBaseScale: Double? to GraphCanvasView. On first onChanged callback, the current scale is captured as the baseline. Subsequent frames compute newScale = baseScale * dampened instead of currentScale * dampened. onEnded resets magnifyBaseScale to nil for the next gesture.
+    3. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Views/GraphCanvasView.swift — magnifyBaseScale state, zoomGesture rewrite
+
+---
+
+| Progress Todo | Bug Fix — focusGraphNode Does Not Stop Force Layout | Date: 07 February 2026 | Time: 12:26 AM | Name: Lyra |
+
+    1. Root cause:
+        1. focusGraphNode switched to sidebar mode (for live terminal) without calling stopForceLayout(). The force layout task continued running, modifying graphDocument.nodes positions in the background. This wasted CPU and could cause a visual jump when returning to graph mode.
+    2. Fix applied:
+        1. Added stopForceLayout() call at the top of focusGraphNode, before the guard clauses.
+    3. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift — focusGraphNode
+
+---
+
+| Progress Todo | Bug Fix — unfocusGraphNode Does Not Re-Sync From Workspaces | Date: 07 February 2026 | Time: 12:26 AM | Name: Lyra |
+
+    1. Root cause:
+        1. unfocusGraphNode returned to graph mode without calling syncGraphFromWorkspaces(). If the user added or removed terminals while in sidebar mode, the graph showed stale nodes. toggleViewMode correctly calls sync when switching to graph, but unfocusGraphNode did not.
+    2. Fix applied:
+        1. Added syncGraphFromWorkspaces() call in unfocusGraphNode after setting currentViewMode to .graph.
+    3. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift — unfocusGraphNode
+
+---
+
+| Progress Todo | Bug Fix — addGraphEdge One-Direction Duplicate Check | Date: 07 February 2026 | Time: 12:26 AM | Name: Lyra |
+
+    1. Root cause:
+        1. addGraphEdge only checked (sourceId, targetId) for existing edges. If (B, A) already existed and the user added (A, B), it passed the check and created a duplicate visual connection. Containment edges are safe because chain-topology generation always uses one direction, but user-created dependency edges could create duplicates.
+    2. Fix applied:
+        1. Extended the exists check to also match (targetId, sourceId), preventing both directions of the same edge pair from coexisting.
+    3. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift — addGraphEdge
+
+---
+
+| Progress Todo | Bug Fix — Dangling Userdata Pointer in Ghostty Clipboard Callback | Date: 07 February 2026 | Time: 12:26 AM | Name: Lyra |
+
+    1. Root cause:
+        1. surfaceConfig.userdata was set via Unmanaged.passUnretained(self).toOpaque(), creating a raw pointer to the NSView without incrementing its reference count. If the NSView was deallocated while a clipboard read request was in-flight, the callback would access freed memory via fromOpaque(userdata).takeUnretainedValue().
+    2. Fix applied:
+        1. Changed surfaceConfig.userdata from passUnretained to passRetained. This keeps the NSView alive as long as the surface exists, preventing dangling pointer access in any callback.
+        2. Added balanced release in releaseSurface() via Unmanaged.passUnretained(self).release() after ghostty_surface_free(). This decrements the retain count added by passRetained, allowing normal deallocation after surface cleanup.
+        3. Added release on all surface creation failure paths in createSurfaceWithConfig to prevent retain leaks when ghostty_surface_new returns nil.
+    3. Trade-off:
+        1. If dismantleNSView is never called (an exceptional SwiftUI lifecycle failure), the retained reference prevents deallocation, causing a leak instead of the previous potential crash. Leak is strictly safer than crash.
+    4. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Views/GhosttyTerminalView.swift — passRetained for surfaceConfig.userdata, balanced release in releaseSurface and createSurfaceWithConfig failure paths
+
+---
+
 | Progress Todo | Graph Feature Roadmap (Future Phases) | Date: 06 February 2026 | Time: 05:15 AM | Name: Lyra |
 
     1. Knowledge Layer (future):

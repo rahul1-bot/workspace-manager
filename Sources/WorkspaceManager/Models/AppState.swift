@@ -1094,6 +1094,7 @@ final class AppState: ObservableObject {
     }
 
     func focusGraphNode(_ nodeId: UUID) {
+        stopForceLayout()
         guard let node = graphDocument.nodes.first(where: { $0.id == nodeId }) else { return }
         guard let terminalId = node.terminalId else { return }
 
@@ -1110,6 +1111,7 @@ final class AppState: ObservableObject {
     func unfocusGraphNode() {
         focusedGraphNodeId = nil
         currentViewMode = .graph
+        syncGraphFromWorkspaces()
     }
 
     func focusSelectedGraphNode() {
@@ -1129,7 +1131,8 @@ final class AppState: ObservableObject {
 
     func addGraphEdge(from sourceId: UUID, to targetId: UUID, edgeType: EdgeType) {
         let alreadyExists: Bool = graphDocument.edges.contains { edge in
-            edge.sourceNodeId == sourceId && edge.targetNodeId == targetId
+            (edge.sourceNodeId == sourceId && edge.targetNodeId == targetId)
+                || (edge.sourceNodeId == targetId && edge.targetNodeId == sourceId)
         }
         guard !alreadyExists else { return }
         let edge: GraphEdge = GraphEdge(sourceNodeId: sourceId, targetNodeId: targetId, edgeType: edgeType)

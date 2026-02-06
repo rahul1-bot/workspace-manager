@@ -275,7 +275,7 @@ class GhosttySurfaceNSView: NSView {
 
         // Surface userdata lets runtime callbacks (read_clipboard_cb etc.) locate
         // the originating NSView and its surface pointer.
-        surfaceConfig.userdata = Unmanaged.passUnretained(self).toOpaque()
+        surfaceConfig.userdata = Unmanaged.passRetained(self).toOpaque()
 
         surfaceConfig.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2.0)
         surfaceConfig.font_size = 0  // Use default from config
@@ -288,7 +288,9 @@ class GhosttySurfaceNSView: NSView {
             let cstr = strdup(workingDirectory)
             guard let cstr else {
                 AppLogger.ghostty.error("working_directory strdup failed")
-                return ghostty_surface_new(app, &surfaceConfig)
+                let result = ghostty_surface_new(app, &surfaceConfig)
+                if result == nil { Unmanaged<GhosttySurfaceNSView>.passUnretained(self).release() }
+                return result
             }
             workingDirectoryCString = cstr
             surfaceConfig.working_directory = UnsafePointer(cstr)
@@ -296,11 +298,14 @@ class GhosttySurfaceNSView: NSView {
             if created == nil {
                 free(cstr)
                 workingDirectoryCString = nil
+                Unmanaged<GhosttySurfaceNSView>.passUnretained(self).release()
             }
             return created
         }
 
-        return ghostty_surface_new(app, &surfaceConfig)
+        let result = ghostty_surface_new(app, &surfaceConfig)
+        if result == nil { Unmanaged<GhosttySurfaceNSView>.passUnretained(self).release() }
+        return result
     }
 
     private func updateSurfaceSize() {
@@ -695,6 +700,7 @@ class GhosttySurfaceNSView: NSView {
         surface = nil
         GhosttyAppManager.shared.unregisterSurface(activeSurface)
         ghostty_surface_free(activeSurface)
+        Unmanaged<GhosttySurfaceNSView>.passUnretained(self).release()
         if let cstr = workingDirectoryCString {
             free(cstr)
             workingDirectoryCString = nil
