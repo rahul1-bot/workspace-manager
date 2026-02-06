@@ -69,6 +69,7 @@ private enum PaletteAction: String, CaseIterable, Hashable {
     case newWorkspace
     case toggleSidebar
     case toggleFocusMode
+    case openPDF
     case revealConfig
 
     var title: String {
@@ -81,6 +82,8 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Toggle sidebar"
         case .toggleFocusMode:
             return "Toggle Focus Mode"
+        case .openPDF:
+            return "Open PDF"
         case .revealConfig:
             return "Reveal config.toml"
         }
@@ -96,6 +99,8 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Show or hide the workspace sidebar"
         case .toggleFocusMode:
             return "Hide chrome and focus on one terminal"
+        case .openPDF:
+            return "Open a PDF file in the viewer panel (⇧⌘P)"
         case .revealConfig:
             return "Open ~/.config/workspace-manager/config.toml in Finder"
         }
@@ -388,6 +393,8 @@ private struct CommandPaletteView: View {
                 appState.toggleSidebar()
             case .toggleFocusMode:
                 appState.toggleFocusMode()
+            case .openPDF:
+                appState.togglePDFPanel()
             case .revealConfig:
                 NSWorkspace.shared.activateFileViewerSelecting([ConfigService.shared.configFileURL])
             }
@@ -469,6 +476,7 @@ private struct ShortcutsHelpCard: View {
                             ("⌥⌘C", "Copy selected workspace path"),
                             ("⌘,", "Reveal config.toml in Finder"),
                             ("⌘P", "Command palette"),
+                            ("⇧⌘P", "Open PDF viewer"),
                             ("⌘.", "Toggle Focus Mode"),
                             ("⇧⌘/", "Show this help")
                         ]

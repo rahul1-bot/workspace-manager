@@ -7,6 +7,7 @@ struct ShortcutContext {
     let showShortcutsHelp: Bool
     let showCommitSheet: Bool
     let showDiffPanel: Bool
+    let showPDFPanel: Bool
     let sidebarFocused: Bool
     let selectedTerminalExists: Bool
     let isGraphMode: Bool
@@ -17,6 +18,8 @@ enum ShortcutCommand: Hashable {
     case closeCommandPalette
     case closeCommitSheet
     case closeDiffPanel
+    case togglePDFPanel
+    case closePDFPanel
     case toggleSidebar
     case newTerminal
     case newWorkspace
@@ -110,6 +113,10 @@ final class KeyboardShortcutRouter {
             return .consume(.closeDiffPanel)
         }
 
+        if context.showPDFPanel, keyCode == 53 {
+            return .consume(.closePDFPanel)
+        }
+
         // Preserve standard edit shortcuts through responder chain.
         if cmd && !shift && !option && ["c", "v", "x", "z", "a"].contains(char) {
             return .passthrough
@@ -134,6 +141,7 @@ final class KeyboardShortcutRouter {
         if cmd && char == "," { return .consume(.revealConfig) }
         if cmd && char == "." { return .consume(.toggleFocusMode) }
         if cmd && char == "g" { return .consume(.toggleViewMode) }
+        if cmd && shift && char == "p" { return .consume(.togglePDFPanel) }
         if cmd && char == "p" { return .consume(.toggleCommandPalette) }
         if cmd && shift && char == "/" { return .consume(.toggleShortcutsHelp) }
         if cmd && char == "w" && context.selectedTerminalExists { return .consume(.closeTerminalPrompt) }

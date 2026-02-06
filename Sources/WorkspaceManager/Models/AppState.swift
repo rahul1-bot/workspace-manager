@@ -1,5 +1,7 @@
+import AppKit
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppState: ObservableObject {
@@ -22,6 +24,7 @@ final class AppState: ObservableObject {
     @Published var renamingTerminalId: UUID?
     @Published var gitPanelState: GitPanelState = GitPanelState()
     @Published var commitSheetState: CommitSheetState = CommitSheetState()
+    @Published var pdfPanelState: PDFPanelState = PDFPanelState()
     @Published var availableEditors: [ExternalEditor] = []
     @Published var currentViewMode: ViewMode = .sidebar
     @Published var graphDocument: GraphStateDocument = GraphStateDocument()
@@ -555,6 +558,7 @@ final class AppState: ObservableObject {
         guard gitPanelState.disabledReason == nil else { return }
         gitPanelState.isPresented.toggle()
         if gitPanelState.isPresented {
+            dismissPDFPanel()
             loadDiffPanel()
         } else {
             diffLoadTask?.cancel()
@@ -571,6 +575,48 @@ final class AppState: ObservableObject {
         if gitPanelState.isPresented {
             loadDiffPanel()
         }
+    }
+
+    func togglePDFPanel() {
+        if pdfPanelState.isPresented {
+            dismissPDFPanel()
+        } else {
+            presentPDFFilePicker()
+        }
+    }
+
+    func dismissPDFPanel() {
+        pdfPanelState.isPresented = false
+    }
+
+    func openPDFFile(_ url: URL) {
+        dismissDiffPanelPlaceholder()
+        pdfPanelState.fileURL = url
+        pdfPanelState.fileName = url.lastPathComponent
+        pdfPanelState.currentPageIndex = 0
+        pdfPanelState.totalPages = 0
+        pdfPanelState.errorText = nil
+        pdfPanelState.isLoading = false
+        pdfPanelState.isPresented = true
+    }
+
+    func updatePDFPageIndex(_ index: Int) {
+        pdfPanelState.currentPageIndex = index
+    }
+
+    func presentPDFFilePicker() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.message = "Select a PDF file to open"
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else {
+            return
+        }
+
+        openPDFFile(selectedURL)
     }
 
     func presentCommitSheetPlaceholder() {

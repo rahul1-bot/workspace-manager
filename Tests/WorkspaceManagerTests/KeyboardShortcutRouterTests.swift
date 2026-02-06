@@ -141,6 +141,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         showShortcutsHelp: Bool = false,
         showCommitSheet: Bool = false,
         showDiffPanel: Bool = false,
+        showPDFPanel: Bool = false,
         sidebarFocused: Bool = false,
         selectedTerminalExists: Bool = true,
         isGraphMode: Bool = false
@@ -151,6 +152,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
             showShortcutsHelp: showShortcutsHelp,
             showCommitSheet: showCommitSheet,
             showDiffPanel: showDiffPanel,
+            showPDFPanel: showPDFPanel,
             sidebarFocused: sidebarFocused,
             selectedTerminalExists: selectedTerminalExists,
             isGraphMode: isGraphMode
