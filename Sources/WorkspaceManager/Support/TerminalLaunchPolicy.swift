@@ -18,8 +18,8 @@ enum TerminalLaunchPolicy {
     ]
 
     static func buildPlan(shellFromEnvironment: String?, workingDirectory: String, fallbackShell: String = "/bin/zsh") throws -> TerminalLaunchPlan {
-        let shell = shellFromEnvironment ?? fallbackShell
-        try validateShell(shell)
+        let rawShell = shellFromEnvironment ?? fallbackShell
+        let shell = try canonicalizedShell(rawShell)
         try validateWorkingDirectory(workingDirectory)
 
         var environment = sanitizedEnvironment(from: ProcessInfo.processInfo.environment)
@@ -35,16 +35,21 @@ enum TerminalLaunchPolicy {
         )
     }
 
-    private static func validateShell(_ shell: String) throws {
+    private static func canonicalizedShell(_ shell: String) throws -> String {
         guard shell.hasPrefix("/") else {
             throw TerminalLaunchError.invalidShellPath(shell)
         }
-        guard allowedShellPrefixes.contains(where: { shell.hasPrefix($0) }) else {
+        guard !shell.contains("..") else {
             throw TerminalLaunchError.invalidShellPath(shell)
         }
-        guard FileManager.default.isExecutableFile(atPath: shell) else {
-            throw TerminalLaunchError.nonExecutableShell(shell)
+        let resolved = URL(fileURLWithPath: shell).standardizedFileURL.path
+        guard allowedShellPrefixes.contains(where: { resolved.hasPrefix($0) }) else {
+            throw TerminalLaunchError.invalidShellPath(resolved)
         }
+        guard FileManager.default.isExecutableFile(atPath: resolved) else {
+            throw TerminalLaunchError.nonExecutableShell(resolved)
+        }
+        return resolved
     }
 
     private static func validateWorkingDirectory(_ path: String) throws {
