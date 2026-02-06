@@ -286,8 +286,23 @@
         5. Sources/WorkspaceManager/ContentView.swift — scroll wheel zoom monitor, new context fields, new shortcut handler
         6. Tests/WorkspaceManagerTests/KeyboardShortcutRouterTests.swift — test helper updated for new context fields
     3. Remaining for graph Phase 1 completion:
-        1. Add graph shortcuts to help overlay and command palette (Cmd+G, Cmd+=, Cmd+-, Cmd+0, Cmd+L, Enter, Escape).
+        1. ✅ Add graph shortcuts to help overlay and command palette (completed below).
         2. Add graph-mode keyboard shortcut tests to KeyboardShortcutRouterTests.swift.
+
+---
+
+| Progress Todo | Graph Shortcuts in Help Overlay and Command Palette | Date: 06 February 2026 | Time: 10:40 PM | Name: Lyra |
+
+    1. Delivered and compiling (branch: feat/graph-phase1-cleanup):
+        1. ✅ Added "Graph View" section to ShortcutsHelpCard in Overlays.swift. New ShortcutSection inserted between "PDF Viewer (when open)" and "Sidebar (when focused)" sections. Documents all 6 graph-contextual shortcuts: Cmd+G (toggle), Cmd+= / Cmd+- (zoom in/out), Cmd+0 (zoom to fit), Cmd+L (rerun force layout), Enter (focus selected node), Esc (unfocus node and return to graph).
+        2. ✅ Added 3 graph actions to PaletteAction enum in Overlays.swift: toggleGraphView, graphZoomToFit, graphRerunLayout. Each case has title and subtitle computed properties with keyboard shortcut hints in the subtitle text. Zoom in/out excluded from palette since they are incremental keyboard-driven operations, not discrete actions suitable for command palette invocation.
+        3. ✅ Added activate() handlers for all 3 new palette actions. toggleGraphView calls appState.toggleViewMode(). graphZoomToFit posts .wmGraphZoomToFit notification (matching the existing dispatch pattern in ContentView.executeShortcut). graphRerunLayout calls appState.rerunForceLayout(). All palette actions dismiss the palette after execution via existing isPresented = false and onDismiss() call.
+        4. ✅ All switch statements on PaletteAction enum remain exhaustive with no default case, per code guidelines.
+        5. ✅ swift build passes with -Xswiftc -warnings-as-errors. swift test passes (54 tests, 0 failures).
+    2. Files modified:
+        1. Sources/WorkspaceManager/Views/Overlays.swift — PaletteAction enum (3 new cases with title/subtitle/activate), ShortcutsHelpCard (new Graph View section)
+    3. Remaining for graph Phase 1 completion:
+        1. Add graph-mode keyboard shortcut tests to KeyboardShortcutRouterTests.swift.
 
 ---
 

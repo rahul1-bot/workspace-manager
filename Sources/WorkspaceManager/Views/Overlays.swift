@@ -72,6 +72,9 @@ private enum PaletteAction: String, CaseIterable, Hashable {
     case toggleFocusMode
     case openPDF
     case revealConfig
+    case toggleGraphView
+    case graphZoomToFit
+    case graphRerunLayout
 
     var title: String {
         switch self {
@@ -87,6 +90,12 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Open PDF"
         case .revealConfig:
             return "Reveal config.toml"
+        case .toggleGraphView:
+            return "Toggle Graph View"
+        case .graphZoomToFit:
+            return "Zoom to fit all nodes"
+        case .graphRerunLayout:
+            return "Rerun graph layout"
         }
     }
 
@@ -104,6 +113,12 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Open a PDF file in the viewer panel (⇧⌘P)"
         case .revealConfig:
             return "Open ~/.config/workspace-manager/config.toml in Finder"
+        case .toggleGraphView:
+            return "Switch between terminal list and spatial graph (⌘G)"
+        case .graphZoomToFit:
+            return "Fit all graph nodes into the viewport (⌘0)"
+        case .graphRerunLayout:
+            return "Re-run the force-directed layout algorithm (⌘L)"
         }
     }
 }
@@ -417,6 +432,12 @@ private struct CommandPaletteView: View {
                 appState.togglePDFPanel()
             case .revealConfig:
                 NSWorkspace.shared.activateFileViewerSelecting([ConfigService.shared.configFileURL])
+            case .toggleGraphView:
+                appState.toggleViewMode()
+            case .graphZoomToFit:
+                NotificationCenter.default.post(name: .wmGraphZoomToFit, object: nil)
+            case .graphRerunLayout:
+                appState.rerunForceLayout()
             }
         }
 
@@ -508,6 +529,18 @@ private struct ShortcutsHelpCard: View {
                             ("⇧⌘{ / ⇧⌘}", "Previous/next PDF tab"),
                             ("⇧⌘W", "Close active PDF tab"),
                             ("Esc", "Close PDF panel")
+                        ]
+                    )
+
+                    ShortcutSection(
+                        title: "Graph View",
+                        rows: [
+                            ("⌘G", "Toggle Graph View"),
+                            ("⌘= / ⌘-", "Zoom in / Zoom out"),
+                            ("⌘0", "Zoom to fit all nodes"),
+                            ("⌘L", "Rerun force layout"),
+                            ("Enter", "Focus selected node"),
+                            ("Esc", "Unfocus node (return to graph)")
                         ]
                     )
 
