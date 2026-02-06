@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiffPanelView: View {
     let state: GitPanelState
+    let isResizing: Bool
     let onClose: () -> Void
     let onModeSelected: (DiffPanelMode) -> Void
 
@@ -113,6 +114,8 @@ struct DiffPanelView: View {
             Text("No changes for the selected mode.")
                 .font(.system(.callout, design: .default))
                 .foregroundColor(.white.opacity(0.7))
+        } else if isResizing {
+            resizingPlaceholderView
         } else {
             patchContentView
         }
@@ -146,6 +149,28 @@ struct DiffPanelView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        )
+    }
+
+    private var resizingPlaceholderView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Resizing diff panel", systemImage: "arrow.left.and.right")
+                .font(.system(.footnote, design: .monospaced))
+                .foregroundColor(.white.opacity(0.72))
+
+            ForEach(0..<4, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.white.opacity(0.08))
+                    .frame(height: index == 0 ? 24 : 18)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.black.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
 

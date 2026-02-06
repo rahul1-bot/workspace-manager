@@ -25,10 +25,12 @@ struct ContentView: View {
     @State private var diffPanelWidthRatio: CGFloat = 0.5
     @State private var diffPanelDragStartRatio: CGFloat?
     @State private var isDiffResizeHandleHovering = false
+    @State private var isDiffPanelResizing = false
     private let shortcutRouter = KeyboardShortcutRouter()
     private let minDiffPanelWidthRatio: CGFloat = 0.2
     private let maxDiffPanelWidthRatio: CGFloat = 1.0
     private let defaultDiffPanelWidthRatio: CGFloat = 0.5
+    private let resizeStepRatio: CGFloat = 0.006
 
     var body: some View {
         ZStack {
@@ -65,6 +67,7 @@ struct ContentView: View {
                             if appState.gitPanelState.isPresented {
                                 DiffPanelView(
                                     state: appState.gitPanelState,
+                                    isResizing: isDiffPanelResizing,
                                     onClose: {
                                         appState.dismissDiffPanelPlaceholder()
                                     },
@@ -316,12 +319,16 @@ struct ContentView: View {
                     .onChanged { value in
                         if diffPanelDragStartRatio == nil {
                             diffPanelDragStartRatio = diffPanelWidthRatio
+                            isDiffPanelResizing = true
                         }
                         let startRatio = diffPanelDragStartRatio ?? diffPanelWidthRatio
                         let deltaRatio = -value.translation.width / max(terminalWidth, 1)
                         let candidateRatio = startRatio + deltaRatio
-                        let clampedRatio = min(maxDiffPanelWidthRatio, max(0, candidateRatio))
-                        guard abs(clampedRatio - diffPanelWidthRatio) >= 0.002 else { return }
+                        let rawClampedRatio = min(maxDiffPanelWidthRatio, max(0, candidateRatio))
+                        let step = max(resizeStepRatio, 1 / max(terminalWidth, 1))
+                        let steppedRatio = (rawClampedRatio / step).rounded() * step
+                        let clampedRatio = min(maxDiffPanelWidthRatio, max(0, steppedRatio))
+                        guard abs(clampedRatio - diffPanelWidthRatio) >= (step / 2) else { return }
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
@@ -336,6 +343,7 @@ struct ContentView: View {
                             diffPanelWidthRatio = min(maxDiffPanelWidthRatio, max(minDiffPanelWidthRatio, diffPanelWidthRatio))
                         }
                         diffPanelDragStartRatio = nil
+                        isDiffPanelResizing = false
                     }
             )
             .onHover { hovering in
@@ -352,6 +360,7 @@ struct ContentView: View {
                     NSCursor.pop()
                     isDiffResizeHandleHovering = false
                 }
+                isDiffPanelResizing = false
             }
     }
 }
