@@ -36,49 +36,11 @@ struct ContentView: View {
             GlassSidebarBackground()
                 .ignoresSafeArea()
 
-            HStack(spacing: 0) {
-                // Sidebar - instant toggle, no animation
-                // Uses appState.showSidebar as single source of truth
-                if appState.showSidebar && !appState.focusMode {
-                    WorkspaceSidebar()
-                        .frame(width: 240)
-                        .overlay(
-                            // Visual indicator when sidebar is focused
-                            RoundedRectangle(cornerRadius: 0)
-                                .stroke(sidebarFocused ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 2)
-                        )
-                }
-
-                // Terminal area
-                GeometryReader { terminalGeometry in
-                    let terminalWidth = max(terminalGeometry.size.width, 1)
-
-                    TerminalContainer(showHeader: !appState.focusMode)
-                        .overlay(alignment: .topLeading) {
-                            if appState.focusMode {
-                                FocusModeOverlay()
-                                    .padding(.leading, 12)
-                                    .padding(.top, 10)
-                            }
-                        }
-                        .overlay(alignment: .trailing) {
-                            if appState.gitPanelState.isPresented {
-                                DiffPanelView(
-                                    state: appState.gitPanelState,
-                                    onClose: {
-                                        appState.dismissDiffPanelPlaceholder()
-                                    },
-                                    onModeSelected: { mode in
-                                        appState.setDiffPanelModePlaceholder(mode)
-                                    }
-                                )
-                                .frame(width: terminalWidth * diffPanelWidthRatio)
-                                .overlay(alignment: .leading) {
-                                    diffResizeHandle(terminalWidth: terminalWidth)
-                                }
-                            }
-                        }
-                }
+            switch appState.currentViewMode {
+            case .sidebar:
+                sidebarModeContent
+            case .graph:
+                GraphCanvasView()
             }
 
             if showCommandPalette {
@@ -122,6 +84,7 @@ struct ContentView: View {
         .onAppear {
             setupKeyboardMonitor()
             appState.refreshGitUIState()
+            appState.loadGraphState()
         }
         .onDisappear {
             removeKeyboardMonitor()
@@ -137,6 +100,49 @@ struct ContentView: View {
             }
         } message: {
             Text("This will terminate the running shell session in the selected terminal.")
+        }
+    }
+
+    private var sidebarModeContent: some View {
+        HStack(spacing: 0) {
+            if appState.showSidebar && !appState.focusMode {
+                WorkspaceSidebar()
+                    .frame(width: 240)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 0)
+                            .stroke(sidebarFocused ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 2)
+                    )
+            }
+
+            GeometryReader { terminalGeometry in
+                let terminalWidth = max(terminalGeometry.size.width, 1)
+
+                TerminalContainer(showHeader: !appState.focusMode)
+                    .overlay(alignment: .topLeading) {
+                        if appState.focusMode {
+                            FocusModeOverlay()
+                                .padding(.leading, 12)
+                                .padding(.top, 10)
+                        }
+                    }
+                    .overlay(alignment: .trailing) {
+                        if appState.gitPanelState.isPresented {
+                            DiffPanelView(
+                                state: appState.gitPanelState,
+                                onClose: {
+                                    appState.dismissDiffPanelPlaceholder()
+                                },
+                                onModeSelected: { mode in
+                                    appState.setDiffPanelModePlaceholder(mode)
+                                }
+                            )
+                            .frame(width: terminalWidth * diffPanelWidthRatio)
+                            .overlay(alignment: .leading) {
+                                diffResizeHandle(terminalWidth: terminalWidth)
+                            }
+                        }
+                    }
+            }
         }
     }
 
@@ -286,6 +292,12 @@ struct ContentView: View {
             appState.selectNextTerminal()
         case .sidebarReturnToTerminal:
             sidebarFocused = false
+        case .toggleViewMode:
+            guard shouldExecuteShortcut("toggleViewMode") else { return }
+            appState.toggleViewMode()
+            sidebarFocused = false
+        case .unfocusGraphNode:
+            appState.unfocusGraphNode()
         case .swallow:
             break
         }

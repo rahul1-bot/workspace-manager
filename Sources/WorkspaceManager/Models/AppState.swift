@@ -23,8 +23,12 @@ final class AppState: ObservableObject {
     @Published var gitPanelState: GitPanelState = GitPanelState()
     @Published var commitSheetState: CommitSheetState = CommitSheetState()
     @Published var availableEditors: [ExternalEditor] = []
+    @Published var currentViewMode: ViewMode = .sidebar
+    @Published var graphDocument: GraphStateDocument = GraphStateDocument()
+    @Published var focusedGraphNodeId: UUID?
 
     private let configService: ConfigService
+    private let graphStateService: GraphStateService = GraphStateService()
     private let gitRepositoryService: any GitRepositoryServicing
     private let editorLaunchService: any EditorLaunching
     private let prLinkBuilder: any PRLinkBuilding
@@ -890,5 +894,112 @@ final class AppState: ObservableObject {
     private func pruneTerminalRuntimePaths() {
         let validTerminalIDs = Set(workspaces.flatMap { $0.terminals.map(\.id) })
         terminalRuntimePaths = terminalRuntimePaths.filter { validTerminalIDs.contains($0.key) }
+    }
+
+    func loadGraphState() {
+        Task {
+            let document: GraphStateDocument = await graphStateService.load()
+            graphDocument = document
+            syncGraphFromWorkspaces()
+        }
+    }
+
+    func saveGraphState() {
+        Task {
+            await graphStateService.save(graphDocument)
+        }
+    }
+
+    func syncGraphFromWorkspaces() {
+        let existingNodeTerminalIds: Set<UUID> = Set(graphDocument.nodes.compactMap(\.terminalId))
+        var updatedNodes: [GraphNode] = graphDocument.nodes
+        var updatedEdges: [GraphEdge] = graphDocument.edges
+
+        for (workspaceIndex, workspace) in workspaces.enumerated() {
+            for (terminalIndex, terminal) in workspace.terminals.enumerated() {
+                guard !existingNodeTerminalIds.contains(terminal.id) else { continue }
+
+                let xOffset: Double = Double(terminalIndex) * 180.0
+                let yOffset: Double = Double(workspaceIndex) * 120.0
+
+                let node: GraphNode = GraphNode(
+                    name: terminal.name,
+                    nodeType: .terminal,
+                    positionX: xOffset,
+                    positionY: yOffset,
+                    workspaceId: workspace.id,
+                    terminalId: terminal.id
+                )
+                updatedNodes.append(node)
+            }
+        }
+
+        let allTerminalIds: Set<UUID> = Set(workspaces.flatMap { $0.terminals.map(\.id) })
+        updatedNodes.removeAll { node in
+            guard let terminalId = node.terminalId else { return false }
+            return !allTerminalIds.contains(terminalId)
+        }
+
+        let validNodeIds: Set<UUID> = Set(updatedNodes.map(\.id))
+        updatedEdges.removeAll { edge in
+            !validNodeIds.contains(edge.sourceNodeId) || !validNodeIds.contains(edge.targetNodeId)
+        }
+
+        graphDocument.nodes = updatedNodes
+        graphDocument.edges = updatedEdges
+    }
+
+    func toggleViewMode() {
+        switch currentViewMode {
+        case .sidebar:
+            currentViewMode = .graph
+            syncGraphFromWorkspaces()
+        case .graph:
+            currentViewMode = .sidebar
+        }
+    }
+
+    func focusGraphNode(_ nodeId: UUID) {
+        guard let node = graphDocument.nodes.first(where: { $0.id == nodeId }) else { return }
+        guard let terminalId = node.terminalId else { return }
+
+        let matchingWorkspace: Workspace? = workspaces.first { workspace in
+            workspace.terminals.contains { $0.id == terminalId }
+        }
+
+        guard let workspace = matchingWorkspace else { return }
+        selectTerminal(id: terminalId, in: workspace.id)
+        focusedGraphNodeId = nodeId
+        currentViewMode = .sidebar
+    }
+
+    func unfocusGraphNode() {
+        focusedGraphNodeId = nil
+        currentViewMode = .graph
+    }
+
+    func updateGraphNodePosition(_ nodeId: UUID, to position: CGPoint) {
+        guard let index = graphDocument.nodes.firstIndex(where: { $0.id == nodeId }) else { return }
+        graphDocument.nodes[index].position = position
+    }
+
+    func pinGraphNode(_ nodeId: UUID) {
+        guard let index = graphDocument.nodes.firstIndex(where: { $0.id == nodeId }) else { return }
+        graphDocument.nodes[index].isPinned = true
+    }
+
+    func addGraphEdge(from sourceId: UUID, to targetId: UUID, edgeType: EdgeType) {
+        let alreadyExists: Bool = graphDocument.edges.contains { edge in
+            edge.sourceNodeId == sourceId && edge.targetNodeId == targetId
+        }
+        guard !alreadyExists else { return }
+        let edge: GraphEdge = GraphEdge(sourceNodeId: sourceId, targetNodeId: targetId, edgeType: edgeType)
+        graphDocument.edges.append(edge)
+        saveGraphState()
+    }
+
+    func removeGraphEdge(_ edgeId: UUID) {
+        graphDocument.edges.removeAll { $0.id == edgeId }
+        saveGraphState()
     }
 }

@@ -41,6 +41,8 @@ enum ShortcutCommand: Hashable {
     case sidebarPrevTerminal
     case sidebarNextTerminal
     case sidebarReturnToTerminal
+    case toggleViewMode
+    case unfocusGraphNode
     case swallow
 }
 
@@ -126,6 +128,7 @@ final class KeyboardShortcutRouter {
         if cmd && option && char == "c" { return .consume(.copyWorkspacePath) }
         if cmd && char == "," { return .consume(.revealConfig) }
         if cmd && char == "." { return .consume(.toggleFocusMode) }
+        if cmd && char == "g" { return .consume(.toggleViewMode) }
         if cmd && char == "p" { return .consume(.toggleCommandPalette) }
         if cmd && shift && char == "/" { return .consume(.toggleShortcutsHelp) }
         if cmd && char == "w" && context.selectedTerminalExists { return .consume(.closeTerminalPrompt) }
