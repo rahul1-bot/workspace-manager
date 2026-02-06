@@ -37,10 +37,13 @@ struct ContentView: View {
             GlassSidebarBackground()
                 .ignoresSafeArea()
 
-            switch appState.currentViewMode {
-            case .sidebar:
-                sidebarModeContent
-            case .graph:
+            // Always keep sidebarModeContent alive so terminal processes survive
+            // view mode switches. Hiding via opacity preserves the NSView hierarchy.
+            sidebarModeContent
+                .opacity(appState.currentViewMode == .sidebar ? 1 : 0)
+                .allowsHitTesting(appState.currentViewMode == .sidebar)
+
+            if appState.currentViewMode == .graph {
                 GraphCanvasView()
             }
 

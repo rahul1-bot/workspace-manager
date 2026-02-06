@@ -211,6 +211,17 @@
 
 ---
 
+| Memory | SwiftUI Switch Statements Destroy NSViewRepresentable Instances on Case Change | Date: 06 February 2026 | Time: 10:07 AM | Name: Lyra |
+
+    1. Observation:
+        1. A switch statement inside a SwiftUI body acts as a conditional view builder. When the active case changes, the previous case's views are completely removed from the view hierarchy and the new case's views are created. For NSViewRepresentable types like TerminalView and GhosttyTerminalView, removal triggers NSView deallocation, which terminates the associated shell process (LocalProcessTerminalView or ghostty_surface_t). This caused all terminal sessions to be killed when toggling between sidebar and graph modes via Cmd+G.
+    2. Decision:
+        1. Replace the switch statement with a persistent overlay pattern. The sidebarModeContent (containing all terminal views) is always present in the view hierarchy. When in graph mode, it is hidden via .opacity(0) and .allowsHitTesting(false). GraphCanvasView is conditionally added on top. Additionally, the TerminalContainer's isSelected check includes a view mode guard (currentViewMode == .sidebar) to prevent hidden terminals from stealing focus via makeFirstResponder.
+    3. Implication:
+        1. Any SwiftUI view that wraps a stateful NSView (terminal emulators, web views, Metal surfaces, media players) must NEVER be placed inside a conditional view builder (if/else, switch) if its state should survive across condition changes. The correct pattern is to keep the view always alive and control visibility via opacity, zIndex, or frame size. This is a fundamental SwiftUI architectural constraint for AppKit-backed views.
+
+---
+
 | Memory | Unified Dark Glass Pattern Applied Across All UI Overlays | Date: 06 February 2026 | Time: 09:52 AM | Name: Lyra |
 
     1. Observation:
