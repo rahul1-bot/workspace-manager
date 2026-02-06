@@ -165,7 +165,7 @@ final class KeyboardShortcutRouter {
         if cmd && char == "g" { return .consume(.toggleViewMode) }
         if cmd && shift && char == "p" { return .consume(.togglePDFPanel) }
         if cmd && char == "p" { return .consume(.toggleCommandPalette) }
-        if cmd && shift && char == "/" { return .consume(.toggleShortcutsHelp) }
+        if cmd && shift && char == "?" { return .consume(.toggleShortcutsHelp) }
         if cmd && char == "w" && context.selectedTerminalExists { return .consume(.closeTerminalPrompt) }
         if cmd && char == "r" && !shift { return .consume(.renameSelected) }
         if cmd && char == "r" && shift { return .consume(.reloadConfig) }

@@ -343,6 +343,17 @@
 
 ---
 
+| Memory | Shifted Punctuation Keys Require Matching the Shifted Character in Router | Date: 06 February 2026 | Time: 11:19 PM | Name: Lyra |
+
+    1. Observation:
+        1. macOS NSEvent.charactersIgnoringModifiers preserves the Shift modifier for punctuation and symbol keys but strips Command and Option. This means Shift+/ delivers "?" not "/", Shift+[ delivers "{", Shift+] delivers "}", Shift+, delivers "<", Shift+. delivers ">", and so on. The router's .lowercased() normalization does not affect these characters since they have no letter case.
+    2. Decision:
+        1. All keyboard shortcut routes involving Shift+punctuation must match the shifted character, not the base key character. Cmd+Shift+/ must compare char == "?" not char == "/". This was already correctly implemented for Cmd+Shift+[ (matching "{") and Cmd+Shift+] (matching "}") but was missed for Cmd+Shift+/ (matching "?"). A regression test was added to prevent this class of bug from recurring.
+    3. Implication:
+        1. When adding any new shortcut that involves Shift+punctuation, the developer must determine what character macOS delivers for that physical key combination and match against the delivered character. The keyCode-based approach (matching keyCode 44 for /) is an alternative that is keyboard-layout-independent but inconsistent with the existing router pattern that uses character matching.
+
+---
+
 | Memory | Cluster Drag Requires Hit-Test Priority Over Pan | Date: 06 February 2026 | Time: 07:05 AM | Name: Lyra |
 
     1. Observation:

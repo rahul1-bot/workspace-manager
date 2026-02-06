@@ -346,7 +346,24 @@
         4. A diagnostic test should be added: temporarily log every keyDown event that reaches the monitor to confirm whether the Shift+Cmd+/ event arrives at all, and if so, what character value it carries.
     4. Files modified (partial fix, committed for history):
         1. Sources/WorkspaceManager/WorkspaceManagerApp.swift — CommandGroup(replacing: .help), removeSystemHelpMenu() in AppDelegate
-    5. Status: Open. Requires proper investigation in next session.
+    5. Status: ✅ Resolved. See fix entry below.
+
+---
+
+| Progress Todo | Bug Fix — Shift+Cmd+/ Character Mismatch Resolved | Date: 06 February 2026 | Time: 11:19 PM | Name: Lyra |
+
+    1. Root cause confirmed:
+        1. On macOS, NSEvent.charactersIgnoringModifiers preserves the Shift modifier for punctuation keys. Pressing Shift+/ on a US keyboard produces the character "?" not "/". The router at KeyboardShortcutRouter.swift line 168 compared char == "/" against the actual delivered value "?", which always evaluated to false. The shortcut matched nothing and fell through to .passthrough. This is the identical macOS behavior already documented in memory.md for Cmd+Shift+[ producing "{" and Cmd+Shift+] producing "}".
+        2. The prior commit (50cf9c8) correctly suppressed the system Help menu via CommandGroup(replacing: .help) and removeSystemHelpMenu() in AppDelegate, ensuring the NSEvent now reaches the local monitor. The event was arriving but the character comparison was wrong.
+    2. Fix applied:
+        1. KeyboardShortcutRouter.swift line 168: Changed char == "/" to char == "?" to match the actual character delivered by macOS for the Shift+/ physical keypress. The cmd and shift modifier checks are retained to document the intended key combination explicitly, even though "?" inherently requires Shift.
+    3. Test added:
+        1. KeyboardShortcutRouterTests.swift: Added testShiftCmdSlashOpensShortcutsHelp test method. Simulates keyCode 44 (/ key on US keyboard) with [.command, .shift] modifiers and charactersIgnoringModifiers "?". Asserts the route returns .consume(.toggleShortcutsHelp). Test count increased from 68 to 69 with 0 failures.
+    4. Build verification:
+        1. swift build passes. swift test passes (69 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Support/KeyboardShortcutRouter.swift — character comparison fix
+        2. Tests/WorkspaceManagerTests/KeyboardShortcutRouterTests.swift — new test method
 
 ---
 

@@ -305,6 +305,17 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertConsume(route, expected: .closePDFPanel)
     }
 
+    func testShiftCmdSlashOpensShortcutsHelp() {
+        let route = router.route(
+            keyCode: 44,
+            modifierFlags: [.command, .shift],
+            charactersIgnoringModifiers: "?",
+            isRepeat: false,
+            context: makeContext()
+        )
+        assertConsume(route, expected: .toggleShortcutsHelp)
+    }
+
     func testEscapeUnfocusGraphNodeOverSidebar() {
         let route = router.route(
             keyCode: 53,
