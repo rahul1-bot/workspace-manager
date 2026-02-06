@@ -212,23 +212,26 @@ struct TerminalHeader: View {
 
     var body: some View {
         HStack(alignment: .top) {
-            Circle()
-                .fill(Color.green)
-                .frame(width: 8, height: 8)
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 8, height: 8)
 
-            Text(terminal?.name ?? "Terminal")
-                .font(.system(.body, design: .monospaced))
-                .fontWeight(.medium)
-                .foregroundColor(.white)
+                Text(terminal?.name ?? "Terminal")
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
 
-            Text("—")
-                .foregroundColor(.white.opacity(0.6))
+                Text("—")
+                    .foregroundColor(.white.opacity(0.6))
 
-            Text(workspace?.name ?? "")
-                .font(.system(.callout, design: .default))
-                .foregroundColor(.white.opacity(0.8))
-                .lineLimit(1)
-                .truncationMode(.middle)
+                Text(workspace?.name ?? "")
+                    .font(.system(.callout, design: .default))
+                    .foregroundColor(.white.opacity(0.8))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .padding(.top, 2)
 
             Spacer()
 

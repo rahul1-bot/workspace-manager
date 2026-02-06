@@ -76,7 +76,6 @@ struct ContentView: View {
                                 .overlay(alignment: .leading) {
                                     diffResizeHandle(terminalWidth: terminalWidth)
                                 }
-                                .transition(.move(edge: .trailing).combined(with: .opacity))
                             }
                         }
                 }
@@ -120,7 +119,6 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.18), value: appState.gitPanelState.isPresented)
         .onAppear {
             setupKeyboardMonitor()
             appState.refreshGitUIState()
@@ -158,6 +156,7 @@ struct ContentView: View {
                 showCommandPalette: showCommandPalette,
                 showShortcutsHelp: showShortcutsHelp,
                 showCommitSheet: appState.commitSheetState.isPresented,
+                showDiffPanel: appState.gitPanelState.isPresented,
                 sidebarFocused: sidebarFocused,
                 selectedTerminalExists: appState.selectedTerminalId != nil
             )
@@ -180,6 +179,8 @@ struct ContentView: View {
             showCommandPalette = false
         case .closeCommitSheet:
             appState.dismissCommitSheetPlaceholder()
+        case .closeDiffPanel:
+            appState.dismissDiffPanelPlaceholder()
         case .toggleSidebar:
             guard shouldExecuteShortcut("toggleSidebar") else { return }
             if appState.focusMode {
@@ -319,7 +320,13 @@ struct ContentView: View {
                         let startRatio = diffPanelDragStartRatio ?? diffPanelWidthRatio
                         let deltaRatio = -value.translation.width / max(terminalWidth, 1)
                         let candidateRatio = startRatio + deltaRatio
-                        diffPanelWidthRatio = min(maxDiffPanelWidthRatio, max(0, candidateRatio))
+                        let clampedRatio = min(maxDiffPanelWidthRatio, max(0, candidateRatio))
+                        guard abs(clampedRatio - diffPanelWidthRatio) >= 0.002 else { return }
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            diffPanelWidthRatio = clampedRatio
+                        }
                     }
                     .onEnded { _ in
                         if diffPanelWidthRatio < minDiffPanelWidthRatio {

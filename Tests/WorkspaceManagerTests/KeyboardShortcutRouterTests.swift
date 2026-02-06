@@ -81,6 +81,18 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertConsume(escapeRoute, expected: .closeCommitSheet)
     }
 
+    func testDiffPanelConsumesEscape() {
+        let visibleContext = makeContext(showDiffPanel: true)
+        let escapeRoute = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: visibleContext
+        )
+        assertConsume(escapeRoute, expected: .closeDiffPanel)
+    }
+
     func testSidebarArrowRouting() {
         let route = router.route(
             keyCode: 126,
@@ -128,6 +140,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         showCommandPalette: Bool = false,
         showShortcutsHelp: Bool = false,
         showCommitSheet: Bool = false,
+        showDiffPanel: Bool = false,
         sidebarFocused: Bool = false,
         selectedTerminalExists: Bool = true
     ) -> ShortcutContext {
@@ -136,6 +149,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
             showCommandPalette: showCommandPalette,
             showShortcutsHelp: showShortcutsHelp,
             showCommitSheet: showCommitSheet,
+            showDiffPanel: showDiffPanel,
             sidebarFocused: sidebarFocused,
             selectedTerminalExists: selectedTerminalExists
         )
