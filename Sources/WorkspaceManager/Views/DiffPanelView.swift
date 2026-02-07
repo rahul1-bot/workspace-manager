@@ -80,9 +80,13 @@ struct DiffPanelView: View {
             Spacer()
 
             Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.85))
+                Text("Esc")
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.55))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             .buttonStyle(.plain)
         }

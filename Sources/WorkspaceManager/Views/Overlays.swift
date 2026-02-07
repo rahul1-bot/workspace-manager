@@ -72,6 +72,9 @@ private enum PaletteAction: String, CaseIterable, Hashable {
     case toggleFocusMode
     case openPDF
     case revealConfig
+    case toggleGraphView
+    case graphZoomToFit
+    case graphRerunLayout
 
     var title: String {
         switch self {
@@ -87,6 +90,12 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Open PDF"
         case .revealConfig:
             return "Reveal config.toml"
+        case .toggleGraphView:
+            return "Toggle Graph View"
+        case .graphZoomToFit:
+            return "Zoom to fit all nodes"
+        case .graphRerunLayout:
+            return "Rerun graph layout"
         }
     }
 
@@ -104,6 +113,12 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Open a PDF file in the viewer panel (⇧⌘P)"
         case .revealConfig:
             return "Open ~/.config/workspace-manager/config.toml in Finder"
+        case .toggleGraphView:
+            return "Switch between terminal list and spatial graph (⌘G)"
+        case .graphZoomToFit:
+            return "Fit all graph nodes into the viewport (⌘0)"
+        case .graphRerunLayout:
+            return "Re-run the force-directed layout algorithm (⌘L)"
         }
     }
 }
@@ -417,6 +432,12 @@ private struct CommandPaletteView: View {
                 appState.togglePDFPanel()
             case .revealConfig:
                 NSWorkspace.shared.activateFileViewerSelecting([ConfigService.shared.configFileURL])
+            case .toggleGraphView:
+                appState.toggleViewMode()
+            case .graphZoomToFit:
+                NotificationCenter.default.post(name: .wmGraphZoomToFit, object: nil)
+            case .graphRerunLayout:
+                appState.rerunForceLayout()
             }
         }
 
@@ -430,7 +451,7 @@ struct ShortcutsHelpOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.25)
+            Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture {
                     isPresented = false
@@ -438,6 +459,7 @@ struct ShortcutsHelpOverlay: View {
 
             ShortcutsHelpCard(isPresented: $isPresented)
                 .frame(width: 640)
+                .frame(maxHeight: 680)
         }
         .transition(.opacity)
     }
@@ -449,28 +471,14 @@ private struct ShortcutsHelpCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Keyboard Shortcuts")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                Spacer()
-
-                Button("Close") {
-                    isPresented = false
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(.white.opacity(0.75))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            headerSection
 
             Divider()
                 .overlay(Color.white.opacity(0.08))
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    ShortcutSection(
+                VStack(alignment: .leading, spacing: 0) {
+                    shortcutGroup(
                         title: "Navigation",
                         rows: [
                             ("⌘B", "Toggle sidebar (exits Focus Mode)"),
@@ -484,7 +492,9 @@ private struct ShortcutsHelpCard: View {
                         ]
                     )
 
-                    ShortcutSection(
+                    sectionDivider
+
+                    shortcutGroup(
                         title: "Actions",
                         rows: [
                             ("⌘T", "New terminal"),
@@ -502,7 +512,9 @@ private struct ShortcutsHelpCard: View {
                         ]
                     )
 
-                    ShortcutSection(
+                    sectionDivider
+
+                    shortcutGroup(
                         title: "PDF Viewer (when open)",
                         rows: [
                             ("⇧⌘{ / ⇧⌘}", "Previous/next PDF tab"),
@@ -511,7 +523,23 @@ private struct ShortcutsHelpCard: View {
                         ]
                     )
 
-                    ShortcutSection(
+                    sectionDivider
+
+                    shortcutGroup(
+                        title: "Graph View",
+                        rows: [
+                            ("⌘G", "Toggle Graph View"),
+                            ("⌘= / ⌘-", "Zoom in / Zoom out"),
+                            ("⌘0", "Zoom to fit all nodes"),
+                            ("⌘L", "Rerun force layout"),
+                            ("Enter", "Focus selected node"),
+                            ("Esc", "Unfocus node (return to graph)")
+                        ]
+                    )
+
+                    sectionDivider
+
+                    shortcutGroup(
                         title: "Sidebar (when focused)",
                         rows: [
                             ("↑ / ↓", "Cycle terminals"),
@@ -522,48 +550,74 @@ private struct ShortcutsHelpCard: View {
 
                     Text("Note: Worker/Reviewer pairing and task-label shortcuts are intentionally deferred until the Agents/Tasks model ships.")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
-                        .padding(.top, 4)
+                        .foregroundColor(.white.opacity(0.4))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
             }
         }
         .background(
-            VisualEffectBackground(material: .hudWindow, blendingMode: .withinWindow)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            ZStack {
+                VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
+                Color.black.opacity(0.45)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
-}
 
-private struct ShortcutSection: View {
-    let title: String
-    let rows: [(keys: String, action: String)]
+    private var headerSection: some View {
+        HStack {
+            Text("Keyboard Shortcuts")
+                .font(.headline)
+                .foregroundColor(.white)
 
-    var body: some View {
+            Spacer()
+
+            Text("Esc")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.55))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var sectionDivider: some View {
+        Divider()
+            .overlay(Color.white.opacity(0.08))
+    }
+
+    private func shortcutGroup(title: String, rows: [(keys: String, action: String)]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.75))
+                .foregroundColor(.white.opacity(0.5))
 
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(alignment: .firstTextBaseline) {
                     Text(row.keys)
                         .font(.system(.callout, design: .monospaced))
-                        .foregroundColor(.white)
+                        .foregroundColor(.white.opacity(0.9))
                         .frame(width: 150, alignment: .leading)
 
                     Text(row.action)
                         .font(.callout)
-                        .foregroundColor(.white.opacity(0.75))
+                        .foregroundColor(.white.opacity(0.6))
 
                     Spacer()
                 }
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 }
+

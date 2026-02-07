@@ -192,6 +192,19 @@ class GhosttyAppManager {
         UInt(bitPattern: surface)
     }
 
+    func shutdown() {
+        guard initialized else { return }
+        if let app {
+            ghostty_app_free(app)
+            self.app = nil
+        }
+        if let config {
+            ghostty_config_free(config)
+            self.config = nil
+        }
+        initialized = false
+    }
+
     deinit {
         if let app = app {
             ghostty_app_free(app)
@@ -275,7 +288,7 @@ class GhosttySurfaceNSView: NSView {
 
         // Surface userdata lets runtime callbacks (read_clipboard_cb etc.) locate
         // the originating NSView and its surface pointer.
-        surfaceConfig.userdata = Unmanaged.passUnretained(self).toOpaque()
+        surfaceConfig.userdata = Unmanaged.passRetained(self).toOpaque()
 
         surfaceConfig.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2.0)
         surfaceConfig.font_size = 0  // Use default from config
@@ -288,7 +301,9 @@ class GhosttySurfaceNSView: NSView {
             let cstr = strdup(workingDirectory)
             guard let cstr else {
                 AppLogger.ghostty.error("working_directory strdup failed")
-                return ghostty_surface_new(app, &surfaceConfig)
+                let result = ghostty_surface_new(app, &surfaceConfig)
+                if result == nil { Unmanaged<GhosttySurfaceNSView>.passUnretained(self).release() }
+                return result
             }
             workingDirectoryCString = cstr
             surfaceConfig.working_directory = UnsafePointer(cstr)
@@ -296,11 +311,14 @@ class GhosttySurfaceNSView: NSView {
             if created == nil {
                 free(cstr)
                 workingDirectoryCString = nil
+                Unmanaged<GhosttySurfaceNSView>.passUnretained(self).release()
             }
             return created
         }
 
-        return ghostty_surface_new(app, &surfaceConfig)
+        let result = ghostty_surface_new(app, &surfaceConfig)
+        if result == nil { Unmanaged<GhosttySurfaceNSView>.passUnretained(self).release() }
+        return result
     }
 
     private func updateSurfaceSize() {
@@ -689,17 +707,42 @@ class GhosttySurfaceNSView: NSView {
         ghostty_surface_mouse_scroll(surface, scrollVelocityX, scrollVelocityY, scrollMods)
     }
 
-    // MARK: - Cleanup
+    func releaseSurface() {
+        stopMomentumTimer()
+        guard let activeSurface = surface else { return }
+        surface = nil
+        GhosttyAppManager.shared.unregisterSurface(activeSurface)
+        ghostty_surface_free(activeSurface)
+        Unmanaged<GhosttySurfaceNSView>.passUnretained(self).release()
+        if let cstr = workingDirectoryCString {
+            free(cstr)
+            workingDirectoryCString = nil
+        }
+    }
 
     deinit {
-        stopMomentumTimer()
-        if let surface = surface {
-            GhosttyAppManager.shared.unregisterSurface(surface)
-            ghostty_surface_free(surface)
-        }
-        if let workingDirectoryCString {
-            free(workingDirectoryCString)
-            self.workingDirectoryCString = nil
+        if let remainingSurface = surface {
+            surface = nil
+            let cstr = workingDirectoryCString
+            workingDirectoryCString = nil
+            if Thread.isMainThread {
+                stopMomentumTimer()
+                GhosttyAppManager.shared.unregisterSurface(remainingSurface)
+                ghostty_surface_free(remainingSurface)
+                if let cstr { free(cstr) }
+            } else {
+                DispatchQueue.main.async { [momentumTimer] in
+                    momentumTimer?.invalidate()
+                    GhosttyAppManager.shared.unregisterSurface(remainingSurface)
+                    ghostty_surface_free(remainingSurface)
+                    if let cstr { free(cstr) }
+                }
+            }
+        } else {
+            stopMomentumTimer()
+            if let cstr = workingDirectoryCString {
+                free(cstr)
+            }
         }
     }
 }
@@ -714,6 +757,10 @@ struct GhosttyTerminalView: NSViewRepresentable {
     func makeNSView(context: Context) -> GhosttySurfaceNSView {
         let view = GhosttySurfaceNSView(workingDirectory: workingDirectory, terminalID: terminalId)
         return view
+    }
+
+    static func dismantleNSView(_ nsView: GhosttySurfaceNSView, coordinator: ()) {
+        nsView.releaseSurface()
     }
 
     func updateNSView(_ nsView: GhosttySurfaceNSView, context: Context) {

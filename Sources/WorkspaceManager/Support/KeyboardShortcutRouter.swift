@@ -9,8 +9,11 @@ struct ShortcutContext {
     let showDiffPanel: Bool
     let showPDFPanel: Bool
     let sidebarFocused: Bool
+    let isRenaming: Bool
     let selectedTerminalExists: Bool
     let isGraphMode: Bool
+    let hasFocusedGraphNode: Bool
+    let hasSelectedGraphNode: Bool
 }
 
 enum ShortcutCommand: Hashable {
@@ -54,6 +57,7 @@ enum ShortcutCommand: Hashable {
     case graphZoomOut
     case graphZoomToFit
     case graphRerunLayout
+    case focusSelectedGraphNode
     case swallow
 }
 
@@ -108,6 +112,10 @@ final class KeyboardShortcutRouter {
             return .passthrough
         }
 
+        if context.sidebarFocused && context.isRenaming && keyCode == 53 {
+            return .consume(.sidebarCancelRename)
+        }
+
         if context.showCommitSheet, keyCode == 53 {
             return .consume(.closeCommitSheet)
         }
@@ -118,6 +126,10 @@ final class KeyboardShortcutRouter {
 
         if context.showPDFPanel, keyCode == 53 {
             return .consume(.closePDFPanel)
+        }
+
+        if context.hasFocusedGraphNode, keyCode == 53 {
+            return .consume(.unfocusGraphNode)
         }
 
         if context.showPDFPanel && cmd && shift {
@@ -132,6 +144,13 @@ final class KeyboardShortcutRouter {
 
         if cmd && isRepeat && !["i", "k", "[", "]"].contains(char) {
             return .consume(.swallow)
+        }
+
+        if context.isGraphMode {
+            if cmd && (char == "=" || char == "+") { return .consume(.graphZoomIn) }
+            if cmd && char == "-" { return .consume(.graphZoomOut) }
+            if cmd && char == "l" { return .consume(.graphRerunLayout) }
+            if keyCode == 36 && context.hasSelectedGraphNode { return .consume(.focusSelectedGraphNode) }
         }
 
         if cmd && char == "b" { return .consume(.toggleSidebar) }
@@ -151,23 +170,14 @@ final class KeyboardShortcutRouter {
         if cmd && char == "g" { return .consume(.toggleViewMode) }
         if cmd && shift && char == "p" { return .consume(.togglePDFPanel) }
         if cmd && char == "p" { return .consume(.toggleCommandPalette) }
-        if cmd && shift && char == "/" { return .consume(.toggleShortcutsHelp) }
+        if cmd && shift && char == "?" { return .consume(.toggleShortcutsHelp) }
         if cmd && char == "w" && context.selectedTerminalExists { return .consume(.closeTerminalPrompt) }
         if cmd && char == "r" && !shift { return .consume(.renameSelected) }
         if cmd && char == "r" && shift { return .consume(.reloadConfig) }
         if cmd && char == "[" { return .consume(.previousWorkspace) }
         if cmd && char == "]" { return .consume(.nextWorkspace) }
 
-        if context.isGraphMode {
-            if cmd && (char == "=" || char == "+") { return .consume(.graphZoomIn) }
-            if cmd && char == "-" { return .consume(.graphZoomOut) }
-            if cmd && char == "l" { return .consume(.graphRerunLayout) }
-        }
-
         if let digit = numberRowKeyCodeToDigit[keyCode], digit >= 1 {
-            if context.isGraphMode && cmd && digit == 0 {
-                return .consume(.graphZoomToFit)
-            }
             if cmd && option {
                 return .consume(.jumpTerminal(index: digit - 1))
             }
