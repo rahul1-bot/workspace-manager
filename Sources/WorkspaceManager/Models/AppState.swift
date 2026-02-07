@@ -840,28 +840,29 @@ final class AppState: ObservableObject {
             guard !Task.isCancelled else { return }
             let orderedEditors = orderEditors(editors, preferred: preferred)
 
-            await MainActor.run {
-                guard selectedWorkspaceId == workspaceID else { return }
-                availableEditors = orderedEditors
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                guard self.selectedWorkspaceId == workspaceID else { return }
+                self.availableEditors = orderedEditors
 
-                gitPanelState.summary = GitChangeSummary(branchName: status.branchName)
-                gitPanelState.errorText = nil
-                gitPanelState.isLoading = false
-                gitPanelState.patchText = ""
+                self.gitPanelState.summary = GitChangeSummary(branchName: status.branchName)
+                self.gitPanelState.errorText = nil
+                self.gitPanelState.isLoading = false
+                self.gitPanelState.patchText = ""
                 if status.isRepository {
-                    gitPanelState.disabledReason = nil
-                    commitSheetState.disabledReason = nil
-                    if gitPanelState.isPresented {
-                        loadDiffPanel()
+                    self.gitPanelState.disabledReason = nil
+                    self.commitSheetState.disabledReason = nil
+                    if self.gitPanelState.isPresented {
+                        self.loadDiffPanel()
                     }
                 } else {
-                    gitPanelState.disabledReason = .notGitRepository
-                    commitSheetState.disabledReason = .notGitRepository
-                    gitPanelState.isPresented = false
-                    diffLoadTask?.cancel()
-                    commitSheetState.isPresented = false
+                    self.gitPanelState.disabledReason = .notGitRepository
+                    self.commitSheetState.disabledReason = .notGitRepository
+                    self.gitPanelState.isPresented = false
+                    self.diffLoadTask?.cancel()
+                    self.commitSheetState.isPresented = false
                 }
-                commitSheetState.summary = GitChangeSummary(branchName: status.branchName)
+                self.commitSheetState.summary = GitChangeSummary(branchName: status.branchName)
             }
         }
     }
@@ -974,15 +975,17 @@ final class AppState: ObservableObject {
             do {
                 let snapshot = try await gitRepositoryService.diff(at: actionTargetURL, mode: .uncommitted)
                 guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    guard selectedWorkspaceId == workspaceID else { return }
-                    commitSheetState.summary = snapshot.summary
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    guard self.selectedWorkspaceId == workspaceID else { return }
+                    self.commitSheetState.summary = snapshot.summary
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    guard selectedWorkspaceId == workspaceID else { return }
-                    commitSheetState.summary = GitChangeSummary(branchName: fallbackBranchName)
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    guard self.selectedWorkspaceId == workspaceID else { return }
+                    self.commitSheetState.summary = GitChangeSummary(branchName: fallbackBranchName)
                 }
             }
         }

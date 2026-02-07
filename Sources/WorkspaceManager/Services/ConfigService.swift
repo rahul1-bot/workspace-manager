@@ -308,7 +308,8 @@ final class ConfigService {
 
     func updateWorkspace(id: String, newName: String, newPath: String) {
         if let index = config.workspaces.firstIndex(where: { $0.id == id }) {
-            config.workspaces[index] = WorkspaceConfig(id: id, name: newName, path: newPath)
+            config.workspaces[index].name = newName
+            config.workspaces[index].path = newPath
             saveConfig()
         }
     }
