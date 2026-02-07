@@ -55,10 +55,12 @@ struct WorkspaceConfig: Codable, Sendable {
     var id: String
     var name: String
     var path: String
+    var terminals: [String]
 
-    init(id: String = UUID().uuidString, name: String, path: String) {
+    init(id: String = UUID().uuidString, name: String, path: String, terminals: [String] = []) {
         self.id = id
         self.name = name
         self.path = path
+        self.terminals = terminals
     }
 }

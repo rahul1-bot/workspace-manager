@@ -92,8 +92,14 @@ final class AppState: ObservableObject {
     }
 
     private func bootstrapDefaultTerminals() {
+        let configWorkspaces = configService.config.workspaces
         for index in workspaces.indices where workspaces[index].terminals.isEmpty {
-            for name in defaultTerminalNames {
+            // Use terminal names from config if available, otherwise fall back to defaults
+            let configTerminals = configWorkspaces.first(where: {
+                UUID(uuidString: $0.id) == workspaces[index].id
+            })?.terminals ?? []
+            let names = configTerminals.isEmpty ? defaultTerminalNames : configTerminals
+            for name in names {
                 _ = workspaces[index].addTerminal(name: name)
             }
         }
@@ -159,8 +165,9 @@ final class AppState: ObservableObject {
             } else {
                 // Add new workspace from config
                 var workspace = Workspace(id: stableId, name: wsConfig.name, path: expandedPath)
-                // Default terminal pair for new workspaces added via config reload.
-                for name in defaultTerminalNames {
+                // Use terminal names from config, fall back to defaults if empty.
+                let names = wsConfig.terminals.isEmpty ? defaultTerminalNames : wsConfig.terminals
+                for name in names {
                     _ = workspace.addTerminal(name: name)
                 }
                 workspaces.append(workspace)
@@ -274,6 +281,7 @@ final class AppState: ObservableObject {
         for wsIndex in workspaces.indices {
             if let tIndex = workspaces[wsIndex].terminals.firstIndex(where: { $0.id == id }) {
                 workspaces[wsIndex].terminals[tIndex].name = trimmedName
+                persistTerminalNames(for: workspaces[wsIndex].id)
                 return true
             }
         }
@@ -305,7 +313,16 @@ final class AppState: ObservableObject {
         configService.setFocusMode(focusMode)
     }
 
-    // MARK: - Terminal Operations (Runtime Only)
+    // MARK: - Terminal Name Persistence
+
+    /// Persist the current terminal names for a workspace back to config.toml.
+    private func persistTerminalNames(for workspaceId: UUID) {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceId }) else { return }
+        let names = workspace.terminals.map(\.name)
+        configService.syncTerminalNames(workspaceId: workspaceId.uuidString, terminalNames: names)
+    }
+
+    // MARK: - Terminal Operations
 
     /// Create a new terminal, bootstrapping a default workspace if the user has none yet.
     func createTerminalViaShortcut() {
@@ -330,6 +347,7 @@ final class AppState: ObservableObject {
 
         let terminalCount = workspaces[index].terminals.count + 1
         let terminal = workspaces[index].addTerminal(name: "Terminal \(terminalCount)")
+        persistTerminalNames(for: workspaceId)
         selectTerminal(id: terminal.id, in: workspaceId)
     }
 
@@ -337,6 +355,7 @@ final class AppState: ObservableObject {
         guard let index = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
 
         let terminal = workspaces[index].addTerminal(name: name)
+        persistTerminalNames(for: workspaceId)
         selectTerminal(id: terminal.id, in: workspaceId)
     }
 
@@ -345,6 +364,7 @@ final class AppState: ObservableObject {
 
         workspaces[index].removeTerminal(id: id)
         terminalRuntimePaths.removeValue(forKey: id)
+        persistTerminalNames(for: workspaceId)
         if selectedTerminalId == id {
             selectedTerminalId = nil
             refreshGitUIState()
@@ -361,6 +381,7 @@ final class AppState: ObservableObject {
 
         workspaces[wsIndex].removeTerminal(id: tId)
         terminalRuntimePaths.removeValue(forKey: tId)
+        persistTerminalNames(for: wsId)
 
         if workspaces[wsIndex].terminals.isEmpty {
             selectedTerminalId = nil

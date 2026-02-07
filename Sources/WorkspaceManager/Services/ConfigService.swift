@@ -237,12 +237,20 @@ final class ConfigService {
                 of: FileManager.default.homeDirectoryForCurrentUser.path,
                 with: "~"
             )
+            let terminalsToml: String
+            if workspace.terminals.isEmpty {
+                terminalsToml = ""
+            } else {
+                let items = workspace.terminals.map { escapeTomlString($0) }.joined(separator: ", ")
+                terminalsToml = "\nterminals = [\(items)]"
+            }
+
             toml += """
 
             [[workspaces]]
             id = \(escapeTomlString(workspace.id))
             name = \(escapeTomlString(workspace.name))
-            path = \(escapeTomlString(displayPath))
+            path = \(escapeTomlString(displayPath))\(terminalsToml)
             """
         }
 
@@ -303,6 +311,13 @@ final class ConfigService {
             config.workspaces[index] = WorkspaceConfig(id: id, name: newName, path: newPath)
             saveConfig()
         }
+    }
+
+    /// Sync terminal names from runtime workspace state back to config and save.
+    func syncTerminalNames(workspaceId: String, terminalNames: [String]) {
+        guard let index = config.workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+        config.workspaces[index].terminals = terminalNames
+        saveConfig()
     }
 
     // MARK: - Appearance Mutations
@@ -380,9 +395,19 @@ final class ConfigService {
             }
             seenIds.insert(id)
 
+            // Parse optional terminal names array
+            var terminalNames: [String] = []
+            if let terminalsArray = wsTable["terminals"] as? TOMLArray {
+                for item in terminalsArray {
+                    if let name = item as? String {
+                        terminalNames.append(name)
+                    }
+                }
+            }
+
             do {
                 try validateWorkspace(name: name, path: expandedPath, id: id)
-                workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath))
+                workspaces.append(WorkspaceConfig(id: id, name: name, path: expandedPath, terminals: terminalNames))
             } catch {
                 needsSave = true
                 AppLogger.config.error("workspace entry dropped during validation: \(String(describing: error), privacy: .public)")
