@@ -18,6 +18,7 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var sidebarFocused = false
     @State private var eventMonitor: Any?
+    @State private var scrollMonitor: Any?
     @State private var showCommandPalette = false
     @State private var showShortcutsHelp = false
     @State private var showCloseTerminalConfirm = false
@@ -91,11 +92,12 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             setupKeyboardMonitor()
-            appState.refreshGitUIState()
+            setupScrollWheelMonitor()
             appState.loadGraphState()
         }
         .onDisappear {
             removeKeyboardMonitor()
+            removeScrollWheelMonitor()
         }
         .onReceive(NotificationCenter.default.publisher(for: .wmToggleCommandPalette)) { _ in
             showCommandPalette.toggle()
@@ -217,8 +219,11 @@ struct ContentView: View {
                 showDiffPanel: appState.gitPanelState.isPresented,
                 showPDFPanel: appState.pdfPanelState.isPresented,
                 sidebarFocused: sidebarFocused,
+                isRenaming: appState.renamingWorkspaceId != nil || appState.renamingTerminalId != nil,
                 selectedTerminalExists: appState.selectedTerminalId != nil,
-                isGraphMode: appState.currentViewMode == .graph
+                isGraphMode: appState.currentViewMode == .graph,
+                hasFocusedGraphNode: appState.focusedGraphNodeId != nil,
+                hasSelectedGraphNode: appState.selectedGraphNodeId != nil
             )
 
             switch shortcutRouter.route(event: event, context: context) {
@@ -372,6 +377,8 @@ struct ContentView: View {
             NotificationCenter.default.post(name: .wmGraphZoomToFit, object: nil)
         case .graphRerunLayout:
             appState.rerunForceLayout()
+        case .focusSelectedGraphNode:
+            appState.focusSelectedGraphNode()
         case .swallow:
             break
         }
@@ -389,6 +396,34 @@ struct ContentView: View {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
+        }
+    }
+
+    private func setupScrollWheelMonitor() {
+        guard scrollMonitor == nil else { return }
+
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [self] event in
+            guard appState.currentViewMode == .graph else { return event }
+            guard event.modifierFlags.contains(.command) else { return event }
+
+            let scrollDelta: CGFloat = event.scrollingDeltaY
+            guard abs(scrollDelta) > 0.1 else { return event }
+
+            let zoomFactor: Double = 1.0 + scrollDelta * 0.01
+            let currentScale: Double = appState.graphViewport.scale
+            let newScale: Double = max(0.1, min(currentScale * zoomFactor, 5.0))
+            appState.graphViewport = ViewportTransform(
+                translation: appState.graphViewport.translation,
+                scale: newScale
+            )
+            return nil
+        }
+    }
+
+    private func removeScrollWheelMonitor() {
+        if let monitor = scrollMonitor {
+            NSEvent.removeMonitor(monitor)
+            scrollMonitor = nil
         }
     }
 

@@ -2,19 +2,16 @@ import SwiftUI
 
 struct GraphCanvasView: View {
     @EnvironmentObject var appState: AppState
-    @State private var viewportTransform: ViewportTransform = .identity
     @State private var draggedNodeId: UUID?
-    @State private var dragOffset: CGSize = .zero
-    @State private var selectedNodeId: UUID?
     @State private var panStartTranslation: SIMD2<Double>?
     @State private var draggedClusterWorkspaceId: UUID?
     @State private var clusterDragStartPositions: [UUID: CGPoint] = [:]
+    @State private var magnifyBaseScale: Double?
 
     private let nodeWidth: CGFloat = 140
     private let nodeHeight: CGFloat = 48
     private let nodeCornerRadius: CGFloat = 8
     private let gridSpacing: CGFloat = 40
-    private let hitTestRadius: CGFloat = 80
     private let panSensitivity: Double = 0.35
     private let zoomSensitivity: Double = 0.15
 
@@ -41,16 +38,16 @@ struct GraphCanvasView: View {
                 centerViewportOnContent(canvasSize: geometry.size)
             }
             .onReceive(NotificationCenter.default.publisher(for: .wmGraphZoomIn)) { _ in
-                let newScale: Double = min(viewportTransform.scale * 1.25, 5.0)
-                viewportTransform = ViewportTransform(
-                    translation: viewportTransform.translation,
+                let newScale: Double = min(appState.graphViewport.scale * 1.25, 5.0)
+                appState.graphViewport = ViewportTransform(
+                    translation: appState.graphViewport.translation,
                     scale: newScale
                 )
             }
             .onReceive(NotificationCenter.default.publisher(for: .wmGraphZoomOut)) { _ in
-                let newScale: Double = max(viewportTransform.scale / 1.25, 0.1)
-                viewportTransform = ViewportTransform(
-                    translation: viewportTransform.translation,
+                let newScale: Double = max(appState.graphViewport.scale / 1.25, 0.1)
+                appState.graphViewport = ViewportTransform(
+                    translation: appState.graphViewport.translation,
                     scale: newScale
                 )
             }
@@ -63,14 +60,14 @@ struct GraphCanvasView: View {
     private func centerViewportOnContent(canvasSize: CGSize) {
         let nodes: [GraphNode] = appState.graphDocument.nodes
         guard !nodes.isEmpty else { return }
-        guard viewportTransform.translation == .zero else { return }
+        guard appState.graphViewport.translation == .zero else { return }
 
         let avgX: Double = nodes.map(\.positionX).reduce(0, +) / Double(nodes.count)
         let avgY: Double = nodes.map(\.positionY).reduce(0, +) / Double(nodes.count)
 
-        viewportTransform.translation = SIMD2<Double>(
-            canvasSize.width / 2 - avgX * viewportTransform.scale,
-            canvasSize.height / 2 - avgY * viewportTransform.scale
+        appState.graphViewport.translation = SIMD2<Double>(
+            canvasSize.width / 2 - avgX * appState.graphViewport.scale,
+            canvasSize.height / 2 - avgY * appState.graphViewport.scale
         )
     }
 
@@ -102,7 +99,7 @@ struct GraphCanvasView: View {
         let centerX: Double = (minX + maxX) / 2
         let centerY: Double = (minY + maxY) / 2
 
-        viewportTransform = ViewportTransform(
+        appState.graphViewport = ViewportTransform(
             translation: SIMD2<Double>(
                 canvasSize.width / 2 - centerX * fitScale,
                 canvasSize.height / 2 - centerY * fitScale
@@ -167,8 +164,8 @@ struct GraphCanvasView: View {
                 context.fill(Ellipse().path(in: dotRect), with: .color(.white.opacity(0.7)))
             }
 
-            let vpTopLeft: CGPoint = viewportTransform.invert(.zero)
-            let vpBottomRight: CGPoint = viewportTransform.invert(
+            let vpTopLeft: CGPoint = appState.graphViewport.invert(.zero)
+            let vpBottomRight: CGPoint = appState.graphViewport.invert(
                 CGPoint(x: canvasSize.width, y: canvasSize.height)
             )
             let vx: CGFloat = (vpTopLeft.x - bbox.min.x + padding) * mapScale + offsetX
@@ -200,11 +197,11 @@ struct GraphCanvasView: View {
 
     private func drawGrid(context: inout GraphicsContext, size: CGSize) {
         let dotRadius: CGFloat = 1.5
-        let scaledSpacing: CGFloat = gridSpacing * viewportTransform.scale
+        let scaledSpacing: CGFloat = gridSpacing * appState.graphViewport.scale
         guard scaledSpacing > 8 else { return }
 
-        let offsetX: CGFloat = viewportTransform.translation.x.truncatingRemainder(dividingBy: scaledSpacing)
-        let offsetY: CGFloat = viewportTransform.translation.y.truncatingRemainder(dividingBy: scaledSpacing)
+        let offsetX: CGFloat = appState.graphViewport.translation.x.truncatingRemainder(dividingBy: scaledSpacing)
+        let offsetY: CGFloat = appState.graphViewport.translation.y.truncatingRemainder(dividingBy: scaledSpacing)
 
         var gridContext: GraphicsContext = context
         gridContext.opacity = 0.15
@@ -244,7 +241,7 @@ struct GraphCanvasView: View {
             var maxY: CGFloat = -.greatestFiniteMagnitude
 
             for node in clusterNodes {
-                let screenPos: CGPoint = viewportTransform.apply(node.position)
+                let screenPos: CGPoint = appState.graphViewport.apply(node.position)
                 minX = min(minX, screenPos.x - nodeWidth / 2 - padding)
                 minY = min(minY, screenPos.y - nodeHeight / 2 - padding - labelTopPadding)
                 maxX = max(maxX, screenPos.x + nodeWidth / 2 + padding)
@@ -285,8 +282,8 @@ struct GraphCanvasView: View {
             guard let sourceNode = nodeMap[edge.sourceNodeId],
                   let targetNode = nodeMap[edge.targetNodeId] else { continue }
 
-            let sourceScreen: CGPoint = viewportTransform.apply(sourceNode.position)
-            let targetScreen: CGPoint = viewportTransform.apply(targetNode.position)
+            let sourceScreen: CGPoint = appState.graphViewport.apply(sourceNode.position)
+            let targetScreen: CGPoint = appState.graphViewport.apply(targetNode.position)
 
             let edgeColor: Color = edgeColor(for: edge.edgeType)
             let lineWidth: CGFloat = edge.edgeType == .containment ? 3.0 : 3.5
@@ -310,8 +307,8 @@ struct GraphCanvasView: View {
 
     private func drawNodes(context: inout GraphicsContext) {
         for node in appState.graphDocument.nodes {
-            let screenPos: CGPoint = viewportTransform.apply(node.position)
-            let isSelected: Bool = selectedNodeId == node.id
+            let screenPos: CGPoint = appState.graphViewport.apply(node.position)
+            let isSelected: Bool = appState.selectedGraphNodeId == node.id
             let isDragging: Bool = draggedNodeId == node.id
 
             let nodeRect: CGRect = CGRect(
@@ -359,7 +356,7 @@ struct GraphCanvasView: View {
 
     private func nodeOverlays(size: CGSize) -> some View {
         ForEach(appState.graphDocument.nodes) { node in
-            let screenPos: CGPoint = viewportTransform.apply(node.position)
+            let screenPos: CGPoint = appState.graphViewport.apply(node.position)
             Color.clear
                 .frame(width: nodeWidth, height: nodeHeight)
                 .contentShape(Rectangle())
@@ -383,7 +380,7 @@ struct GraphCanvasView: View {
         DragGesture(minimumDistance: 5)
             .onChanged { value in
                 if panStartTranslation == nil {
-                    let canvasPoint: CGPoint = viewportTransform.invert(value.startLocation)
+                    let canvasPoint: CGPoint = appState.graphViewport.invert(value.startLocation)
                     if let workspaceId = hitTestCluster(at: canvasPoint) {
                         appState.stopForceLayout()
                         draggedClusterWorkspaceId = workspaceId
@@ -395,12 +392,12 @@ struct GraphCanvasView: View {
                             uniquingKeysWith: { first, _ in first }
                         )
                     }
-                    panStartTranslation = viewportTransform.translation
+                    panStartTranslation = appState.graphViewport.translation
                 }
 
                 if let workspaceId = draggedClusterWorkspaceId {
-                    let deltaX: Double = value.translation.width / viewportTransform.scale
-                    let deltaY: Double = value.translation.height / viewportTransform.scale
+                    let deltaX: Double = value.translation.width / appState.graphViewport.scale
+                    let deltaY: Double = value.translation.height / appState.graphViewport.scale
                     let clusterNodes: [GraphNode] = appState.graphDocument.nodes.filter {
                         $0.workspaceId == workspaceId
                     }
@@ -414,7 +411,7 @@ struct GraphCanvasView: View {
                     }
                 } else {
                     guard let start = panStartTranslation else { return }
-                    viewportTransform.translation = SIMD2<Double>(
+                    appState.graphViewport.translation = SIMD2<Double>(
                         start.x + value.translation.width * panSensitivity,
                         start.y + value.translation.height * panSensitivity
                     )
@@ -439,12 +436,17 @@ struct GraphCanvasView: View {
     private func zoomGesture(center: CGSize) -> some Gesture {
         MagnifyGesture()
             .onChanged { value in
+                let baseScale: Double = magnifyBaseScale ?? appState.graphViewport.scale
+                if magnifyBaseScale == nil { magnifyBaseScale = baseScale }
                 let dampened: Double = 1.0 + (value.magnification - 1.0) * zoomSensitivity
-                let newScale: Double = max(0.1, min(viewportTransform.scale * dampened, 5.0))
-                viewportTransform = ViewportTransform(
-                    translation: viewportTransform.translation,
+                let newScale: Double = max(0.1, min(baseScale * dampened, 5.0))
+                appState.graphViewport = ViewportTransform(
+                    translation: appState.graphViewport.translation,
                     scale: newScale
                 )
+            }
+            .onEnded { _ in
+                magnifyBaseScale = nil
             }
     }
 
@@ -455,7 +457,7 @@ struct GraphCanvasView: View {
                     appState.stopForceLayout()
                 }
                 draggedNodeId = nodeId
-                let canvasPoint: CGPoint = viewportTransform.invert(value.location)
+                let canvasPoint: CGPoint = appState.graphViewport.invert(value.location)
                 appState.updateGraphNodePosition(nodeId, to: canvasPoint)
             }
             .onEnded { _ in
@@ -466,19 +468,19 @@ struct GraphCanvasView: View {
     }
 
     private func handleSingleTap(at location: CGPoint) {
-        let canvasPoint: CGPoint = viewportTransform.invert(location)
-        selectedNodeId = hitTestNode(at: canvasPoint)
+        let canvasPoint: CGPoint = appState.graphViewport.invert(location)
+        appState.selectedGraphNodeId = hitTestNode(at: canvasPoint)
     }
 
     private func handleDoubleTap(at location: CGPoint) {
-        let canvasPoint: CGPoint = viewportTransform.invert(location)
+        let canvasPoint: CGPoint = appState.graphViewport.invert(location)
         guard let nodeId = hitTestNode(at: canvasPoint) else { return }
         appState.focusGraphNode(nodeId)
     }
 
     private func hitTestNode(at canvasPoint: CGPoint) -> UUID? {
-        let halfWidth: CGFloat = nodeWidth / (2 * viewportTransform.scale)
-        let halfHeight: CGFloat = nodeHeight / (2 * viewportTransform.scale)
+        let halfWidth: CGFloat = nodeWidth / (2 * appState.graphViewport.scale)
+        let halfHeight: CGFloat = nodeHeight / (2 * appState.graphViewport.scale)
 
         for node in appState.graphDocument.nodes.reversed() {
             let dx: CGFloat = abs(canvasPoint.x - node.position.x)
@@ -493,8 +495,11 @@ struct GraphCanvasView: View {
     private func hitTestCluster(at canvasPoint: CGPoint) -> UUID? {
         guard hitTestNode(at: canvasPoint) == nil else { return nil }
 
-        let padding: CGFloat = 30
-        let labelTopPadding: CGFloat = 24
+        let scale: CGFloat = appState.graphViewport.scale
+        let scaledPadding: CGFloat = 30 / scale
+        let scaledLabelTopPadding: CGFloat = 24 / scale
+        let scaledHalfWidth: CGFloat = nodeWidth / (2 * scale)
+        let scaledHalfHeight: CGFloat = nodeHeight / (2 * scale)
         let workspaceIds: Set<UUID> = Set(appState.graphDocument.nodes.map(\.workspaceId))
 
         for workspaceId in workspaceIds {
@@ -509,10 +514,10 @@ struct GraphCanvasView: View {
             var maxY: CGFloat = -.greatestFiniteMagnitude
 
             for node in clusterNodes {
-                minX = min(minX, node.position.x - nodeWidth / 2 - padding)
-                minY = min(minY, node.position.y - nodeHeight / 2 - padding - labelTopPadding)
-                maxX = max(maxX, node.position.x + nodeWidth / 2 + padding)
-                maxY = max(maxY, node.position.y + nodeHeight / 2 + padding)
+                minX = min(minX, node.position.x - scaledHalfWidth - scaledPadding)
+                minY = min(minY, node.position.y - scaledHalfHeight - scaledPadding - scaledLabelTopPadding)
+                maxX = max(maxX, node.position.x + scaledHalfWidth + scaledPadding)
+                maxY = max(maxY, node.position.y + scaledHalfHeight + scaledPadding)
             }
 
             if canvasPoint.x >= minX && canvasPoint.x <= maxX

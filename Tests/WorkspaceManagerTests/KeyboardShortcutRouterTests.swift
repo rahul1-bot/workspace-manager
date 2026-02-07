@@ -135,6 +135,209 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertPassthrough(route)
     }
 
+    func testToggleViewModeWorksOutsideGraphMode() {
+        let route = router.route(
+            keyCode: 5,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "g",
+            isRepeat: false,
+            context: makeContext(isGraphMode: false)
+        )
+        assertConsume(route, expected: .toggleViewMode)
+    }
+
+    func testToggleViewModeWorksInsideGraphMode() {
+        let route = router.route(
+            keyCode: 5,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "g",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true)
+        )
+        assertConsume(route, expected: .toggleViewMode)
+    }
+
+    func testGraphModeZoomIn() {
+        let route = router.route(
+            keyCode: 24,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "=",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true)
+        )
+        assertConsume(route, expected: .graphZoomIn)
+    }
+
+    func testGraphModeZoomInWithPlusVariant() {
+        let route = router.route(
+            keyCode: 24,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "+",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true)
+        )
+        assertConsume(route, expected: .graphZoomIn)
+    }
+
+    func testGraphModeZoomOut() {
+        let route = router.route(
+            keyCode: 27,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "-",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true)
+        )
+        assertConsume(route, expected: .graphZoomOut)
+    }
+
+    func testGraphModeZoomToFit() {
+        let route = router.route(
+            keyCode: 29,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "0",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true)
+        )
+        assertConsume(route, expected: .graphZoomToFit)
+    }
+
+    func testGraphModeRerunLayout() {
+        let route = router.route(
+            keyCode: 37,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "l",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true)
+        )
+        assertConsume(route, expected: .graphRerunLayout)
+    }
+
+    func testGraphModeEnterFocusesSelectedNode() {
+        let route = router.route(
+            keyCode: 36,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true, hasSelectedGraphNode: true)
+        )
+        assertConsume(route, expected: .focusSelectedGraphNode)
+    }
+
+    func testGraphModeEnterWithoutSelectionPassesThrough() {
+        let route = router.route(
+            keyCode: 36,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true, hasSelectedGraphNode: false)
+        )
+        assertPassthrough(route)
+    }
+
+    func testGraphModeEscapeUnfocusesNode() {
+        let route = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true, hasFocusedGraphNode: true)
+        )
+        assertConsume(route, expected: .unfocusGraphNode)
+    }
+
+    func testGraphModeCmdLOverridesFocusTerminal() {
+        let normalRoute = router.route(
+            keyCode: 37,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "l",
+            isRepeat: false,
+            context: makeContext(isGraphMode: false)
+        )
+        assertConsume(normalRoute, expected: .focusTerminal)
+
+        let graphRoute = router.route(
+            keyCode: 37,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "l",
+            isRepeat: false,
+            context: makeContext(isGraphMode: true)
+        )
+        assertConsume(graphRoute, expected: .graphRerunLayout)
+    }
+
+    func testGraphZoomShortcutsIgnoredOutsideGraphMode() {
+        let zoomInRoute = router.route(
+            keyCode: 24,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "=",
+            isRepeat: false,
+            context: makeContext(isGraphMode: false)
+        )
+        assertPassthrough(zoomInRoute)
+
+        let zoomOutRoute = router.route(
+            keyCode: 27,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "-",
+            isRepeat: false,
+            context: makeContext(isGraphMode: false)
+        )
+        assertPassthrough(zoomOutRoute)
+
+        let zoomToFitRoute = router.route(
+            keyCode: 29,
+            modifierFlags: [.command],
+            charactersIgnoringModifiers: "0",
+            isRepeat: false,
+            context: makeContext(isGraphMode: false)
+        )
+        assertPassthrough(zoomToFitRoute)
+    }
+
+    func testEscapePriorityPDFPanelOverGraphNode() {
+        let route = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: makeContext(showPDFPanel: true, isGraphMode: true, hasFocusedGraphNode: true)
+        )
+        assertConsume(route, expected: .closePDFPanel)
+    }
+
+    func testShiftCmdSlashOpensShortcutsHelp() {
+        let route = router.route(
+            keyCode: 44,
+            modifierFlags: [.command, .shift],
+            charactersIgnoringModifiers: "?",
+            isRepeat: false,
+            context: makeContext()
+        )
+        assertConsume(route, expected: .toggleShortcutsHelp)
+    }
+
+    func testEscapeUnfocusGraphNodeOverSidebar() {
+        let route = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: makeContext(sidebarFocused: true, isGraphMode: true, hasFocusedGraphNode: true)
+        )
+        assertConsume(route, expected: .unfocusGraphNode)
+    }
+
+    func testEscapeRenamePriorityOverDiffPanel() {
+        let route = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: makeContext(showDiffPanel: true, sidebarFocused: true, isRenaming: true)
+        )
+        assertConsume(route, expected: .sidebarCancelRename)
+    }
+
     private func makeContext(
         appIsActive: Bool = true,
         showCommandPalette: Bool = false,
@@ -143,8 +346,11 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         showDiffPanel: Bool = false,
         showPDFPanel: Bool = false,
         sidebarFocused: Bool = false,
+        isRenaming: Bool = false,
         selectedTerminalExists: Bool = true,
-        isGraphMode: Bool = false
+        isGraphMode: Bool = false,
+        hasFocusedGraphNode: Bool = false,
+        hasSelectedGraphNode: Bool = false
     ) -> ShortcutContext {
         ShortcutContext(
             appIsActive: appIsActive,
@@ -154,8 +360,11 @@ final class KeyboardShortcutRouterTests: XCTestCase {
             showDiffPanel: showDiffPanel,
             showPDFPanel: showPDFPanel,
             sidebarFocused: sidebarFocused,
+            isRenaming: isRenaming,
             selectedTerminalExists: selectedTerminalExists,
-            isGraphMode: isGraphMode
+            isGraphMode: isGraphMode,
+            hasFocusedGraphNode: hasFocusedGraphNode,
+            hasSelectedGraphNode: hasSelectedGraphNode
         )
     }
 

@@ -100,16 +100,6 @@ struct PDFPanelView: View {
             Spacer()
 
             pageIndicator
-
-            Spacer()
-                .frame(width: 12)
-
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.85))
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
