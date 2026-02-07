@@ -227,3 +227,26 @@
         1. Used Lyra implementation as comparative reference only. Adopted principles (fast path, explicit state ownership, minimal critical path) without transplanting code verbatim. Wrote local problem framing doc to lock assumptions and acceptance criteria for iterative work.
     3. Implication:
         1. We preserve codebase coherence while still learning from parallel branch experiments. This reduces architectural drift and prevents copy-paste debt.
+
+---
+
+| Memory | Branch Context Should Be Workspace-Scoped and Rendered at Terminal Touchpoints | Date: 07 February 2026 | Time: 06:12 PM | Name: Ghost |
+
+    1. Observation:
+        1. The branch metadata service already resolves repository branch and dirty status from workspace paths, but no UI consumed this state. Operators therefore could not see branch context while scanning terminal rows, despite this being a core need for multi-branch sessions.
+    2. Decision:
+        1. Treat branch context as workspace-scoped metadata and surface it in the two highest-frequency terminal touchpoints: sidebar terminal rows and active terminal header.
+        2. Render branch as compact `<branch-name>` text with `*` dirty marker so signal remains high without widening list layout.
+    3. Implication:
+        1. Branch awareness is now immediate during terminal selection and active work, reducing branch confusion in long-running orchestration sessions.
+
+---
+
+| Memory | PDF Flow Needs Visible Action-Bar Entry, Not Shortcut-Only Discovery | Date: 07 February 2026 | Time: 06:12 PM | Name: Ghost |
+
+    1. Observation:
+        1. PDF panel capability existed behind shortcut and command palette routes, but not as an explicit action-bar control. For paper-reading workflows this increased interaction friction and made discoverability dependent on memorized commands.
+    2. Decision:
+        1. Added a dedicated `Documents` pill to WorkspaceActionBar and routed it to the existing `togglePDFPanel()` flow instead of introducing new panel state paths.
+    3. Implication:
+        1. Document access is now visible and one-click from the primary terminal command strip, aligning with the app mission for faster context switching across code and papers.

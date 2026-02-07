@@ -58,6 +58,14 @@ struct WorkspaceActionBar: View {
             .disabled(diffDisabled)
             .help(appState.gitPanelState.disabledReason?.title ?? "Toggle diff panel")
 
+            Button {
+                appState.togglePDFPanel()
+            } label: {
+                WorkspaceActionPill(icon: "doc.text.image", title: "Documents", showsChevron: false, isDisabled: false)
+            }
+            .buttonStyle(.plain)
+            .help("Open PDF documents")
+
             Menu {
                 Button("Refresh worktrees") {
                     appState.refreshWorktreeCatalogForSelection()

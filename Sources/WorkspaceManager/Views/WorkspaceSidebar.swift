@@ -47,6 +47,7 @@ struct WorkspaceSidebar: View {
                         WorkspaceRow(
                             workspace: workspace,
                             isSelected: appState.selectedWorkspaceId == workspace.id,
+                            workspaceBranchMetadata: appState.workspaceBranchMetadataByWorkspaceID[workspace.id],
                             renamingWorkspaceId: appState.renamingWorkspaceId,
                             renamingTerminalId: appState.renamingTerminalId,
                             renameText: $renameText,
@@ -252,6 +253,7 @@ struct WorkspaceSidebar: View {
 struct WorkspaceRow: View {
     let workspace: Workspace
     let isSelected: Bool
+    let workspaceBranchMetadata: WorkspaceBranchMetadata?
     let renamingWorkspaceId: UUID?
     let renamingTerminalId: UUID?
     @Binding var renameText: String
@@ -332,6 +334,7 @@ struct WorkspaceRow: View {
                         terminal: terminal,
                         isSelected: selectedTerminalId == terminal.id,
                         isRenaming: renamingTerminalId == terminal.id,
+                        workspaceBranchMetadata: workspaceBranchMetadata,
                         renameText: $renameText,
                         renameError: $renameError,
                         renameFocus: renameFocus,
@@ -371,6 +374,7 @@ struct TerminalRow: View {
     let terminal: Terminal
     let isSelected: Bool
     let isRenaming: Bool
+    let workspaceBranchMetadata: WorkspaceBranchMetadata?
     @Binding var renameText: String
     @Binding var renameError: String?
     let renameFocus: FocusState<RenameField?>.Binding
@@ -403,6 +407,13 @@ struct TerminalRow: View {
                     Text(terminal.name)
                         .font(.system(.callout, design: .default))
                         .lineLimit(1)
+
+                    if let workspaceBranchMetadata {
+                        Text(workspaceBranchMetadata.branchName + (workspaceBranchMetadata.isDirty ? "*" : ""))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(workspaceBranchMetadata.isDirty ? .orange : .white.opacity(0.65))
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer()

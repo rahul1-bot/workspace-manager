@@ -28,6 +28,7 @@ final class AppState: ObservableObject {
     @Published var isWorktreeLoading: Bool = false
     @Published var showCreateWorktreeSheet: Bool = false
     @Published var worktreeAutoManagedWorkspaceIDs: Set<UUID> = []
+    @Published var workspaceBranchMetadataByWorkspaceID: [UUID: WorkspaceBranchMetadata] = [:]
 
     private let configService: ConfigService
     private let graphStateService: GraphStateService = GraphStateService()
@@ -37,6 +38,7 @@ final class AppState: ObservableObject {
     private let prLinkBuilder: any PRLinkBuilding
     private let urlOpener: any URLOpening
     private let worktreeService: any WorktreeServicing
+    private let workspaceBranchMetadataService: WorkspaceBranchMetadataService = WorkspaceBranchMetadataService()
     let worktreeStateService: WorktreeStateService = WorktreeStateService()
     private let fallbackTerminalName = "Terminal"
     private var diffLoadTask: Task<Void, Never>?
@@ -48,6 +50,7 @@ final class AppState: ObservableObject {
     private var runtimePathObserver: NSObjectProtocol?
     private var terminalRuntimePaths: [UUID: String] = [:]
     private var worktreeCatalogTask: Task<Void, Never>?
+    private var workspaceBranchMetadataTask: Task<Void, Never>?
 
     init(
         configService: ConfigService = ConfigService.shared,
@@ -83,6 +86,7 @@ final class AppState: ObservableObject {
             guard let self else { return }
             await self.refreshWorktreeAutoManagedWorkspaceIDs()
         }
+        refreshWorkspaceBranchMetadata()
     }
 
     deinit {
@@ -90,6 +94,7 @@ final class AppState: ObservableObject {
             NotificationCenter.default.removeObserver(runtimePathObserver)
         }
         worktreeCatalogTask?.cancel()
+        workspaceBranchMetadataTask?.cancel()
     }
 
     // MARK: - Config-Driven Loading
@@ -160,6 +165,7 @@ final class AppState: ObservableObject {
             guard let self else { return }
             await self.refreshWorktreeAutoManagedWorkspaceIDs()
         }
+        refreshWorkspaceBranchMetadata()
 
         // Sync appearance settings from config
         showSidebar = configService.config.appearance.show_sidebar
@@ -238,6 +244,7 @@ final class AppState: ObservableObject {
         }
 
         configService.addWorkspace(id: stableId.uuidString, name: trimmedName, path: path)
+        refreshWorkspaceBranchMetadata()
         return true
     }
 
@@ -257,6 +264,7 @@ final class AppState: ObservableObject {
         configService.removeWorkspace(id: id.uuidString)
         pruneTerminalRuntimePaths()
         worktreeAutoManagedWorkspaceIDs.remove(id)
+        workspaceBranchMetadataByWorkspaceID.removeValue(forKey: id)
     }
 
     func toggleWorkspaceExpanded(id: UUID) {
@@ -468,6 +476,43 @@ final class AppState: ObservableObject {
                 return true
             }
             return !isWorkspaceAutoManaged(workspace)
+        }
+    }
+
+    func refreshWorkspaceBranchMetadata() {
+        let workspaceSnapshot = workspaces.map { (id: $0.id, path: $0.path) }
+        workspaceBranchMetadataTask?.cancel()
+        workspaceBranchMetadataTask = Task { [weak self] in
+            guard let self else { return }
+            var metadataByWorkspaceID: [UUID: WorkspaceBranchMetadata] = [:]
+
+            await withTaskGroup(of: (UUID, WorkspaceBranchMetadata?).self) { group in
+                for workspace in workspaceSnapshot {
+                    let service = self.workspaceBranchMetadataService
+                    group.addTask {
+                        let metadata = await service.metadata(for: workspace.path)
+                        return (workspace.id, metadata)
+                    }
+                }
+
+                for await (workspaceID, metadata) in group {
+                    if let metadata {
+                        metadataByWorkspaceID[workspaceID] = metadata
+                    }
+                }
+            }
+
+            if Task.isCancelled {
+                return
+            }
+
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                let currentWorkspaceIDs = Set(self.workspaces.map(\.id))
+                self.workspaceBranchMetadataByWorkspaceID = metadataByWorkspaceID.filter { entry in
+                    currentWorkspaceIDs.contains(entry.key)
+                }
+            }
         }
     }
 
@@ -1195,6 +1240,7 @@ final class AppState: ObservableObject {
         let stalePaths = stateDocument.linksByWorktreePath.keys.filter { !activePaths.contains($0) }
         await worktreeStateService.setStaleWorktreePaths(stalePaths)
         await refreshWorktreeAutoManagedWorkspaceIDs()
+        refreshWorkspaceBranchMetadata()
     }
 
     @discardableResult
@@ -1261,6 +1307,7 @@ final class AppState: ObservableObject {
             _ = switchToWorktree(path: descriptor.worktreePath)
             setWorktreeDiffBaseline(.mergeBaseWithDefault)
             refreshWorktreeCatalogForSelection()
+            refreshWorkspaceBranchMetadata()
         } catch {
             worktreeErrorText = String(describing: error)
             throw error

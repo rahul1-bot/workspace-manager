@@ -900,3 +900,36 @@
     5. Files modified:
         1. Sources/WorkspaceManager/Models/AppState.swift
         2. Tests/WorkspaceManagerTests/GitUIStateTests.swift
+
+---
+
+| Progress Todo | Branch Context Surfacing, Documents Action Pill, and Root-Tracked Problem Statement | Date: 07 February 2026 | Time: 06:12 PM | Name: Ghost |
+
+    1. Scope:
+        1. Completed the pending UX slice from transcript: show branch context inline with terminal labels, add a visible documents action button, and move problem_statement.md out of docs/ so it is git-tracked.
+    2. Code changes:
+        1. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift:
+            1. Wired workspace branch metadata into WorkspaceRow and TerminalRow.
+            2. Terminal rows now render branch context in `<terminal-name> <branch-name>` form with dirty marker (`*`) when repository state is dirty.
+        2. Sources/WorkspaceManager/Views/TerminalView.swift:
+            1. Active terminal header now displays workspace branch metadata beside terminal name using monospaced compact styling.
+        3. Sources/WorkspaceManager/Views/WorkspaceActionBar.swift:
+            1. Added dedicated `Documents` action pill that routes to `appState.togglePDFPanel()` for direct PDF workflow entry.
+        4. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Reused and validated workspace-branch metadata refresh pipeline already in progress, confirming metadata is refreshed on startup, config reload, workspace add, and worktree sync/create flows.
+        5. Sources/WorkspaceManager/Models/WorkspaceBranchMetadata.swift:
+            1. Added workspace-branch metadata model (`branchName`, `isDirty`).
+        6. Sources/WorkspaceManager/Services/WorkspaceBranchMetadataService.swift:
+            1. Added timeout-safe git metadata service resolving current branch (or detached HEAD shorthand) and dirty status per workspace path.
+    3. Documentation changes:
+        1. Moved `docs/problem_statement.md` to repository root as `problem_statement.md` so the file is tracked.
+        2. Updated problem statement acceptance criteria and execution plan to explicitly include:
+            1. Inline terminal branch context.
+            2. Visible `Documents` action button behavior.
+    4. Validation:
+        1. swift build ✅
+        2. swift test ✅ (98 tests, 0 failures)
+    5. Outcome:
+        1. Worktree/branch context is now visible where terminal selection happens.
+        2. PDF document workflow is now first-class in the action bar.
+        3. Problem statement is now branch-visible and shareable through git history.

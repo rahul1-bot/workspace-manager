@@ -97,8 +97,15 @@
         1. Sidebar filtering now also treats `wt`-prefixed workspace names and `.wt/` path roots as auto-managed heuristics when historical metadata is missing or incorrect.
         2. Sync updates preserve existing auto-managed links and infer auto-managed classification for legacy entries during reconciliation.
         3. This addresses screenshot-reproduced cases where old entries remained visible despite dedicated worktree section support.
-    23. Problem framing for next iterations is documented in docs/problem_statement.md (local doc, gitignored by policy):
+    23. Problem framing for next iterations is documented in problem_statement.md (git-tracked at repository root):
         1. Includes current-state evidence, comparison with Lyra reference branch, decision constraints, acceptance criteria, and incremental execution plan.
+        2. Includes explicit feature requirements for inline terminal branch context and a visible Documents action button.
+    24. Workspace branch metadata is now surfaced in terminal-facing UI:
+        1. Sidebar terminal rows display `<terminal-name> <branch-name>` with dirty-state marker support.
+        2. Active terminal header also surfaces current workspace branch metadata for immediate context.
+    25. Documents quick action is now first-class in the action bar:
+        1. Added a dedicated `Documents` pill in WorkspaceActionBar that routes directly to the existing PDF picker/panel flow.
+        2. This removes discoverability dependence on keyboard shortcuts or command palette for paper-reading tasks.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).
@@ -121,3 +128,4 @@
     3. Knowledge workspace roadmap: docs/knowledge-workspace-roadmap.md.
     4. PDF viewer design spec: docs/pdf-viewer-design.md.
     5. CI gate: scripts/ci.sh.
+    6. Worktree orchestration problem framing: problem_statement.md.
