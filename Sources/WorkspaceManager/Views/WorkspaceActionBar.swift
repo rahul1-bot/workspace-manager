@@ -64,7 +64,7 @@ struct WorkspaceActionBar: View {
                 WorkspaceActionPill(icon: "doc.text.image", title: "Documents", showsChevron: false, isDisabled: false)
             }
             .buttonStyle(.plain)
-            .help("Open PDF documents")
+            .help("Toggle Documents panel (⇧⌘P)")
 
             Menu {
                 Button("Refresh worktrees") {

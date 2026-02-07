@@ -183,8 +183,8 @@ final class KeyboardShortcutRouter {
         if cmd && char == "," { return .consume(.revealConfig) }
         if cmd && char == "." { return .consume(.toggleFocusMode) }
         if cmd && char == "g" { return .consume(.toggleViewMode) }
-        if cmd && shift && char == "p" { return .consume(.togglePDFPanel) }
-        if cmd && shift && char == "o" { return .consume(.openPDFFile) }
+        if cmd && shift && (char == "p" || keyCode == 35) { return .consume(.togglePDFPanel) }
+        if cmd && shift && (char == "o" || keyCode == 31) { return .consume(.openPDFFile) }
         if cmd && shift && char == "w" { return .consume(.newWorktree) }
         if cmd && shift && char == "f" { return .consume(.refreshWorktrees) }
         if cmd && shift && char == "d" { return .consume(.openWorktreeDiff) }

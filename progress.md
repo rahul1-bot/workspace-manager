@@ -968,3 +968,23 @@
     5. Outcome:
         1. `Documents` behaves as a real toggle and no longer forces Finder reopen when tabs already exist.
         2. Open-file intent is explicit and predictable through command palette and `⇧⌘O`.
+
+---
+
+| Progress Todo | PDF Toggle Keymap Hardening and Shortcut Discoverability | Date: 07 February 2026 | Time: 06:44 PM | Name: Ghost |
+
+    1. Scope:
+        1. Finalized and hardened the PDF toggle keymap after live validation feedback.
+    2. Code changes:
+        1. Sources/WorkspaceManager/Support/KeyboardShortcutRouter.swift:
+            1. Added keycode fallback matching for `⇧⌘P` toggle (`keyCode 35`) and `⇧⌘O` open-file (`keyCode 31`).
+            2. Guarded `⌘O` route with `!shift` to prevent conflict with `⇧⌘O`.
+        2. Sources/WorkspaceManager/Views/WorkspaceActionBar.swift:
+            1. Updated Documents button tooltip text to `Toggle Documents panel (⇧⌘P)` for direct in-app keymap discoverability.
+    3. Documentation updates:
+        1. Updated `problem_statement.md` with canonical keymap statement and keycode-backstop acceptance criterion.
+    4. Validation:
+        1. swift test --filter KeyboardShortcutRouterTests passed (33 tests).
+        2. swift test passed (100 tests, 0 failures).
+    5. Outcome:
+        1. Toggle keymap is now explicit, visible, and resilient across keyboard-layout variation.

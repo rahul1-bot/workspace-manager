@@ -117,6 +117,7 @@ Notable reference characteristics:
 - Add a visible `Documents` action pill in the workspace action bar.
 - Route action to panel toggle flow (show/hide existing tabs) without forcing file picker reopen.
 - Keep open-file flow separate and explicit via command palette and shortcut mapping.
+- Canonical keymap: `⇧⌘P` toggle panel, `⇧⌘O` open file picker.
 
 ## 10. Acceptance Criteria
 - Create worktree no longer stalls in normal conditions.
@@ -126,6 +127,7 @@ Notable reference characteristics:
 - Action bar shows a visible `Documents` button that toggles panel visibility.
 - If PDFs are already loaded, reopening the panel does not reopen Finder.
 - Keymaps remain explicit and stable: `⇧⌘P` toggles Documents panel, `⇧⌘O` opens PDF file picker.
+- Toggle keymap remains resilient to keyboard-layout character variance through physical-key fallback handling.
 - Regression tests cover create-path completion behavior and sidebar filtering behavior.
 - Full test suite remains green.
 

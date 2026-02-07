@@ -264,3 +264,15 @@
     3. Implication:
         1. Operators can hide/show PDF context without losing loaded tabs or being forced into picker dialogs.
         2. Shortcut behavior is now clear by intent: one for visibility, one for file acquisition.
+
+---
+
+| Memory | Character-Based Shortcut Matching Needs Keycode Backstop for Layout Robustness | Date: 07 February 2026 | Time: 06:44 PM | Name: Ghost |
+
+    1. Observation:
+        1. Shortcut routing is character-driven for most commands. On non-US layouts or IME variation, shifted-character values can drift while physical intent remains the same key position.
+    2. Decision:
+        1. Added physical-keycode fallback matching for PDF commands: `⇧⌘P` toggle (`keyCode 35`) and `⇧⌘O` open file (`keyCode 31`) in addition to character checks.
+        2. Kept `⌘O` Finder mapping guarded with `!shift` to avoid overlap with `⇧⌘O`.
+    3. Implication:
+        1. PDF keymaps remain stable across keyboard-layout differences while preserving existing Finder and workspace-open behavior.

@@ -109,6 +109,9 @@
     26. Document workflow intent split is now explicit:
         1. Toggle flow (`Documents` pill and `⇧⌘P`) only shows or hides the PDF panel.
         2. Open-file flow is separate (`command palette: Open PDF` and `⇧⌘O`) and is the only path that opens Finder picker.
+    27. PDF toggle keymap hardening is active:
+        1. Router now accepts both character and physical-keycode matches for `⇧⌘P` toggle and `⇧⌘O` open-file actions.
+        2. Documents action tooltip now advertises `Toggle Documents panel (⇧⌘P)` for in-context discoverability.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).
