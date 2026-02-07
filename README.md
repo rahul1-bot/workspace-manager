@@ -1,87 +1,113 @@
 # Workspace Manager
 
-Verification-first terminal orchestration for AI coding agents on macOS.
+A spatial workspace for research engineers who solve complex problems across code, papers, and experiments. Built from the ground up on Apple Silicon.
 
-## Why this exists
+## The Problem
 
-Classic tmux panes and flat sidebar trees work until they do not. Once you run multiple workspaces with multiple agent terminals, list-scanning becomes cognitive tax: hard to track context, hard to navigate fast, and hard to preserve confidence in what is running where. Workspace Manager is built to keep orchestration visible, keyboard-efficient, and config-driven without hidden automation.
+Research engineers — people working on AI papers, running ML experiments across multiple git worktrees, implementing cutting-edge architectures — face a bottleneck that no terminal emulator solves: **cognitive fragmentation from constant context-switching**.
 
-## Core philosophy
+The daily reality:
+- 6 terminals across 3 git worktrees, each on a different experiment branch. `git worktree list`, `cd` between directories, mentally track which branch is where.
+- A research paper open in Preview that you're implementing in PyTorch. Alt-Tab to read an equation, Alt-Tab back to code, hold the math in working memory across the switch.
+- Diffs scattered across `git diff` output and GitHub PRs. No structured view of what changed and why.
+- Everything is cluttered. The more complex the problem, the more tools fight each other for your attention.
 
-- Verification-first operation.
-- Keyboard-first navigation.
-- Config-first behavior.
-- Explicit state over implicit magic.
+This is not a terminal management problem. Terminal multiplexers solve terminal management. This is a **knowledge work problem** — the fragmentation of context across tools that don't know about each other.
 
-## Current capabilities
+Workspace Manager keeps everything in one spatial workspace: terminals, research papers, git diffs, commit flows, and a graph that maps the relationships between all of it. Every feature exists to solve a high-value problem that research engineers face daily. Low-value distractions — config UIs, theme pickers, status bars — are intentionally skipped.
 
-- Multi-workspace orchestration with persistent TOML config.
-- Multiple terminals per workspace with fast selection and cycling.
-- Dual terminal rendering paths:
-  - GPU path via `GhosttyKit` (Metal-backed).
-  - Fallback path via `SwiftTerm`.
-- Command palette for workspace/terminal switching and common actions.
-- Focus Mode for distraction-free terminal execution.
-- Workspace and terminal rename flow from the sidebar.
-- Shortcut routing layer with explicit passthrough/consume behavior.
-- Secure terminal launch policy:
-  - Shell path allowlist.
-  - Working-directory safety checks.
-  - Sanitized environment propagation.
+## What It Does Today
 
-## Screenshots
+### Spatial Graph View
 
-### Main workspace view
+Toggle between sidebar and a force-directed 2D canvas (`Cmd+G`) where workspaces and terminals become nodes in a spatial graph. Drag nodes, drag entire workspace clusters, zoom (pinch, scroll wheel, keyboard), navigate via minimap, zoom-to-fit. Focus any node to drop into its live terminal. Unfocus to return to the graph.
 
-![Workspace Manager main view](images/1.png)
+The graph gives structure to complex workflows. When you're running 5 experiments across 3 repos with 12 terminals, the graph shows you the topology instead of a flat list. The graph state — positions, edges, zoom level — persists across sessions and survives view mode switches.
 
-### Command palette
+### PDF / Paper Viewer
 
-![Workspace Manager command palette](images/2.png)
+Open research papers inline next to your terminal (`Cmd+Shift+P`). Multi-tab support — keep multiple papers open and cycle between them. Page navigation, zoom. The paper sits beside your code. Read the architecture diagram, glance right, implement it. Zero context switch.
 
-## Spatial Graph View (flagship roadmap)
+### Git Diff Panel
 
-Spatial Graph View is the next major leap for this app.
+Structured diff viewer with file cards, hunk grouping, dual line numbers, syntax highlighting for 8 languages, and intraline emphasis that highlights exactly which characters changed. Resizable from 20% to full width. Not a raw `git diff` dump — a proper visual diff surface for reviewing changes fast.
 
-Instead of scanning a list, you navigate a spatial canvas:
+### Commit Flow
 
-- Toggle model: `Sidebar View <-> Graph View`.
-- Node model: terminal nodes and markdown nodes.
-- Relationship model: containment, references, dependencies, and custom edges.
-- Goal: move from list scanning to spatial memory and relationship-aware orchestration.
+Commit, commit and push, or commit and create a PR. Directly from the keyboard, without opening a browser.
 
-The current design and phased plan are documented in:
+### Terminal Orchestration
 
-- `docs/spatial-graph-view.md`
+Multiple workspaces, multiple terminals per workspace. Dual rendering paths: **libghostty** (Metal GPU, 120Hz) as default, **SwiftTerm** (CPU) as fallback. Terminal processes persist across view mode switches — flip between sidebar and graph without killing shells. All terminal actions (open in Finder, open in editor, git operations) target the selected terminal's runtime working directory.
+
+### The Rest
+
+- **Command palette** (`Cmd+P`) — fast switching between workspaces, terminals, open PDFs, and actions
+- **Keyboard-first** — every action has a shortcut, every shortcut is documented in the help overlay (`Shift+Cmd+/`)
+- **Config-driven** — `~/.config/workspace-manager/config.toml` is the single source of truth for workspace roster and appearance
+- **Dark liquid glass** — unified visual aesthetic across all overlays (command palette, commit sheet, shortcuts help, diff panel)
+- **CI gate** — 70 tests, 0 failures
+
+## The Graph Vision
+
+The spatial graph is the architectural center of where this app is going.
+
+Phase 1 (shipped) delivers the foundation: force-directed layout with a custom SIMD2 engine, node and cluster interaction, minimap, zoom controls, and persistent state. But the graph is designed for more:
+
+- **Knowledge layer** — nodes aren't just terminals. Markdown notes, wikilinks between concepts, semantic relationships between code and research. The graph becomes a knowledge map.
+- **Export** — render the graph as a shareable artifact. Capture the topology of a research project for papers, presentations, or collaboration.
+- **Agent orchestration** — dependency-aware workflow execution. Agents spawn sub-nodes, upstream completions trigger downstream tasks. The graph becomes the execution plan.
+- **Time evolution** — replay how the graph grew over sessions. Track the progression of a research project through its spatial history.
+
+## Coming Next
+
+**Git Worktree Orchestration** — first-class worktree awareness. Visualize which worktrees exist and what branch each is on. Fast-switch between worktrees with auto-created workspace and terminal per worktree. The workspace concept already maps naturally — each worktree IS a workspace with a directory path.
+
+**Code Viewer Panel** — read-only source file viewer with syntax highlighting and line numbers. Quick reference without leaving the app. Reuses the existing diff syntax highlighting infrastructure.
+
+## First Principles Filter
+
+Before any feature is built, it passes this filter:
+
+1. **Can this already be done efficiently via the terminal?** If yes, skip it.
+2. **Is this a high-value problem that research engineers face daily?** If no, skip it.
+3. **Does this reduce context-switching between tools?** If no, skip it.
+4. **Would a hardcore developer actually use this, or is it fluff?** If fluff, skip it.
+
+What we explicitly skip: settings UI panels, theme pickers, built-in AI chat (the terminals ARE the AI interface), file browsers, plugin systems, status bars, tab bars, notification toasts, drag-and-drop reordering. These are the Linux config rabbit hole — hours spent on low-value customization that produces no leverage.
+
+## Built From the Ground Up
+
+- Native macOS. Swift. SwiftUI.
+- Apple Silicon optimized.
+- GPU-rendered terminal via libghostty — compiled C binary, Metal-backed, 120Hz.
+- SwiftUI Canvas for graph rendering — immediate-mode, single-pass.
+- Custom force-directed layout engine with SIMD2 vector math.
+- No Electron. No web views. No compromise.
 
 ## Quickstart
 
 ### Requirements
 
 - macOS 14+
-- Apple Silicon (current bundled Ghostty binary is arm64)
+- Apple Silicon (bundled Ghostty binary is arm64)
 - Swift 5.9+
 
-### Run (debug by default)
+### Run
 
 ```bash
-./scripts/run.sh
+./scripts/run.sh          # debug
+./scripts/run.sh release  # release
 ```
 
-### Run (release)
-
-```bash
-./scripts/run.sh release
-```
-
-### Build app bundle manually
+### Build app bundle
 
 ```bash
 ./scripts/build_app_bundle.sh
 open Build/WorkspaceManager.app
 ```
 
-### Verify CI-style checks
+### CI checks
 
 ```bash
 ./scripts/ci.sh
@@ -89,11 +115,7 @@ open Build/WorkspaceManager.app
 
 ## Configuration
 
-Config file location:
-
-- `~/.config/workspace-manager/config.toml`
-
-Minimal example:
+Config file: `~/.config/workspace-manager/config.toml`
 
 ```toml
 [terminal]
@@ -109,73 +131,53 @@ focus_mode = false
 
 [[workspaces]]
 id = "11111111-1111-1111-1111-111111111111"
-name = "Root"
-path = "~/code"
+name = "Research"
+path = "~/code/research"
 ```
 
-## Most-used keybindings
+## Keybindings
 
-- `Cmd+T` new terminal
-- `Shift+Cmd+N` new workspace
-- `Cmd+B` toggle sidebar
-- `Cmd+P` command palette
-- `Cmd+.` toggle Focus Mode
-- `Cmd+[` / `Cmd+]` previous/next workspace
-- `Cmd+I` / `Cmd+K` previous/next terminal
-- `Cmd+R` rename selected workspace/terminal
-- `Shift+Cmd+R` reload config
-- `Shift+Cmd+/` shortcuts help
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+P` | Command palette |
+| `Cmd+G` | Toggle graph view |
+| `Cmd+T` | New terminal |
+| `Shift+Cmd+N` | New workspace |
+| `Cmd+B` | Toggle sidebar |
+| `Cmd+.` | Toggle focus mode |
+| `Cmd+[` / `Cmd+]` | Previous / next workspace |
+| `Cmd+I` / `Cmd+K` | Previous / next terminal |
+| `Cmd+1` – `Cmd+9` | Jump to workspace |
+| `Cmd+J` / `Cmd+L` | Focus sidebar / terminal |
+| `Cmd+R` | Rename selected |
+| `Cmd+O` | Open in Finder |
+| `Cmd+W` | Close terminal |
+| `Shift+Cmd+P` | Toggle PDF panel |
+| `Shift+Cmd+{` / `}` | Previous / next PDF tab |
+| `Cmd+=` / `Cmd+-` | Graph zoom in / out |
+| `Cmd+0` | Graph zoom to fit |
+| `Enter` | Focus selected graph node |
+| `Esc` | Close overlay / unfocus node |
+| `Shift+Cmd+R` | Reload config |
+| `Shift+Cmd+/` | Shortcuts help |
 
-## Architecture snapshot
+## Architecture
 
-- `Sources/WorkspaceManager/WorkspaceManagerApp.swift`: app lifecycle and window setup.
-- `Sources/WorkspaceManager/ContentView.swift`: shell, overlays, and shortcut command dispatch.
-- `Sources/WorkspaceManager/Models/AppState.swift`: orchestration state for workspaces/terminals.
-- `Sources/WorkspaceManager/Services/ConfigService.swift`: TOML load/save, normalization, and validation.
-- `Sources/WorkspaceManager/Views/GhosttyTerminalView.swift`: libghostty integration and input pipeline.
-- `Sources/WorkspaceManager/Views/TerminalView.swift`: SwiftTerm fallback terminal path.
-- `Sources/WorkspaceManager/Support/KeyboardShortcutRouter.swift`: deterministic shortcut routing.
-- `Sources/WorkspaceManager/Support/TerminalLaunchPolicy.swift`: launch hardening policy.
-
-## Known issues
-
-- Modifier-heavy input paths are under active hardening.
-- External press-and-hold command-trigger tools can be inconsistent in focused terminal contexts on some setups.
-- If input instability appears, run with diagnostics and reproduce using:
-  - `WM_DIAGNOSTICS=1 ./scripts/run.sh`
-  - `./scripts/repro_input_stress.sh`
-
-## Roadmap
-
-### Knowledge Workspace (next major direction)
-
-The app solves the knowledge work bottleneck for research engineers who juggle multiple git worktrees, read research papers while coding, and constantly switch between AIML/PyTorch projects.
-
-Three high-value features, in priority order:
-
-1. **PDF/Paper Viewer Panel** — Side panel for reading research papers inline next to the terminal. Zero context-switching between Preview and code.
-2. **Git Worktree Orchestration** — First-class worktree awareness: visualize branches, fast-switch between worktrees, auto-create workspace+terminal per worktree.
-3. **Code Viewer Panel** — Read-only source file viewer with syntax highlighting. Quick reference without leaving the app.
-
-Design filter: if a feature can already be done efficiently via the terminal, it is skipped. Only high-value problems that reduce context-switching are worth building.
-
-Full design rationale: `docs/knowledge-workspace-roadmap.md`
-
-### Spatial Graph phases
-
-- Phase 1: graph canvas foundation (nodes, edges, pan/zoom, persisted positions).
-- Phase 2: knowledge layer (wikilinks, context-aware node relationships).
-- Phase 3: agent orchestration layer (dependency-aware workflows).
-- Phase 4: advanced interaction and timeline evolution.
+| Layer | Components |
+|-------|-----------|
+| **UI** | SwiftUI views, AppState orchestration, KeyboardShortcutRouter |
+| **Terminal** | libghostty (Metal GPU), SwiftTerm (CPU fallback), opacity-based persistence |
+| **Config** | ConfigService, TOML read/write, `~/.config/workspace-manager/config.toml` |
+| **Git** | GitRepositoryService, DiffPatchParser, DiffSyntaxHighlightingService |
+| **Graph** | SwiftUI Canvas, ForceLayoutEngine (SIMD2), ViewportTransform, `graph-state.json` |
+| **Panels** | DiffPanelView, PDFPanelView, CommitSheetView, panel exclusivity system |
 
 ## Contributing
 
-- Branch naming convention: `ghost/<topic>`.
+- Run `./scripts/ci.sh` before pushing.
 - Keep changes focused and reviewable.
-- Run checks before pushing:
-  - `./scripts/ci.sh`
-- Include reproduction steps for bug fixes, especially for keyboard/input changes.
+- Include reproduction steps for bug fixes.
 
 ## Status
 
-Active development. Spatial Graph View is planned and intentionally scoped for phased delivery.
+Active development. Used daily for AI research and coursework at FAU. Spatial graph Phase 1 is shipped. Knowledge workspace features (worktree orchestration, code viewer) are next.

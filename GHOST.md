@@ -51,7 +51,7 @@
     3. Diff flow executes reliably and supports richer line-type color treatment.
     4. Diff viewer renders structured file sections, hunk grouping, dual line numbers, token highlighting, and intraline emphasis.
     5. All overlay panels use unified dark liquid glass visual pattern.
-    6. CI gate is active and passing locally (69 tests, 0 failures).
+    6. CI gate is active and passing locally (70 tests, 0 failures).
     7. PDF/Paper Viewer panel with multi-PDF tab support renders research papers inline.
     8. Panel exclusivity enforced between diff and PDF panels.
     9. Spatial graph view (Phase 1) operational: force-directed layout, cluster drag, node focus/unfocus, minimap, zoom controls.

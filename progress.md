@@ -683,3 +683,30 @@
         1. Voice input to create nodes.
         2. Embedding-based relationships via vector store.
         3. Time evolution: replay graph growth using git history.
+
+---
+
+| Progress Todo | README Rewrite and Knowledge Workspace Roadmap Update | Date: 07 February 2026 | Time: 01:42 AM | Name: Lyra |
+
+    1. README.md rewritten from scratch:
+        1. Replaced the old "Verification-first terminal orchestration" framing with high-value problem solver framing for research engineers.
+        2. New hero line: "A spatial workspace for research engineers who solve complex problems across code, papers, and experiments."
+        3. Added "The Problem" section describing cognitive fragmentation from context-switching across terminals, papers, worktrees, and diffs.
+        4. Replaced outdated "Current capabilities" (which listed graph and PDF as planned/roadmap) with "What It Does Today" covering all shipped features: spatial graph view, PDF/paper viewer, git diff panel, commit flow, terminal orchestration.
+        5. Added "The Graph Vision" section positioning the spatial graph as the architectural center with future phases (knowledge layer, export, agent orchestration, time evolution).
+        6. Added "First Principles Filter" section with the 4-question filter and explicit list of skipped low-value features.
+        7. Added "Built From the Ground Up" section: native macOS, Apple Silicon, Metal GPU 120Hz, SIMD2, no Electron.
+        8. Updated keybindings table with all current shortcuts including graph, PDF, and navigation shortcuts.
+        9. Updated architecture table with all 6 layers (UI, Terminal, Config, Git, Graph, Panels).
+        10. Removed outdated "Known issues" section referencing old diagnostic scripts.
+        11. Removed outdated "Roadmap" section that listed shipped features as planned.
+    2. knowledge-workspace-roadmap.md updated:
+        1. Added "High-Value vs Low-Value Problems" section explaining the distinction with the Linux config rabbit hole analogy.
+        2. Added "Spatial Graph as Knowledge Layer" section with "Why the Graph Matters" rationale, shipped Phase 1 features, and planned future phases (knowledge layer, labels, export, agent orchestration, time evolution).
+        3. Marked PDF/Paper Viewer Panel as SHIPPED with delivered feature list replacing the original scope list.
+        4. Added status labels to all three features (shipped, planned highest complexity, planned medium complexity).
+        5. Updated Architecture Notes to reflect shipped PDF viewer and panel exclusivity.
+        6. Updated Timeline Consideration to reflect PDF viewer as shipped.
+    3. Files modified:
+        1. README.md — complete rewrite (184 lines, was 182 lines)
+        2. docs/knowledge-workspace-roadmap.md — updated (155 lines, was 109 lines)
