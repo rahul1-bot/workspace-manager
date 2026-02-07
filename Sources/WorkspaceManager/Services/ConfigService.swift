@@ -321,6 +321,12 @@ final class ConfigService {
         saveConfig()
     }
 
+    /// Update terminal names in memory only (no disk write). Call `saveConfig()` separately.
+    func syncTerminalNamesInMemory(workspaceId: String, terminalNames: [String]) {
+        guard let index = config.workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+        config.workspaces[index].terminals = terminalNames
+    }
+
     // MARK: - Appearance Mutations
 
     func setShowSidebar(_ show: Bool) {
@@ -335,22 +341,22 @@ final class ConfigService {
 
     private func parseTerminalConfig(from table: TOMLTable) -> TerminalConfig {
         var terminalConfig = TerminalConfig()
-        guard let terminalTable = table["terminal"] as? TOMLTable else {
+        guard let terminalTable = table["terminal"]?.table else {
             return terminalConfig
         }
-        if let font = terminalTable["font"] as? String {
+        if let font = terminalTable["font"]?.string {
             terminalConfig.font = font
         }
-        if let fontSize = terminalTable["font_size"] as? Int {
+        if let fontSize = terminalTable["font_size"]?.int {
             terminalConfig.font_size = fontSize
         }
-        if let scrollback = terminalTable["scrollback"] as? Int {
+        if let scrollback = terminalTable["scrollback"]?.int {
             terminalConfig.scrollback = scrollback
         }
-        if let cursorStyle = terminalTable["cursor_style"] as? String {
+        if let cursorStyle = terminalTable["cursor_style"]?.string {
             terminalConfig.cursor_style = cursorStyle
         }
-        if let useGpuRenderer = terminalTable["use_gpu_renderer"] as? Bool {
+        if let useGpuRenderer = terminalTable["use_gpu_renderer"]?.bool {
             terminalConfig.use_gpu_renderer = useGpuRenderer
         }
         return terminalConfig
@@ -358,13 +364,13 @@ final class ConfigService {
 
     private func parseAppearanceConfig(from table: TOMLTable) -> AppearanceConfig {
         var appearanceConfig = AppearanceConfig()
-        guard let appearanceTable = table["appearance"] as? TOMLTable else {
+        guard let appearanceTable = table["appearance"]?.table else {
             return appearanceConfig
         }
-        if let showSidebar = appearanceTable["show_sidebar"] as? Bool {
+        if let showSidebar = appearanceTable["show_sidebar"]?.bool {
             appearanceConfig.show_sidebar = showSidebar
         }
-        if let focusMode = appearanceTable["focus_mode"] as? Bool {
+        if let focusMode = appearanceTable["focus_mode"]?.bool {
             appearanceConfig.focus_mode = focusMode
         }
         return appearanceConfig
@@ -375,19 +381,19 @@ final class ConfigService {
         var needsSave = false
         var seenIds: Set<String> = []
 
-        guard let workspacesArray = table["workspaces"] as? TOMLArray else {
+        guard let workspacesArray = table["workspaces"]?.array else {
             return (workspaces, needsSave)
         }
 
         for item in workspacesArray {
-            guard let wsTable = item as? TOMLTable,
-                  let name = wsTable["name"] as? String,
-                  let rawPath = wsTable["path"] as? String else {
+            guard let wsTable = item.table,
+                  let name = wsTable["name"]?.string,
+                  let rawPath = wsTable["path"]?.string else {
                 continue
             }
 
             let expandedPath = expandPath(rawPath)
-            var id = normalizeWorkspaceIdentifier(from: wsTable["id"] as? String, needsSave: &needsSave)
+            var id = normalizeWorkspaceIdentifier(from: wsTable["id"]?.string, needsSave: &needsSave)
 
             if seenIds.contains(id) {
                 AppLogger.config.warning("duplicate workspace id regenerated")
@@ -398,10 +404,10 @@ final class ConfigService {
 
             // Parse optional terminal names array
             var terminalNames: [String] = []
-            if let terminalsArray = wsTable["terminals"] as? TOMLArray {
-                for item in terminalsArray {
-                    if let name = item as? String {
-                        terminalNames.append(name)
+            if let terminalsArray = wsTable["terminals"]?.array {
+                for terminalItem in terminalsArray {
+                    if let terminalName = terminalItem.string {
+                        terminalNames.append(terminalName)
                     }
                 }
             }

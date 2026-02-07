@@ -31,7 +31,7 @@ final class AppState: ObservableObject {
     private let editorLaunchService: any EditorLaunching
     private let prLinkBuilder: any PRLinkBuilding
     private let urlOpener: any URLOpening
-    private let defaultTerminalNames = ["Ghost", "Lyra"]
+    private let fallbackTerminalName = "Terminal"
     private var diffLoadTask: Task<Void, Never>?
     private var commitTask: Task<Void, Never>?
     private var forceLayoutTask: Task<Void, Never>?
@@ -93,15 +93,28 @@ final class AppState: ObservableObject {
 
     private func bootstrapDefaultTerminals() {
         let configWorkspaces = configService.config.workspaces
+        var didCreate = false
         for index in workspaces.indices where workspaces[index].terminals.isEmpty {
-            // Use terminal names from config if available, otherwise fall back to defaults
             let configTerminals = configWorkspaces.first(where: {
                 UUID(uuidString: $0.id) == workspaces[index].id
             })?.terminals ?? []
-            let names = configTerminals.isEmpty ? defaultTerminalNames : configTerminals
+            // Use terminal names from config; only fall back to a single generic terminal
+            // if config defines none (e.g. brand-new workspace added via UI).
+            let names = configTerminals.isEmpty ? [fallbackTerminalName] : configTerminals
             for name in names {
                 _ = workspaces[index].addTerminal(name: name)
             }
+            didCreate = true
+        }
+        // Persist all bootstrapped terminal names back to config so they survive restart.
+        if didCreate {
+            for workspace in workspaces {
+                let names = workspace.terminals.map(\.name)
+                configService.syncTerminalNamesInMemory(
+                    workspaceId: workspace.id.uuidString, terminalNames: names
+                )
+            }
+            configService.saveConfig()
         }
     }
 
@@ -165,8 +178,7 @@ final class AppState: ObservableObject {
             } else {
                 // Add new workspace from config
                 var workspace = Workspace(id: stableId, name: wsConfig.name, path: expandedPath)
-                // Use terminal names from config, fall back to defaults if empty.
-                let names = wsConfig.terminals.isEmpty ? defaultTerminalNames : wsConfig.terminals
+                let names = wsConfig.terminals.isEmpty ? [fallbackTerminalName] : wsConfig.terminals
                 for name in names {
                     _ = workspace.addTerminal(name: name)
                 }
@@ -202,9 +214,7 @@ final class AppState: ObservableObject {
         workspaces.append(workspace)
 
         if let index = workspaces.firstIndex(where: { $0.id == stableId }) {
-            for name in defaultTerminalNames {
-                _ = workspaces[index].addTerminal(name: name)
-            }
+            _ = workspaces[index].addTerminal(name: fallbackTerminalName)
         }
 
         configService.addWorkspace(id: stableId.uuidString, name: trimmedName, path: path)
