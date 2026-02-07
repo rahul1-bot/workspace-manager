@@ -689,7 +689,16 @@ final class AppState: ObservableObject {
     }
 
     func togglePDFPanel() {
-        presentPDFFilePicker()
+        if pdfPanelState.isPresented {
+            dismissPDFPanel()
+            return
+        }
+
+        dismissDiffPanelPlaceholder()
+        if pdfPanelState.activeTabId == nil {
+            pdfPanelState.activeTabId = pdfPanelState.tabs.first?.id
+        }
+        pdfPanelState.isPresented = true
     }
 
     func dismissPDFPanel() {

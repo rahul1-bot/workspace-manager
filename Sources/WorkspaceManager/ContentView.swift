@@ -305,6 +305,9 @@ struct ContentView: View {
         case .togglePDFPanel:
             guard shouldExecuteShortcut("togglePDFPanel") else { return }
             appState.togglePDFPanel()
+        case .openPDFFile:
+            guard shouldExecuteShortcut("openPDFFile") else { return }
+            appState.presentPDFFilePicker()
         case .closePDFPanel:
             appState.dismissPDFPanel()
         case .nextPDFTab:

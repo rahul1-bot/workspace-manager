@@ -17,6 +17,7 @@ From current runtime observations and screenshots:
 - Worktree metadata has shown legacy drift (`isAutoManaged` not always correct for old entries), causing filtering inconsistencies.
 - Branch metadata for workspace repositories is computed but not consistently surfaced inline where terminal selection happens.
 - PDF viewing exists, but there is no explicit always-visible action button in the terminal action bar, which slows research-paper workflow.
+- Documents-button behavior drifted: trigger path always reopened Finder instead of acting as a panel toggle, even when PDF tabs already existed.
 
 ## 4. Why This Matters
 The value of this feature is operational speed under complexity:
@@ -88,6 +89,10 @@ Notable reference characteristics:
 - Add targeted regression tests for every bug class fixed.
 - Keep tests high-value and scenario-driven; avoid speculative test expansion.
 
+5. Intent-separated document controls
+- `Documents` button and `⇧⌘P` should be panel visibility toggles only.
+- Opening new files should be explicit (`command palette: Open PDF` or dedicated open-file shortcut), not a side effect of toggle.
+
 ## 9. Current Execution Plan (Incremental)
 1. Stabilize create path
 - Keep create flow completion-bound and timeout-safe.
@@ -110,14 +115,17 @@ Notable reference characteristics:
 
 6. Add explicit documents quick action
 - Add a visible `Documents` action pill in the workspace action bar.
-- Route action to existing PDF panel/file-picker flow without creating competing state paths.
+- Route action to panel toggle flow (show/hide existing tabs) without forcing file picker reopen.
+- Keep open-file flow separate and explicit via command palette and shortcut mapping.
 
 ## 10. Acceptance Criteria
 - Create worktree no longer stalls in normal conditions.
 - Primary sidebar does not bloat with `wt ...` entries during branch/worktree switching.
 - Worktree actions remain available in dedicated section.
 - Terminal rows show `<terminal-name> <branch-name>` context for git-backed workspace paths.
-- Action bar shows a visible `Documents` button that opens the PDF panel flow.
+- Action bar shows a visible `Documents` button that toggles panel visibility.
+- If PDFs are already loaded, reopening the panel does not reopen Finder.
+- Keymaps remain explicit and stable: `⇧⌘P` toggles Documents panel, `⇧⌘O` opens PDF file picker.
 - Regression tests cover create-path completion behavior and sidebar filtering behavior.
 - Full test suite remains green.
 

@@ -933,3 +933,38 @@
         1. Worktree/branch context is now visible where terminal selection happens.
         2. PDF document workflow is now first-class in the action bar.
         3. Problem statement is now branch-visible and shareable through git history.
+
+---
+
+| Progress Todo | Documents Toggle Semantics and PDF Keymap Split | Date: 07 February 2026 | Time: 06:28 PM | Name: Ghost |
+
+    1. Root cause:
+        1. `togglePDFPanel()` still opened Finder directly, so pressing `Documents` or `⇧⌘P` always launched file picker instead of toggling panel visibility.
+        2. Shortcut routing had no dedicated open-file shortcut separate from panel toggle intent.
+    2. Fix applied:
+        1. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Reworked `togglePDFPanel()` into true visibility toggle behavior.
+            2. Panel reopen now restores existing tabs without reopening Finder; diff panel is dismissed when showing PDF panel.
+        2. Sources/WorkspaceManager/Support/KeyboardShortcutRouter.swift:
+            1. Added `openPDFFile` command route on `⇧⌘O`.
+            2. Preserved `⇧⌘P` for `togglePDFPanel`.
+            3. Guarded `⌘O` as non-shift-only to prevent shortcut collision.
+        3. Sources/WorkspaceManager/ContentView.swift:
+            1. Wired `openPDFFile` command to `presentPDFFilePicker()`.
+        4. Sources/WorkspaceManager/Views/Overlays.swift:
+            1. Command palette `Open PDF` now runs explicit file-picker path.
+            2. Shortcuts help updated: `⇧⌘P` toggle documents, `⇧⌘O` open PDF file.
+        5. Sources/WorkspaceManager/Views/PDFPanelView.swift:
+            1. Empty-state helper text updated to reflect open-file shortcut (`⌘⇧O`).
+        6. Tests/WorkspaceManagerTests/KeyboardShortcutRouterTests.swift:
+            1. Added `testShiftCmdPTogglesPDFPanel`.
+            2. Added `testShiftCmdOOpensPDFFilePicker`.
+    3. Documentation updates:
+        1. Updated `problem_statement.md` to encode toggle-vs-open separation and keymap acceptance criteria.
+    4. Validation:
+        1. swift build passed.
+        2. swift test --filter KeyboardShortcutRouterTests passed (33 tests).
+        3. swift test passed (100 tests, 0 failures).
+    5. Outcome:
+        1. `Documents` behaves as a real toggle and no longer forces Finder reopen when tabs already exist.
+        2. Open-file intent is explicit and predictable through command palette and `⇧⌘O`.

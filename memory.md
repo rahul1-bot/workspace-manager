@@ -250,3 +250,17 @@
         1. Added a dedicated `Documents` pill to WorkspaceActionBar and routed it to the existing `togglePDFPanel()` flow instead of introducing new panel state paths.
     3. Implication:
         1. Document access is now visible and one-click from the primary terminal command strip, aligning with the app mission for faster context switching across code and papers.
+
+---
+
+| Memory | Documents Toggle and Open-File Actions Must Stay Decoupled | Date: 07 February 2026 | Time: 06:28 PM | Name: Ghost |
+
+    1. Observation:
+        1. Routing the `Documents` action through the file-picker path forced Finder to reopen every time the user reopened the panel, even when PDF tabs were already loaded. This violated expected toggle semantics and added unnecessary interruption to reading workflows.
+    2. Decision:
+        1. `togglePDFPanel()` now only controls panel visibility and does not open Finder.
+        2. Open-file behavior is handled through explicit paths only: command palette `Open PDF` and shortcut `⇧⌘O`.
+        3. `⇧⌘P` is reserved for toggle semantics and documented accordingly in the shortcuts overlay.
+    3. Implication:
+        1. Operators can hide/show PDF context without losing loaded tabs or being forced into picker dialogs.
+        2. Shortcut behavior is now clear by intent: one for visibility, one for file acquisition.

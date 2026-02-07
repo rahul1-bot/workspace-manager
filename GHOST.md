@@ -104,8 +104,11 @@
         1. Sidebar terminal rows display `<terminal-name> <branch-name>` with dirty-state marker support.
         2. Active terminal header also surfaces current workspace branch metadata for immediate context.
     25. Documents quick action is now first-class in the action bar:
-        1. Added a dedicated `Documents` pill in WorkspaceActionBar that routes directly to the existing PDF picker/panel flow.
+        1. Added a dedicated `Documents` pill in WorkspaceActionBar that routes to panel visibility toggle behavior.
         2. This removes discoverability dependence on keyboard shortcuts or command palette for paper-reading tasks.
+    26. Document workflow intent split is now explicit:
+        1. Toggle flow (`Documents` pill and `⇧⌘P`) only shows or hides the PDF panel.
+        2. Open-file flow is separate (`command palette: Open PDF` and `⇧⌘O`) and is the only path that opens Finder picker.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).

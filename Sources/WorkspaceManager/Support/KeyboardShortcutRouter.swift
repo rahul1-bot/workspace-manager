@@ -24,6 +24,7 @@ enum ShortcutCommand: Hashable {
     case closeCommitSheet
     case closeDiffPanel
     case togglePDFPanel
+    case openPDFFile
     case closePDFPanel
     case nextPDFTab
     case previousPDFTab
@@ -177,12 +178,13 @@ final class KeyboardShortcutRouter {
         if cmd && char == "j" { return .consume(.focusSidebar) }
         if cmd && char == "l" { return .consume(.focusTerminal) }
         if cmd && char == "e" { return .consume(.toggleWorkspaceExpanded) }
-        if cmd && char == "o" { return .consume(.openWorkspaceInFinder) }
+        if cmd && !shift && char == "o" { return .consume(.openWorkspaceInFinder) }
         if cmd && option && char == "c" { return .consume(.copyWorkspacePath) }
         if cmd && char == "," { return .consume(.revealConfig) }
         if cmd && char == "." { return .consume(.toggleFocusMode) }
         if cmd && char == "g" { return .consume(.toggleViewMode) }
         if cmd && shift && char == "p" { return .consume(.togglePDFPanel) }
+        if cmd && shift && char == "o" { return .consume(.openPDFFile) }
         if cmd && shift && char == "w" { return .consume(.newWorktree) }
         if cmd && shift && char == "f" { return .consume(.refreshWorktrees) }
         if cmd && shift && char == "d" { return .consume(.openWorktreeDiff) }

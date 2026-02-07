@@ -277,6 +277,28 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertConsume(graphRoute, expected: .graphRerunLayout)
     }
 
+    func testShiftCmdPTogglesPDFPanel() {
+        let route = router.route(
+            keyCode: 35,
+            modifierFlags: [.command, .shift],
+            charactersIgnoringModifiers: "p",
+            isRepeat: false,
+            context: makeContext()
+        )
+        assertConsume(route, expected: .togglePDFPanel)
+    }
+
+    func testShiftCmdOOpensPDFFilePicker() {
+        let route = router.route(
+            keyCode: 31,
+            modifierFlags: [.command, .shift],
+            charactersIgnoringModifiers: "o",
+            isRepeat: false,
+            context: makeContext()
+        )
+        assertConsume(route, expected: .openPDFFile)
+    }
+
     func testShiftCmdWTriggersNewWorktree() {
         let route = router.route(
             keyCode: 13,
