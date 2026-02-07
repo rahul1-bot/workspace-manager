@@ -161,3 +161,14 @@
         1. Destination input was removed from the overlay. The path is now always computed from branch name using a deterministic policy at .wt/<repo>/<branch-slug> under the repository parent. The create service also ensures parent folders exist before running git worktree add.
     3. Implication:
         1. Worktree creation now has fewer variables, faster operator throughput, and consistent filesystem layout across sessions and collaborators on the same repository structure.
+
+---
+
+| Memory | Worktree Create Must Not Depend on Preloaded Catalog State | Date: 07 February 2026 | Time: 07:45 AM | Name: Ghost |
+
+    1. Observation:
+        1. The create sheet could be opened before worktree discovery completed, leaving worktreeCatalog nil at submit time. This generated a false-negative error even when terminal context was valid and git-backed.
+    2. Decision:
+        1. Worktree create now resolves repository context lazily at submit time through worktreeService.catalog(for: selectedActionTargetURL) when catalog is missing. New-worktree actions across shortcut, action bar, sidebar, and command palette were unified through a single AppState present method that triggers immediate refresh.
+    3. Implication:
+        1. Create flow no longer relies on timing luck between UI open and async catalog refresh. This removes a high-friction failure mode during rapid branch/worktree orchestration sessions.

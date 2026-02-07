@@ -1101,6 +1101,37 @@ final class AppState: ObservableObject {
         }
     }
 
+    func presentCreateWorktreeSheet() {
+        showCreateWorktreeSheet = true
+        worktreeErrorText = nil
+        refreshWorktreeCatalogForSelection()
+    }
+
+    func resolveWorktreeRepositoryRootForSelection() async throws -> String {
+        if let catalog = worktreeCatalog {
+            return catalog.repositoryRootPath
+        }
+
+        guard let actionTargetURL = selectedActionTargetURL else {
+            throw WorktreeServiceError.invalidRequest("No terminal path available for worktree creation.")
+        }
+
+        isWorktreeLoading = true
+        do {
+            let catalog = try await worktreeService.catalog(for: actionTargetURL)
+            worktreeCatalog = catalog
+            worktreeErrorText = nil
+            isWorktreeLoading = false
+            await syncCatalogToWorkspaces()
+            return catalog.repositoryRootPath
+        } catch {
+            isWorktreeLoading = false
+            worktreeCatalog = nil
+            worktreeErrorText = String(describing: error)
+            throw error
+        }
+    }
+
     func syncCatalogToWorkspaces() async {
         guard let catalog = worktreeCatalog else { return }
 
@@ -1261,8 +1292,12 @@ final class AppState: ObservableObject {
     }
 
     func suggestedWorktreeDestinationPath(for branchName: String) -> String? {
-        guard let catalog = worktreeCatalog else { return nil }
-        let repositoryURL = URL(fileURLWithPath: catalog.repositoryRootPath).resolvingSymlinksInPath().standardizedFileURL
+        guard let repositoryRootPath = worktreeCatalog?.repositoryRootPath else { return nil }
+        return suggestedWorktreeDestinationPath(for: branchName, repositoryRootPath: repositoryRootPath)
+    }
+
+    func suggestedWorktreeDestinationPath(for branchName: String, repositoryRootPath: String) -> String? {
+        let repositoryURL = URL(fileURLWithPath: repositoryRootPath).resolvingSymlinksInPath().standardizedFileURL
         let parentURL = repositoryURL.deletingLastPathComponent()
         let wtRootURL = parentURL.appendingPathComponent(".wt", isDirectory: true)
         let repoBucketURL = wtRootURL.appendingPathComponent(repositoryURL.lastPathComponent, isDirectory: true)

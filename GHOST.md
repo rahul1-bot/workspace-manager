@@ -77,6 +77,10 @@
         1. Manual destination-path input removed from the create overlay.
         2. Destination path is auto-computed as .wt/<repo>/<branch-slug> under the repository parent directory.
         3. Parent folders are created automatically before git worktree add executes.
+    18. Worktree create reliability hardening is active:
+        1. Create flow now resolves repository context lazily at submit time when catalog state is stale or not yet loaded.
+        2. All New Worktree entry points route through a single present method that refreshes worktree catalog immediately.
+        3. Shortcut and action entry points are aligned, reducing race conditions between sheet open and catalog refresh.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).

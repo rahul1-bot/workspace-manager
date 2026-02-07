@@ -116,7 +116,7 @@ struct WorkspaceSidebar: View {
                             }
 
                             Button {
-                                appState.showCreateWorktreeSheet = true
+                                appState.presentCreateWorktreeSheet()
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.caption)

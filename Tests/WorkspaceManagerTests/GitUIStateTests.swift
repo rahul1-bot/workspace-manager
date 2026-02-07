@@ -555,6 +555,44 @@ final class GitUIStateTests: XCTestCase {
     }
 
     @MainActor
+    func testResolveWorktreeRepositoryRootForSelectionWithoutPreloadedCatalog() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let catalog = Self.makeCatalog(rootURL: rootURL, siblingURLs: [])
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockGitRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener(),
+            worktreeService: MockWorktreeService(
+                catalogResolver: { _ in catalog },
+                createResolver: { _ in catalog.descriptors[0] }
+            )
+        )
+
+        let terminal = Terminal(name: "root-terminal", workingDirectory: rootURL.path)
+        let workspace = Workspace(id: UUID(), name: "root", path: rootURL.path, terminals: [terminal])
+        appState.workspaces = [workspace]
+        appState.selectTerminal(id: terminal.id, in: workspace.id)
+        appState.worktreeCatalog = nil
+
+        let resolvedPath = try await appState.resolveWorktreeRepositoryRootForSelection()
+        XCTAssertEqual(
+            URL(fileURLWithPath: resolvedPath).standardizedFileURL.path,
+            rootURL.standardizedFileURL.path
+        )
+        XCTAssertEqual(
+            URL(fileURLWithPath: appState.worktreeCatalog?.repositoryRootPath ?? "").standardizedFileURL.path,
+            rootURL.standardizedFileURL.path
+        )
+    }
+
+    @MainActor
     func testSwitchToWorktreeUpdatesSelection() async throws {
         let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let siblingURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

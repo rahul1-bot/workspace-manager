@@ -476,7 +476,7 @@ private struct CommandPaletteView: View {
             case .graphRerunLayout:
                 appState.rerunForceLayout()
             case .newWorktree:
-                appState.showCreateWorktreeSheet = true
+                appState.presentCreateWorktreeSheet()
             case .refreshWorktrees:
                 appState.refreshWorktreeCatalogForSelection()
             case .openWorktreeDiff:

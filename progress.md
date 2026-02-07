@@ -778,3 +778,35 @@
     4. Outcome:
         1. Worktree creation no longer asks users to paste long destination paths.
         2. Destination layout is consistent by policy and optimized for repeated high-frequency worktree operations.
+
+---
+
+| Progress Todo | Worktree Create Reliability — Remove False No-Context Failures | Date: 07 February 2026 | Time: 07:45 AM | Name: Ghost |
+
+    1. Root cause:
+        1. The create handler in ContentView required appState.worktreeCatalog to exist before building the create request. Under fast operator flow, the sheet could open before refreshWorktreeCatalogForSelection() completed, causing the red error "No repository context selected for worktree creation." even while terminal context was valid.
+    2. Fix applied:
+        1. Added AppState.presentCreateWorktreeSheet() and routed all entry points to it:
+            1. Keyboard shortcut path in ContentView.
+            2. Action bar worktree menu in WorkspaceActionBar.
+            3. Command palette action in Overlays.
+            4. Sidebar worktree-plus action in WorkspaceSidebar.
+        2. Added AppState.resolveWorktreeRepositoryRootForSelection() to lazily load catalog from selected action target when preloaded state is missing.
+        3. Refactored destination generation to support direct repository-root input via suggestedWorktreeDestinationPath(for:repositoryRootPath:), then used it in create submit flow.
+        4. Updated ContentView create submit pipeline to:
+            1. Validate branch and base locally.
+            2. Resolve repository root asynchronously if needed.
+            3. Build request and delegate create to AppState without requiring preloaded catalog.
+    3. Test coverage:
+        1. Added GitUIStateTests.testResolveWorktreeRepositoryRootForSelectionWithoutPreloadedCatalog.
+    4. Validation:
+        1. swift test --filter GitUIStateTests passed (15 tests).
+        2. swift test --filter KeyboardShortcutRouterTests passed (31 tests).
+        3. swift test passed (96 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift
+        2. Sources/WorkspaceManager/ContentView.swift
+        3. Sources/WorkspaceManager/Views/WorkspaceActionBar.swift
+        4. Sources/WorkspaceManager/Views/Overlays.swift
+        5. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift
+        6. Tests/WorkspaceManagerTests/GitUIStateTests.swift

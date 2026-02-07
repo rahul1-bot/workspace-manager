@@ -150,6 +150,7 @@ struct ContentView: View {
         .onChange(of: appState.showCreateWorktreeSheet) { _, isPresented in
             if isPresented {
                 seedWorktreeSheetState()
+                appState.refreshWorktreeCatalogForSelection()
             } else {
                 isCreatingWorktree = false
             }
@@ -435,7 +436,7 @@ struct ContentView: View {
         case .focusSelectedGraphNode:
             appState.focusSelectedGraphNode()
         case .newWorktree:
-            appState.showCreateWorktreeSheet = true
+            appState.presentCreateWorktreeSheet()
         case .refreshWorktrees:
             appState.refreshWorktreeCatalogForSelection()
         case .openWorktreeDiff:
@@ -458,12 +459,6 @@ struct ContentView: View {
     }
 
     private func createWorktreeFromOverlay() {
-        guard let catalog = appState.worktreeCatalog else {
-            worktreeCreateError = "No repository context selected for worktree creation."
-            isCreatingWorktree = false
-            return
-        }
-
         let branch = worktreeBranchName.trimmingCharacters(in: .whitespacesAndNewlines)
         if branch.isEmpty {
             worktreeCreateError = "Branch name cannot be empty."
@@ -478,23 +473,46 @@ struct ContentView: View {
             return
         }
 
-        guard let destinationPath = appState.suggestedWorktreeDestinationPath(for: branch) else {
-            worktreeCreateError = "Cannot resolve destination path. Branch name is invalid."
-            isCreatingWorktree = false
-            return
-        }
-
         let trimmedPurpose = worktreePurpose.trimmingCharacters(in: .whitespacesAndNewlines)
-        let request = WorktreeCreateRequest(
-            repositoryRootPath: catalog.repositoryRootPath,
-            branchName: branch,
-            baseReference: baseReference,
-            destinationPath: destinationPath,
-            purpose: trimmedPurpose.isEmpty ? nil : trimmedPurpose
-        )
         worktreeCreateError = nil
         isCreatingWorktree = true
-        appState.createWorktreeFromSelection(request: request)
+        Task {
+            do {
+                let repositoryRootPath = try await appState.resolveWorktreeRepositoryRootForSelection()
+                guard let destinationPath = appState.suggestedWorktreeDestinationPath(
+                    for: branch,
+                    repositoryRootPath: repositoryRootPath
+                ) else {
+                    await MainActor.run {
+                        worktreeCreateError = "Cannot resolve destination path. Branch name is invalid."
+                        isCreatingWorktree = false
+                    }
+                    return
+                }
+
+                let request = WorktreeCreateRequest(
+                    repositoryRootPath: repositoryRootPath,
+                    branchName: branch,
+                    baseReference: baseReference,
+                    destinationPath: destinationPath,
+                    purpose: trimmedPurpose.isEmpty ? nil : trimmedPurpose
+                )
+
+                await MainActor.run {
+                    appState.createWorktreeFromSelection(request: request)
+                }
+            } catch {
+                await MainActor.run {
+                    if let localized = (error as? LocalizedError)?.errorDescription,
+                       !localized.isEmpty {
+                        worktreeCreateError = localized
+                    } else {
+                        worktreeCreateError = String(describing: error)
+                    }
+                    isCreatingWorktree = false
+                }
+            }
+        }
     }
 
     private func shouldExecuteShortcut(_ id: String, cooldown: TimeInterval = 0.08) -> Bool {

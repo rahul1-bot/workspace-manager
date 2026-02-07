@@ -63,7 +63,7 @@ struct WorkspaceActionBar: View {
                     appState.refreshWorktreeCatalogForSelection()
                 }
                 Button("New worktree") {
-                    appState.showCreateWorktreeSheet = true
+                    appState.presentCreateWorktreeSheet()
                 }
                 Button("Compare current worktree") {
                     appState.openWorktreeComparisonPanel()
