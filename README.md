@@ -16,8 +16,11 @@ This is not a terminal management problem. Terminal multiplexers solve terminal 
 
 Workspace Manager keeps everything in one spatial workspace: terminals, research papers, git diffs, commit flows, and a graph that maps the relationships between all of it. Every feature exists to solve a high-value problem that research engineers face daily. Low-value distractions — config UIs, theme pickers, status bars — are intentionally skipped.
 
-<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 02 45 25" src="https://github.com/user-attachments/assets/2fd8be6e-f5d6-49db-b8d4-3608e94e7dd8" />
-<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 02 44 56" src="https://github.com/user-attachments/assets/83433fe2-2f7d-4210-b115-5a7df59691c5" />
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 19 36 33" src="https://github.com/user-attachments/assets/2e8afdf8-97af-49b1-9a77-3f3ecf48e96b" />
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 19 33 50" src="https://github.com/user-attachments/assets/840d0cd9-d715-41bd-bdb5-41ff6fdcbfdb" />
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 19 32 37" src="https://github.com/user-attachments/assets/884397ac-cdc1-4e3c-9559-391d12b30bf0" />
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 19 34 20" src="https://github.com/user-attachments/assets/13e365e2-39d0-4c02-a027-cb226fcdf003" />
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 19 34 34" src="https://github.com/user-attachments/assets/fcb1fef5-1cb3-44de-898f-e9ecee8f0699" />
 
 ## What It Does Today
 
