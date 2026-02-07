@@ -1188,43 +1188,34 @@ final class AppState: ObservableObject {
         return true
     }
 
-    func createWorktreeFromSelection(request: WorktreeCreateRequest) {
+    func createWorktreeFromSelection(request: WorktreeCreateRequest) async throws {
         isWorktreeLoading = true
         worktreeErrorText = nil
+        defer {
+            isWorktreeLoading = false
+        }
 
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let descriptor = try await worktreeService.createWorktree(request)
-                let catalog = try await worktreeService.catalog(for: URL(fileURLWithPath: descriptor.worktreePath))
-                await MainActor.run {
-                    self.worktreeCatalog = catalog
-                    self.isWorktreeLoading = false
-                    self.worktreeErrorText = nil
-                    self.showCreateWorktreeSheet = false
-                }
-                await self.syncCatalogToWorkspaces()
+        do {
+            let descriptor = try await worktreeService.createWorktree(request)
+            let catalog = try await worktreeService.catalog(for: URL(fileURLWithPath: descriptor.worktreePath))
+            worktreeCatalog = catalog
+            worktreeErrorText = nil
+            showCreateWorktreeSheet = false
 
-                await MainActor.run {
-                    _ = self.switchToWorktree(path: descriptor.worktreePath)
-                    self.setWorktreeDiffBaseline(.mergeBaseWithDefault)
-                }
+            await syncCatalogToWorkspaces()
+            _ = switchToWorktree(path: descriptor.worktreePath)
+            setWorktreeDiffBaseline(.mergeBaseWithDefault)
 
-                if let purpose = request.purpose?.trimmingCharacters(in: .whitespacesAndNewlines),
-                   !purpose.isEmpty,
-                   let workspaceID = await MainActor.run(body: {
-                       self.workspaces.first(where: {
-                           URL(fileURLWithPath: $0.path).standardizedFileURL.path == descriptor.worktreePath
-                       })?.id
-                   }) {
-                    await worktreeStateService.upsertPurpose(workspaceID: workspaceID, purpose: purpose)
-                }
-            } catch {
-                await MainActor.run {
-                    self.isWorktreeLoading = false
-                    self.worktreeErrorText = String(describing: error)
-                }
+            if let purpose = request.purpose?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !purpose.isEmpty,
+               let workspaceID = workspaces.first(where: {
+                   URL(fileURLWithPath: $0.path).standardizedFileURL.path == descriptor.worktreePath
+               })?.id {
+                await worktreeStateService.upsertPurpose(workspaceID: workspaceID, purpose: purpose)
             }
+        } catch {
+            worktreeErrorText = String(describing: error)
+            throw error
         }
     }
 

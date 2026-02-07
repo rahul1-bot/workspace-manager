@@ -172,3 +172,14 @@
         1. Worktree create now resolves repository context lazily at submit time through worktreeService.catalog(for: selectedActionTargetURL) when catalog is missing. New-worktree actions across shortcut, action bar, sidebar, and command palette were unified through a single AppState present method that triggers immediate refresh.
     3. Implication:
         1. Create flow no longer relies on timing luck between UI open and async catalog refresh. This removes a high-friction failure mode during rapid branch/worktree orchestration sessions.
+
+---
+
+| Memory | UI Loading Indicators Must Be Bound to Awaited Completion Paths | Date: 07 February 2026 | Time: 07:55 AM | Name: Ghost |
+
+    1. Observation:
+        1. The worktree create spinner could remain active because the UI started loading before calling an AppState method that internally spawned its own Task and returned immediately. The view could not reliably infer completion from that fire-and-forget boundary.
+    2. Decision:
+        1. Converted createWorktreeFromSelection to async throws and made the overlay submit path await it directly on MainActor. Spinner reset is now explicit in both success and failure branches in the same control flow.
+    3. Implication:
+        1. Long-running create operations remain visible, but terminal states are deterministic. Stuck loading indicators caused by hidden async boundaries are prevented for this flow.

@@ -476,17 +476,15 @@ struct ContentView: View {
         let trimmedPurpose = worktreePurpose.trimmingCharacters(in: .whitespacesAndNewlines)
         worktreeCreateError = nil
         isCreatingWorktree = true
-        Task {
+        Task { @MainActor in
             do {
                 let repositoryRootPath = try await appState.resolveWorktreeRepositoryRootForSelection()
                 guard let destinationPath = appState.suggestedWorktreeDestinationPath(
                     for: branch,
                     repositoryRootPath: repositoryRootPath
                 ) else {
-                    await MainActor.run {
-                        worktreeCreateError = "Cannot resolve destination path. Branch name is invalid."
-                        isCreatingWorktree = false
-                    }
+                    worktreeCreateError = "Cannot resolve destination path. Branch name is invalid."
+                    isCreatingWorktree = false
                     return
                 }
 
@@ -498,19 +496,16 @@ struct ContentView: View {
                     purpose: trimmedPurpose.isEmpty ? nil : trimmedPurpose
                 )
 
-                await MainActor.run {
-                    appState.createWorktreeFromSelection(request: request)
-                }
+                try await appState.createWorktreeFromSelection(request: request)
+                isCreatingWorktree = false
             } catch {
-                await MainActor.run {
-                    if let localized = (error as? LocalizedError)?.errorDescription,
-                       !localized.isEmpty {
-                        worktreeCreateError = localized
-                    } else {
-                        worktreeCreateError = String(describing: error)
-                    }
-                    isCreatingWorktree = false
+                if let localized = (error as? LocalizedError)?.errorDescription,
+                   !localized.isEmpty {
+                    worktreeCreateError = localized
+                } else {
+                    worktreeCreateError = String(describing: error)
                 }
+                isCreatingWorktree = false
             }
         }
     }

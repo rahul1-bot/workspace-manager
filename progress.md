@@ -810,3 +810,21 @@
         4. Sources/WorkspaceManager/Views/Overlays.swift
         5. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift
         6. Tests/WorkspaceManagerTests/GitUIStateTests.swift
+
+---
+
+| Progress Todo | Worktree Create Spinner Stall Fix (Async Lifecycle Alignment) | Date: 07 February 2026 | Time: 07:55 AM | Name: Ghost |
+
+    1. Root cause:
+        1. ContentView set isCreatingWorktree to true and called AppState.createWorktreeFromSelection, but that method launched an internal Task and returned immediately. UI completion and operation completion were decoupled, so spinner reset depended on secondary state-change observers and could stall.
+    2. Fix applied:
+        1. Refactored AppState.createWorktreeFromSelection to async throws with direct awaited flow.
+        2. Removed internal fire-and-forget Task from create path.
+        3. Updated ContentView submit logic to await create completion directly and clear spinner in deterministic success and failure branches.
+    3. Validation:
+        1. swift test --filter GitUIStateTests passed (15 tests).
+        2. swift test --filter WorktreeServiceTests passed (5 tests).
+        3. swift test passed (96 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift
+        2. Sources/WorkspaceManager/ContentView.swift

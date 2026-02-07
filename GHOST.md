@@ -81,6 +81,10 @@
         1. Create flow now resolves repository context lazily at submit time when catalog state is stale or not yet loaded.
         2. All New Worktree entry points route through a single present method that refreshes worktree catalog immediately.
         3. Shortcut and action entry points are aligned, reducing race conditions between sheet open and catalog refresh.
+    19. Worktree create loading-state lifecycle is now completion-driven:
+        1. AppState create method was converted to async throws and no longer spawns an internal detached task.
+        2. ContentView create handler now awaits the full create pipeline and always exits spinner state on success or error.
+        3. This removes the stuck Create-button spinner failure mode during rapid worktree creation attempts.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).
