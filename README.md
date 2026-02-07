@@ -21,6 +21,7 @@ Workspace Manager keeps everything in one spatial workspace: terminals, research
 <img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 19 32 37" src="https://github.com/user-attachments/assets/884397ac-cdc1-4e3c-9559-391d12b30bf0" />
 <img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 19 34 20" src="https://github.com/user-attachments/assets/13e365e2-39d0-4c02-a027-cb226fcdf003" />
 <img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 19 34 34" src="https://github.com/user-attachments/assets/fcb1fef5-1cb3-44de-898f-e9ecee8f0699" />
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 16 52 03" src="https://github.com/user-attachments/assets/02ef3e1a-796a-4eea-aa71-557f73b3dbc6" />
 
 ## What It Does Today
 
