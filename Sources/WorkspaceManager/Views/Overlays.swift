@@ -120,7 +120,7 @@ private enum PaletteAction: String, CaseIterable, Hashable {
         case .toggleFocusMode:
             return "Hide chrome and focus on one terminal"
         case .openPDF:
-            return "Open a PDF file in the viewer panel (⇧⌘O)"
+            return "Open one or more PDF files in the viewer panel (⇧⌘O)"
         case .revealConfig:
             return "Open ~/.config/workspace-manager/config.toml in Finder"
         case .toggleGraphView:

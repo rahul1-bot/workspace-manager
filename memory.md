@@ -290,3 +290,17 @@
     3. Implication:
         1. Each terminal now behaves like an independent document workspace with its own tabs, active tab, and visibility lifecycle.
         2. Context switching across terminals preserves reading state without leaking documents into unrelated tasks.
+
+---
+
+| Memory | Batch PDF Intake and README Synchronization Are Core UX Hygiene | Date: 07 February 2026 | Time: 07:05 PM | Name: Ghost |
+
+    1. Observation:
+        1. Single-file picker flow forces repetitive open operations when users need multiple assignment/paper PDFs together.
+        2. README drifted behind implementation and still described older capability boundaries and keymaps.
+    2. Decision:
+        1. Enabled multi-selection in PDF picker and routed all selected URLs through a shared batch-open method.
+        2. Updated README capability, keybinding, CI-count, and roadmap sections to reflect current shipped behavior.
+    3. Implication:
+        1. Document setup throughput improves for research workflows where 2-5 PDFs are opened together.
+        2. External collaborators now read accurate product behavior and shortcut contracts from repository documentation.

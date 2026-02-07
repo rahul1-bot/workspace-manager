@@ -791,16 +791,22 @@ final class AppState: ObservableObject {
 
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.pdf]
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.message = "Select a PDF file to open"
+        panel.message = "Select one or more PDF files to open"
 
-        guard panel.runModal() == .OK, let selectedURL = panel.url else {
+        guard panel.runModal() == .OK else {
             return
         }
 
-        openPDFFile(selectedURL)
+        openPDFFiles(panel.urls)
+    }
+
+    func openPDFFiles(_ urls: [URL]) {
+        for url in urls {
+            openPDFFile(url)
+        }
     }
 
     private func persistPDFPanelState(for terminalID: UUID?) {

@@ -115,6 +115,12 @@
     28. PDF session state is now terminal-scoped:
         1. Each terminal maintains independent PDF tabs, active tab, and panel visibility state.
         2. Switching terminals restores that terminal's document context instead of reusing global PDF state.
+    29. PDF intake now supports batch open in one picker confirmation:
+        1. Finder picker accepts multi-selection and opens all selected PDFs into the current terminal's document context.
+        2. Existing tab deduplication behavior is preserved through per-file open flow reuse.
+    30. Repository README is now aligned with shipped behavior:
+        1. Added worktree orchestration as shipped capability, terminal-scoped document sessions, batch PDF open flow, and current keymap contract.
+        2. Updated CI status and roadmap wording to match current implementation state.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).

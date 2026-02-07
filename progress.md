@@ -1012,3 +1012,31 @@
     5. Outcome:
         1. PDF panel context is now local to each terminal and restored on terminal switch.
         2. Document tabs no longer leak across unrelated terminal scopes.
+
+---
+
+| Progress Todo | Batch PDF Open Support and README Synchronization | Date: 07 February 2026 | Time: 07:05 PM | Name: Ghost |
+
+    1. Scope:
+        1. Added multi-document intake through Finder picker and updated repository README to reflect all shipped behaviors and current keymaps.
+    2. Code changes:
+        1. Sources/WorkspaceManager/Models/AppState.swift:
+            1. `presentPDFFilePicker()` now enables multi-selection and opens all chosen files in one action.
+            2. Added `openPDFFiles(_:)` to route batch URLs through existing per-file open flow.
+        2. Sources/WorkspaceManager/Views/Overlays.swift:
+            1. Command palette `Open PDF` subtitle updated to communicate multi-file support.
+        3. Tests/WorkspaceManagerTests/GitUIStateTests.swift:
+            1. Added `testOpenPDFFilesAddsBatchIntoCurrentTerminalContext`.
+    3. Documentation changes:
+        1. README.md:
+            1. Updated PDF section with toggle/open semantics, batch open behavior, and terminal-scoped session restoration.
+            2. Added shipped Git Worktree Orchestration section.
+            3. Updated keybinding table with current PDF/worktree shortcuts and context notes.
+            4. Updated CI gate count and roadmap/status text.
+        2. problem_statement.md:
+            1. Added batch document intake as requirement and acceptance criterion.
+    4. Validation:
+        1. swift test passed (102 tests, 0 failures).
+    5. Outcome:
+        1. Users can select multiple PDFs in one picker action and open them together.
+        2. README now mirrors current product behavior and shortcut contracts.

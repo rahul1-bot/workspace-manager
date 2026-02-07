@@ -19,6 +19,7 @@ From current runtime observations and screenshots:
 - PDF viewing exists, but there is no explicit always-visible action button in the terminal action bar, which slows research-paper workflow.
 - Documents-button behavior drifted: trigger path always reopened Finder instead of acting as a panel toggle, even when PDF tabs already existed.
 - PDF session state is global across terminals; switching terminal currently leaks previously opened documents into unrelated terminal contexts.
+- PDF picker currently supports single-file selection only, slowing paper setup workflows that require opening multiple related documents together.
 
 ## 4. Why This Matters
 The value of this feature is operational speed under complexity:
@@ -98,6 +99,9 @@ Notable reference characteristics:
 - PDF panel tabs, active tab, page positions, and visibility must be scoped to selected terminal.
 - Switching terminals should restore that terminal's last document session state.
 
+7. Batch document intake
+- File picker must support selecting and opening multiple PDFs in one action.
+
 ## 9. Current Execution Plan (Incremental)
 1. Stabilize create path
 - Keep create flow completion-bound and timeout-safe.
@@ -134,6 +138,7 @@ Notable reference characteristics:
 - Keymaps remain explicit and stable: `⇧⌘P` toggles Documents panel, `⇧⌘O` opens PDF file picker.
 - Toggle keymap remains resilient to keyboard-layout character variance through physical-key fallback handling.
 - Terminal switch restores terminal-local PDF session state instead of sharing global PDF tabs.
+- File picker accepts multi-selection and opens all selected PDFs into the current terminal's PDF context.
 - Regression tests cover create-path completion behavior and sidebar filtering behavior.
 - Full test suite remains green.
 
