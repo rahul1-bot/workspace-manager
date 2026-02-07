@@ -16,6 +16,9 @@ This is not a terminal management problem. Terminal multiplexers solve terminal 
 
 Workspace Manager keeps everything in one spatial workspace: terminals, research papers, git diffs, commit flows, and a graph that maps the relationships between all of it. Every feature exists to solve a high-value problem that research engineers face daily. Low-value distractions — config UIs, theme pickers, status bars — are intentionally skipped.
 
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 02 45 25" src="https://github.com/user-attachments/assets/2fd8be6e-f5d6-49db-b8d4-3608e94e7dd8" />
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 02 44 56" src="https://github.com/user-attachments/assets/83433fe2-2f7d-4210-b115-5a7df59691c5" />
+
 ## What It Does Today
 
 ### Spatial Graph View
@@ -99,7 +102,6 @@ What we explicitly skip: settings UI panels, theme pickers, built-in AI chat (th
 - No Electron. No web views. No compromise.
 
 ## Quickstart
-
 ### Requirements
 
 - macOS 14+
