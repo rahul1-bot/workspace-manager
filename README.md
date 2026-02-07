@@ -180,4 +180,4 @@ path = "~/code/research"
 
 ## Status
 
-Active development. Used daily for AI research and coursework at FAU. Spatial graph Phase 1 is shipped. Knowledge workspace features (worktree orchestration, code viewer) are next.
+Active development. Used daily for AI research and coursework at `University of Erlangen-Nuremberg` Germany. Spatial graph Phase 1 is shipped. Knowledge workspace features (worktree orchestration, code viewer) are next.
