@@ -988,3 +988,27 @@
         2. swift test passed (100 tests, 0 failures).
     5. Outcome:
         1. Toggle keymap is now explicit, visible, and resilient across keyboard-layout variation.
+
+---
+
+| Progress Todo | Terminal-Scoped PDF Session State | Date: 07 February 2026 | Time: 06:56 PM | Name: Ghost |
+
+    1. Root cause:
+        1. `pdfPanelState` was maintained as one global AppState field, so PDF tabs and visibility followed the app globally instead of the selected terminal context.
+    2. Fix applied:
+        1. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Added terminal-keyed PDF session store (`pdfPanelStateByTerminalID`).
+            2. Added persistence/restore helpers for terminal PDF sessions.
+            3. Wired terminal switch flow to persist outgoing terminal PDF state and restore incoming terminal PDF state.
+            4. Reset or clear PDF session state in terminal-removal and empty-selection flows to avoid stale resurrection.
+            5. Added no-selection guard for file picker invocation.
+        2. Tests/WorkspaceManagerTests/GitUIStateTests.swift:
+            1. Added `testPDFPanelStateIsScopedPerTerminalSelection` to verify independent tabs/visibility restoration across terminals.
+    3. Documentation updates:
+        1. Updated `problem_statement.md` to include terminal-local document context as a first-class requirement and acceptance criterion.
+    4. Validation:
+        1. swift test --filter GitUIStateTests passed (18 tests).
+        2. swift test passed (101 tests, 0 failures).
+    5. Outcome:
+        1. PDF panel context is now local to each terminal and restored on terminal switch.
+        2. Document tabs no longer leak across unrelated terminal scopes.

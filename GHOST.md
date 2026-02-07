@@ -112,6 +112,9 @@
     27. PDF toggle keymap hardening is active:
         1. Router now accepts both character and physical-keycode matches for `⇧⌘P` toggle and `⇧⌘O` open-file actions.
         2. Documents action tooltip now advertises `Toggle Documents panel (⇧⌘P)` for in-context discoverability.
+    28. PDF session state is now terminal-scoped:
+        1. Each terminal maintains independent PDF tabs, active tab, and panel visibility state.
+        2. Switching terminals restores that terminal's document context instead of reusing global PDF state.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).

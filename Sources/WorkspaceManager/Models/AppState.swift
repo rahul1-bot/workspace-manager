@@ -16,7 +16,11 @@ final class AppState: ObservableObject {
     @Published var renamingTerminalId: UUID?
     @Published var gitPanelState: GitPanelState = GitPanelState()
     @Published var commitSheetState: CommitSheetState = CommitSheetState()
-    @Published var pdfPanelState: PDFPanelState = PDFPanelState()
+    @Published var pdfPanelState: PDFPanelState = PDFPanelState() {
+        didSet {
+            persistPDFPanelState(for: selectedTerminalId)
+        }
+    }
     @Published var availableEditors: [ExternalEditor] = []
     @Published var currentViewMode: ViewMode = .sidebar
     @Published var graphDocument: GraphStateDocument = GraphStateDocument()
@@ -49,6 +53,7 @@ final class AppState: ObservableObject {
     private var commitSummaryTask: Task<Void, Never>?
     private var runtimePathObserver: NSObjectProtocol?
     private var terminalRuntimePaths: [UUID: String] = [:]
+    private var pdfPanelStateByTerminalID: [UUID: PDFPanelState] = [:]
     private var worktreeCatalogTask: Task<Void, Never>?
     private var workspaceBranchMetadataTask: Task<Void, Never>?
 
@@ -182,6 +187,7 @@ final class AppState: ObservableObject {
                 selectedTerminalId = prevTermId
             }
         }
+        restorePDFPanelState(for: selectedTerminalId)
     }
 
     /// Merge config changes while preserving running terminals
@@ -252,12 +258,14 @@ final class AppState: ObservableObject {
         if let workspace = workspaces.first(where: { $0.id == id }) {
             for terminal in workspace.terminals {
                 terminalRuntimePaths.removeValue(forKey: terminal.id)
+                pdfPanelStateByTerminalID.removeValue(forKey: terminal.id)
             }
         }
         workspaces.removeAll { $0.id == id }
         if selectedWorkspaceId == id {
             selectedWorkspaceId = nil
             selectedTerminalId = nil
+            restorePDFPanelState(for: nil)
             refreshGitUIState()
         }
 
@@ -403,9 +411,11 @@ final class AppState: ObservableObject {
 
         workspaces[index].removeTerminal(id: id)
         terminalRuntimePaths.removeValue(forKey: id)
+        pdfPanelStateByTerminalID.removeValue(forKey: id)
         persistTerminalNames(for: workspaceId)
         if selectedTerminalId == id {
             selectedTerminalId = nil
+            restorePDFPanelState(for: nil)
             refreshGitUIState()
         }
     }
@@ -420,10 +430,12 @@ final class AppState: ObservableObject {
 
         workspaces[wsIndex].removeTerminal(id: tId)
         terminalRuntimePaths.removeValue(forKey: tId)
+        pdfPanelStateByTerminalID.removeValue(forKey: tId)
         persistTerminalNames(for: wsId)
 
         if workspaces[wsIndex].terminals.isEmpty {
             selectedTerminalId = nil
+            restorePDFPanelState(for: nil)
             refreshGitUIState()
             return
         }
@@ -433,6 +445,8 @@ final class AppState: ObservableObject {
     }
 
     func selectTerminal(id: UUID, in workspaceId: UUID) {
+        persistPDFPanelState(for: selectedTerminalId)
+
         for i in workspaces.indices {
             for j in workspaces[i].terminals.indices {
                 workspaces[i].terminals[j].isActive = false
@@ -446,6 +460,7 @@ final class AppState: ObservableObject {
 
         selectedWorkspaceId = workspaceId
         selectedTerminalId = id
+        restorePDFPanelState(for: id)
         refreshGitUIState()
     }
 
@@ -614,6 +629,7 @@ final class AppState: ObservableObject {
                 selectTerminal(id: firstTerminal.id, in: prevWorkspace.id)
             } else {
                 selectedTerminalId = nil
+                restorePDFPanelState(for: nil)
                 refreshGitUIState()
             }
         } else {
@@ -638,6 +654,7 @@ final class AppState: ObservableObject {
                 selectTerminal(id: firstTerminal.id, in: nextWorkspace.id)
             } else {
                 selectedTerminalId = nil
+                restorePDFPanelState(for: nil)
                 refreshGitUIState()
             }
         } else {
@@ -770,6 +787,8 @@ final class AppState: ObservableObject {
     }
 
     func presentPDFFilePicker() {
+        guard selectedTerminalId != nil else { return }
+
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.pdf]
         panel.allowsMultipleSelection = false
@@ -782,6 +801,20 @@ final class AppState: ObservableObject {
         }
 
         openPDFFile(selectedURL)
+    }
+
+    private func persistPDFPanelState(for terminalID: UUID?) {
+        guard let terminalID else { return }
+        pdfPanelStateByTerminalID[terminalID] = pdfPanelState
+    }
+
+    private func restorePDFPanelState(for terminalID: UUID?) {
+        guard let terminalID else {
+            pdfPanelState = PDFPanelState()
+            return
+        }
+
+        pdfPanelState = pdfPanelStateByTerminalID[terminalID] ?? PDFPanelState()
     }
 
     func presentCommitSheetPlaceholder() {
@@ -1266,6 +1299,7 @@ final class AppState: ObservableObject {
             selectTerminal(id: firstTerminal.id, in: workspace.id)
         } else {
             selectedTerminalId = nil
+            restorePDFPanelState(for: nil)
             refreshGitUIState()
         }
         return true

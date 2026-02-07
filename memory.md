@@ -276,3 +276,17 @@
         2. Kept `⌘O` Finder mapping guarded with `!shift` to avoid overlap with `⇧⌘O`.
     3. Implication:
         1. PDF keymaps remain stable across keyboard-layout differences while preserving existing Finder and workspace-open behavior.
+
+---
+
+| Memory | Document Sessions Must Be Terminal-Scoped, Not Global | Date: 07 February 2026 | Time: 06:56 PM | Name: Ghost |
+
+    1. Observation:
+        1. A single global `pdfPanelState` causes tab bleed across terminals. When users switch from one terminal context to another, unrelated PDFs remain visible, collapsing context boundaries and reducing trust in workspace isolation.
+    2. Decision:
+        1. Added terminal-scoped session storage for PDF panel state keyed by terminal ID.
+        2. Terminal selection flow now persists the previous terminal's PDF state and restores the target terminal's PDF state.
+        3. Terminal-removal and empty-selection paths clear or reset PDF state to prevent stale session resurrection.
+    3. Implication:
+        1. Each terminal now behaves like an independent document workspace with its own tabs, active tab, and visibility lifecycle.
+        2. Context switching across terminals preserves reading state without leaking documents into unrelated tasks.

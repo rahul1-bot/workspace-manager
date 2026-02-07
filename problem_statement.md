@@ -18,6 +18,7 @@ From current runtime observations and screenshots:
 - Branch metadata for workspace repositories is computed but not consistently surfaced inline where terminal selection happens.
 - PDF viewing exists, but there is no explicit always-visible action button in the terminal action bar, which slows research-paper workflow.
 - Documents-button behavior drifted: trigger path always reopened Finder instead of acting as a panel toggle, even when PDF tabs already existed.
+- PDF session state is global across terminals; switching terminal currently leaks previously opened documents into unrelated terminal contexts.
 
 ## 4. Why This Matters
 The value of this feature is operational speed under complexity:
@@ -93,6 +94,10 @@ Notable reference characteristics:
 - `Documents` button and `⇧⌘P` should be panel visibility toggles only.
 - Opening new files should be explicit (`command palette: Open PDF` or dedicated open-file shortcut), not a side effect of toggle.
 
+6. Terminal-local document context
+- PDF panel tabs, active tab, page positions, and visibility must be scoped to selected terminal.
+- Switching terminals should restore that terminal's last document session state.
+
 ## 9. Current Execution Plan (Incremental)
 1. Stabilize create path
 - Keep create flow completion-bound and timeout-safe.
@@ -128,6 +133,7 @@ Notable reference characteristics:
 - If PDFs are already loaded, reopening the panel does not reopen Finder.
 - Keymaps remain explicit and stable: `⇧⌘P` toggles Documents panel, `⇧⌘O` opens PDF file picker.
 - Toggle keymap remains resilient to keyboard-layout character variance through physical-key fallback handling.
+- Terminal switch restores terminal-local PDF session state instead of sharing global PDF tabs.
 - Regression tests cover create-path completion behavior and sidebar filtering behavior.
 - Full test suite remains green.
 
