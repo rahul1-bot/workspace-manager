@@ -89,6 +89,10 @@
         1. WorktreeService create path returns descriptor from the new worktree directly instead of forcing full-catalog reconstruction before returning.
         2. AppState create flow now adds and links only the created workspace on the critical path, then refreshes catalog asynchronously after switching.
         3. WorktreeService git execution now uses file-backed stdout/stderr capture with command timeout protection to prevent process-output deadlocks.
+    21. Sidebar hierarchy now enforces separation between manual workspaces and auto-managed worktree entries:
+        1. Auto-managed worktree-linked workspaces are filtered out of the primary WORKSPACES tree to prevent node explosion during branch/worktree switching.
+        2. Worktree-linked context remains visible through WORKTREES (CURRENT REPO), preserving switch and compare workflows without duplicating nodes.
+        3. Auto-managed metadata is refreshed from worktree-state.json and used as the authoritative filter source.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).

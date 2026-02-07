@@ -194,3 +194,14 @@
         1. Reworked create path to return immediately after successful git worktree add plus descriptor extraction for only the new worktree. Workspace registration and linking for the created path remain in the critical path; full catalog refresh moved to post-switch asynchronous refresh.
     3. Implication:
         1. Create latency now tracks real git worktree add cost instead of cross-worktree metadata fanout cost. This aligns UX with terminal expectations for fast branch/worktree operations.
+
+---
+
+| Memory | Auto-Managed Worktree Nodes Must Not Pollute Primary Workspace Navigation | Date: 07 February 2026 | Time: 08:17 AM | Name: Ghost |
+
+    1. Observation:
+        1. The main WORKSPACES sidebar accumulated many wt-prefixed nodes as users switched branches and created worktrees. This duplicated navigation because the same entities are already represented in WORKTREES (CURRENT REPO), degrading clarity and making the sidebar look corrupted.
+    2. Decision:
+        1. Added explicit auto-managed workspace tracking based on worktree-state.json links and filtered auto-managed entries from the primary workspace list. Selected auto-managed workspace remains visible to avoid context loss during active interaction.
+    3. Implication:
+        1. Sidebar now preserves a clean separation: manual workspace topology in WORKSPACES and git worktree topology in WORKTREES. This avoids runaway node growth without losing orchestration capability.

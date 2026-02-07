@@ -852,3 +852,25 @@
     4. Files modified:
         1. Sources/WorkspaceManager/Services/WorktreeService.swift
         2. Sources/WorkspaceManager/Models/AppState.swift
+
+---
+
+| Progress Todo | Sidebar Pollution Fix — Hide Auto-Managed Worktree Nodes from Primary Workspace Tree | Date: 07 February 2026 | Time: 08:17 AM | Name: Ghost |
+
+    1. Root cause:
+        1. Worktree auto-sync persisted created worktrees as config-backed workspaces. The sidebar rendered all workspaces in the primary WORKSPACES tree, so repeated worktree orchestration produced many wt-prefixed entries and visual duplication against WORKTREES (CURRENT REPO).
+    2. Fix applied:
+        1. Added AppState.worktreeAutoManagedWorkspaceIDs as tracked metadata set populated from worktree-state.json.
+        2. Added AppState.sidebarWorkspaces computed list that filters auto-managed IDs out of primary navigation while preserving currently selected context.
+        3. Updated WorkspaceSidebar to render sidebarWorkspaces instead of the full workspaces array.
+        4. Sync path now preserves existing isAutoManaged flags for update links instead of forcing false, and refreshes auto-managed metadata after sync.
+    3. Test coverage:
+        1. Added GitUIStateTests.testSidebarWorkspacesHideAutoManagedUnlessSelected.
+    4. Validation:
+        1. swift test --filter GitUIStateTests passed (16 tests).
+        2. swift test --filter WorktreeServiceTests passed (5 tests).
+        3. swift test passed (97 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift
+        2. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift
+        3. Tests/WorkspaceManagerTests/GitUIStateTests.swift

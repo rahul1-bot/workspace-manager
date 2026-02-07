@@ -674,6 +674,31 @@ final class GitUIStateTests: XCTestCase {
         XCTAssertEqual(DiffPanelMode.worktreeComparison.title, "Worktree comparison")
     }
 
+    @MainActor
+    func testSidebarWorkspacesHideAutoManagedUnlessSelected() {
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockGitRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
+        )
+
+        let manualWorkspace = Workspace(id: UUID(), name: "Root", path: "/tmp/manual", terminals: [])
+        let autoWorkspace = Workspace(id: UUID(), name: "wt feature/x", path: "/tmp/auto", terminals: [])
+        appState.workspaces = [manualWorkspace, autoWorkspace]
+        appState.worktreeAutoManagedWorkspaceIDs = [autoWorkspace.id]
+        appState.selectedWorkspaceId = manualWorkspace.id
+
+        let hiddenAutoIDs = Set(appState.sidebarWorkspaces.map(\.id))
+        XCTAssertTrue(hiddenAutoIDs.contains(manualWorkspace.id))
+        XCTAssertFalse(hiddenAutoIDs.contains(autoWorkspace.id))
+
+        appState.selectedWorkspaceId = autoWorkspace.id
+        let selectedAutoIDs = Set(appState.sidebarWorkspaces.map(\.id))
+        XCTAssertTrue(selectedAutoIDs.contains(autoWorkspace.id))
+    }
+
     private static func makeCatalog(rootURL: URL, siblingURLs: [URL]) -> WorktreeCatalog {
         let rootDescriptor = WorktreeDescriptor(
             repositoryRootPath: rootURL.path,

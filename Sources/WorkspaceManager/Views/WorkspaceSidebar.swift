@@ -43,7 +43,7 @@ struct WorkspaceSidebar: View {
             // Workspace list
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(appState.workspaces) { workspace in
+                    ForEach(appState.sidebarWorkspaces) { workspace in
                         WorkspaceRow(
                             workspace: workspace,
                             isSelected: appState.selectedWorkspaceId == workspace.id,

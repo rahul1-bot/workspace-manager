@@ -27,6 +27,7 @@ final class AppState: ObservableObject {
     @Published var worktreeErrorText: String?
     @Published var isWorktreeLoading: Bool = false
     @Published var showCreateWorktreeSheet: Bool = false
+    @Published var worktreeAutoManagedWorkspaceIDs: Set<UUID> = []
 
     private let configService: ConfigService
     private let graphStateService: GraphStateService = GraphStateService()
@@ -76,6 +77,11 @@ final class AppState: ObservableObject {
             if let firstTerminal = workspaces[0].terminals.first {
                 selectTerminal(id: firstTerminal.id, in: firstWorkspace.id)
             }
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.refreshWorktreeAutoManagedWorkspaceIDs()
         }
     }
 
@@ -150,6 +156,10 @@ final class AppState: ObservableObject {
 
         // Merge-style reload: preserve existing terminals while updating workspace metadata
         mergeWorkspacesFromConfig()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.refreshWorktreeAutoManagedWorkspaceIDs()
+        }
 
         // Sync appearance settings from config
         showSidebar = configService.config.appearance.show_sidebar
@@ -246,6 +256,7 @@ final class AppState: ObservableObject {
 
         configService.removeWorkspace(id: id.uuidString)
         pruneTerminalRuntimePaths()
+        worktreeAutoManagedWorkspaceIDs.remove(id)
     }
 
     func toggleWorkspaceExpanded(id: UUID) {
@@ -449,6 +460,15 @@ final class AppState: ObservableObject {
     var selectedWorkspaceURL: URL? {
         guard let workspace = selectedWorkspace else { return nil }
         return URL(fileURLWithPath: workspace.path)
+    }
+
+    var sidebarWorkspaces: [Workspace] {
+        workspaces.filter { workspace in
+            if selectedWorkspaceId == workspace.id {
+                return true
+            }
+            return !worktreeAutoManagedWorkspaceIDs.contains(workspace.id)
+        }
     }
 
     func updateTerminalRuntimePath(for terminalID: UUID, path: String) {
@@ -1134,15 +1154,21 @@ final class AppState: ObservableObject {
 
     func syncCatalogToWorkspaces() async {
         guard let catalog = worktreeCatalog else { return }
+        let existingStateDocument = await worktreeStateService.load()
 
         let syncPlan = worktreeService.workspaceSyncPlan(catalog: catalog, existingWorkspaces: workspaces)
 
         for update in syncPlan.updates {
+            let workspaceKey = update.workspaceID.uuidString
+            let normalizedPath = URL(fileURLWithPath: update.descriptor.worktreePath).standardizedFileURL.path
+            let existingLink = existingStateDocument.linksByWorkspaceID[workspaceKey]
+                ?? existingStateDocument.linksByWorktreePath[normalizedPath]
+            let autoManaged = existingLink?.isAutoManaged ?? false
             await worktreeStateService.linkWorkspace(
                 workspaceID: update.workspaceID,
                 worktreePath: update.descriptor.worktreePath,
                 repoRootPath: update.descriptor.repositoryRootPath,
-                isAutoManaged: false
+                isAutoManaged: autoManaged
             )
         }
 
@@ -1167,6 +1193,7 @@ final class AppState: ObservableObject {
         let activePaths = Set(catalog.descriptors.map(\.worktreePath))
         let stalePaths = stateDocument.linksByWorktreePath.keys.filter { !activePaths.contains($0) }
         await worktreeStateService.setStaleWorktreePaths(stalePaths)
+        await refreshWorktreeAutoManagedWorkspaceIDs()
     }
 
     @discardableResult
@@ -1223,6 +1250,7 @@ final class AppState: ObservableObject {
                 repoRootPath: descriptor.repositoryRootPath,
                 isAutoManaged: true
             )
+            await refreshWorktreeAutoManagedWorkspaceIDs()
 
             if let purpose = request.purpose?.trimmingCharacters(in: .whitespacesAndNewlines),
                !purpose.isEmpty {
@@ -1404,6 +1432,18 @@ final class AppState: ObservableObject {
         showCreateWorktreeSheet = false
         gitPanelState.worktreeDiffRequest = nil
         gitPanelState.baselineLabel = nil
+    }
+
+    private func refreshWorktreeAutoManagedWorkspaceIDs() async {
+        let stateDocument = await worktreeStateService.load()
+        let knownWorkspaceIDs = Set(workspaces.map(\.id))
+        let autoManagedIDs: Set<UUID> = Set(
+            stateDocument.linksByWorkspaceID.compactMap { _, link in
+                guard link.isAutoManaged else { return nil }
+                return UUID(uuidString: link.workspaceID)
+            }.filter { knownWorkspaceIDs.contains($0) }
+        )
+        worktreeAutoManagedWorkspaceIDs = autoManagedIDs
     }
 
     private func uniqueAutoManagedWorkspaceName(for descriptor: WorktreeDescriptor) -> String {
