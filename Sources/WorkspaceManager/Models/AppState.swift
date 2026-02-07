@@ -1016,6 +1016,20 @@ final class AppState: ObservableObject {
         var updatedNodes: [GraphNode] = graphDocument.nodes
         var updatedEdges: [GraphEdge] = graphDocument.edges
 
+        // Sync names of existing nodes from current workspace/terminal data
+        let terminalNameById: [UUID: String] = workspaces.reduce(into: [:]) { result, workspace in
+            for terminal in workspace.terminals {
+                result[terminal.id] = terminal.name
+            }
+        }
+        for index in updatedNodes.indices {
+            if let terminalId = updatedNodes[index].terminalId,
+               let currentName = terminalNameById[terminalId],
+               updatedNodes[index].name != currentName {
+                updatedNodes[index].name = currentName
+            }
+        }
+
         for (workspaceIndex, workspace) in workspaces.enumerated() {
             for (terminalIndex, terminal) in workspace.terminals.enumerated() {
                 guard !existingNodeTerminalIds.contains(terminal.id) else { continue }
