@@ -6,7 +6,11 @@ DerivedData/
 *.xcodeproj
 Frameworks/
 
-# Legacy docs (superseded, not tracked)
+# Local-only: ledger, docs, and operational markdown (see docs/local-files-policy.md)
+GHOST.md
+LYRA.md
+memory.md
+progress.md
 review.md
 problems.md
 logs/
