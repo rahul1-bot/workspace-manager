@@ -699,6 +699,33 @@ final class GitUIStateTests: XCTestCase {
         XCTAssertTrue(selectedAutoIDs.contains(autoWorkspace.id))
     }
 
+    @MainActor
+    func testSidebarWorkspacesHideHeuristicAutoManagedEntries() {
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockGitRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener()
+        )
+
+        let manualWorkspace = Workspace(id: UUID(), name: "Root", path: "/tmp/manual", terminals: [])
+        let namedAutoWorkspace = Workspace(id: UUID(), name: "wt feature/legacy", path: "/tmp/legacy", terminals: [])
+        let pathedAutoWorkspace = Workspace(id: UUID(), name: "Experimental", path: "/tmp/.wt/repo/feature-x", terminals: [])
+        appState.workspaces = [manualWorkspace, namedAutoWorkspace, pathedAutoWorkspace]
+        appState.worktreeAutoManagedWorkspaceIDs = []
+        appState.selectedWorkspaceId = manualWorkspace.id
+
+        let visibleIDs = Set(appState.sidebarWorkspaces.map(\.id))
+        XCTAssertTrue(visibleIDs.contains(manualWorkspace.id))
+        XCTAssertFalse(visibleIDs.contains(namedAutoWorkspace.id))
+        XCTAssertFalse(visibleIDs.contains(pathedAutoWorkspace.id))
+
+        appState.selectedWorkspaceId = namedAutoWorkspace.id
+        let visibleWithSelection = Set(appState.sidebarWorkspaces.map(\.id))
+        XCTAssertTrue(visibleWithSelection.contains(namedAutoWorkspace.id))
+    }
+
     private static func makeCatalog(rootURL: URL, siblingURLs: [URL]) -> WorktreeCatalog {
         let rootDescriptor = WorktreeDescriptor(
             repositoryRootPath: rootURL.path,

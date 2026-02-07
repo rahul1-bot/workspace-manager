@@ -467,7 +467,7 @@ final class AppState: ObservableObject {
             if selectedWorkspaceId == workspace.id {
                 return true
             }
-            return !worktreeAutoManagedWorkspaceIDs.contains(workspace.id)
+            return !isWorkspaceAutoManaged(workspace)
         }
     }
 
@@ -1163,7 +1163,8 @@ final class AppState: ObservableObject {
             let normalizedPath = URL(fileURLWithPath: update.descriptor.worktreePath).standardizedFileURL.path
             let existingLink = existingStateDocument.linksByWorkspaceID[workspaceKey]
                 ?? existingStateDocument.linksByWorktreePath[normalizedPath]
-            let autoManaged = existingLink?.isAutoManaged ?? false
+            let inferredAutoManaged = workspaces.first(where: { $0.id == update.workspaceID }).map(isLikelyAutoManagedWorkspace) ?? false
+            let autoManaged = existingLink?.isAutoManaged ?? inferredAutoManaged
             await worktreeStateService.linkWorkspace(
                 workspaceID: update.workspaceID,
                 worktreePath: update.descriptor.worktreePath,
@@ -1443,7 +1444,22 @@ final class AppState: ObservableObject {
                 return UUID(uuidString: link.workspaceID)
             }.filter { knownWorkspaceIDs.contains($0) }
         )
-        worktreeAutoManagedWorkspaceIDs = autoManagedIDs
+        let inferredAutoManagedIDs = Set(workspaces.filter(isLikelyAutoManagedWorkspace).map(\.id))
+        worktreeAutoManagedWorkspaceIDs = autoManagedIDs.union(inferredAutoManagedIDs)
+    }
+
+    private func isWorkspaceAutoManaged(_ workspace: Workspace) -> Bool {
+        worktreeAutoManagedWorkspaceIDs.contains(workspace.id) || isLikelyAutoManagedWorkspace(workspace)
+    }
+
+    private func isLikelyAutoManagedWorkspace(_ workspace: Workspace) -> Bool {
+        let trimmedName = workspace.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if trimmedName.hasPrefix("wt ") || trimmedName.hasPrefix("wt/") || trimmedName.hasPrefix("wt-") {
+            return true
+        }
+
+        let normalizedPath = URL(fileURLWithPath: workspace.path).standardizedFileURL.path.lowercased()
+        return normalizedPath.contains("/.wt/")
     }
 
     private func uniqueAutoManagedWorkspaceName(for descriptor: WorktreeDescriptor) -> String {

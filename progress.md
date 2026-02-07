@@ -874,3 +874,29 @@
         1. Sources/WorkspaceManager/Models/AppState.swift
         2. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift
         3. Tests/WorkspaceManagerTests/GitUIStateTests.swift
+
+---
+
+| Progress Todo | Legacy Auto-Managed Heuristic Backstop and Problem Statement Framing | Date: 07 February 2026 | Time: 05:18 PM | Name: Ghost |
+
+    1. Scope:
+        1. Addressed screenshot-reported leakage of old `wt` entries in primary WORKSPACES when metadata flags were historically inconsistent.
+        2. Produced local problem framing document for ongoing orchestration redesign using both current branch evidence and Lyra branch reference analysis.
+    2. Code changes:
+        1. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Sidebar filtering upgraded from ID-only to combined metadata-plus-heuristic auto-managed detection.
+            2. Added helper classification for `wt` naming and `.wt/` path conventions.
+            3. Sync update flow now infers auto-managed status for legacy entries when persisted links are incomplete.
+            4. Auto-managed workspace set refresh now unions persisted and heuristic signals.
+        2. Tests/WorkspaceManagerTests/GitUIStateTests.swift:
+            1. Added `testSidebarWorkspacesHideHeuristicAutoManagedEntries` to lock regression behavior.
+    3. Documentation changes:
+        1. Added local file `/Users/rahulsawhney/Library/CloudStorage/OneDrive-Personal/Documents/StudyDocuments/Rahul/code/ideas/TUI/workspace-manager/docs/problem_statement.md` containing mission, current-state evidence, branch comparison (Ghost vs Lyra), constraints, acceptance criteria, and iterative execution plan.
+        2. Note: docs/ is gitignored in this repository, so this file remains local by policy unless ignore rules are explicitly changed.
+    4. Validation:
+        1. swift test --filter GitUIStateTests passed (17 tests).
+        2. swift test --filter WorktreeServiceTests passed (5 tests).
+        3. swift test passed (98 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift
+        2. Tests/WorkspaceManagerTests/GitUIStateTests.swift

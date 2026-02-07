@@ -54,7 +54,7 @@
     3. Diff flow executes reliably and supports richer line-type color treatment.
     4. Diff viewer renders structured file sections, hunk grouping, dual line numbers, token highlighting, and intraline emphasis.
     5. All overlay panels use unified dark liquid glass visual pattern.
-    6. CI gate is active and passing locally (95 tests, 0 failures).
+    6. CI gate is active and passing locally (98 tests, 0 failures).
     7. PDF/Paper Viewer panel with multi-PDF tab support renders research papers inline.
     8. Panel exclusivity enforced between diff and PDF panels.
     9. Spatial graph view (Phase 1) operational: force-directed layout, cluster drag, node focus/unfocus, minimap, zoom controls.
@@ -93,6 +93,12 @@
         1. Auto-managed worktree-linked workspaces are filtered out of the primary WORKSPACES tree to prevent node explosion during branch/worktree switching.
         2. Worktree-linked context remains visible through WORKTREES (CURRENT REPO), preserving switch and compare workflows without duplicating nodes.
         3. Auto-managed metadata is refreshed from worktree-state.json and used as the authoritative filter source.
+    22. Legacy metadata fallback is now active for worktree workspace classification:
+        1. Sidebar filtering now also treats `wt`-prefixed workspace names and `.wt/` path roots as auto-managed heuristics when historical metadata is missing or incorrect.
+        2. Sync updates preserve existing auto-managed links and infer auto-managed classification for legacy entries during reconciliation.
+        3. This addresses screenshot-reproduced cases where old entries remained visible despite dedicated worktree section support.
+    23. Problem framing for next iterations is documented in docs/problem_statement.md (local doc, gitignored by policy):
+        1. Includes current-state evidence, comparison with Lyra reference branch, decision constraints, acceptance criteria, and incremental execution plan.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).

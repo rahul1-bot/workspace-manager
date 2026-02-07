@@ -205,3 +205,25 @@
         1. Added explicit auto-managed workspace tracking based on worktree-state.json links and filtered auto-managed entries from the primary workspace list. Selected auto-managed workspace remains visible to avoid context loss during active interaction.
     3. Implication:
         1. Sidebar now preserves a clean separation: manual workspace topology in WORKSPACES and git worktree topology in WORKTREES. This avoids runaway node growth without losing orchestration capability.
+
+---
+
+| Memory | Legacy Worktree Metadata Requires Heuristic Backstop for Stable UI | Date: 07 February 2026 | Time: 05:18 PM | Name: Ghost |
+
+    1. Observation:
+        1. Historical runs produced workspace entries with auto-managed semantics (`wt ...` names and `.wt/` paths) but missing or incorrect `isAutoManaged` flags in persisted worktree-state metadata. ID-only filtering therefore leaked these entries into the primary WORKSPACES list.
+    2. Decision:
+        1. Added heuristic classification backstop for workspace filtering and reconciliation. A workspace is treated as auto-managed if metadata marks it so, or if its name/path matches worktree-generation conventions (`wt` prefix or `.wt/` location).
+    3. Implication:
+        1. UI stability no longer depends on perfect historical metadata. Legacy repositories can converge toward clean sidebar behavior without manual state cleanup.
+
+---
+
+| Memory | Reference-Driven Design Must Stay Non-Copy and Decision-Oriented | Date: 07 February 2026 | Time: 05:18 PM | Name: Ghost |
+
+    1. Observation:
+        1. Lyra branch contains useful patterns (task-scoped create sheet state, branch metadata overlay, lightweight worktree metadata service) but follows a different architecture than this branch.
+    2. Decision:
+        1. Used Lyra implementation as comparative reference only. Adopted principles (fast path, explicit state ownership, minimal critical path) without transplanting code verbatim. Wrote local problem framing doc to lock assumptions and acceptance criteria for iterative work.
+    3. Implication:
+        1. We preserve codebase coherence while still learning from parallel branch experiments. This reduces architectural drift and prevents copy-paste debt.
