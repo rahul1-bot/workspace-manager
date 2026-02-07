@@ -828,3 +828,27 @@
     4. Files modified:
         1. Sources/WorkspaceManager/Models/AppState.swift
         2. Sources/WorkspaceManager/ContentView.swift
+
+---
+
+| Progress Todo | Worktree Create Performance and Deadlock Hardening | Date: 07 February 2026 | Time: 08:09 AM | Name: Ghost |
+
+    1. Root cause:
+        1. Even after spinner-lifecycle fixes, create latency remained unacceptable because the critical path still forced full catalog reconstruction before control returned. That path executes multiple git calls across all worktrees.
+        2. WorktreeService used pipe capture with waitUntilExit before draining output, which is vulnerable to output-buffer deadlock in high-output conditions.
+    2. Fix applied:
+        1. WorktreeService.createWorktree now returns a descriptor for the newly created worktree directly instead of calling catalog(for:) during create completion.
+        2. AppState.createWorktreeFromSelection now:
+            1. Registers or reuses the workspace for only the created path.
+            2. Links worktree metadata immediately.
+            3. Switches to the created worktree.
+            4. Triggers refreshWorktreeCatalogForSelection() asynchronously after switch.
+        3. WorktreeService command runner upgraded to file-backed output capture with timeout enforcement and explicit timeout error surface.
+    3. Validation:
+        1. Manual shell baseline check: git worktree add/remove cycle completed in 0.07 seconds on the same repo path.
+        2. swift test --filter WorktreeServiceTests passed (5 tests).
+        3. swift test --filter GitUIStateTests passed (15 tests).
+        4. swift test passed (96 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Services/WorktreeService.swift
+        2. Sources/WorkspaceManager/Models/AppState.swift

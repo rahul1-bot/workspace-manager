@@ -183,3 +183,14 @@
         1. Converted createWorktreeFromSelection to async throws and made the overlay submit path await it directly on MainActor. Spinner reset is now explicit in both success and failure branches in the same control flow.
     3. Implication:
         1. Long-running create operations remain visible, but terminal states are deterministic. Stuck loading indicators caused by hidden async boundaries are prevented for this flow.
+
+---
+
+| Memory | Full Worktree Catalog Rebuild Is Too Expensive for Create Critical Path | Date: 07 February 2026 | Time: 08:09 AM | Name: Ghost |
+
+    1. Observation:
+        1. Terminal-native git worktree add completes in under a second, but the app create flow remained slow or appeared stuck because it performed a full worktree catalog rebuild (including per-worktree status/divergence probes) before returning control to the sheet.
+    2. Decision:
+        1. Reworked create path to return immediately after successful git worktree add plus descriptor extraction for only the new worktree. Workspace registration and linking for the created path remain in the critical path; full catalog refresh moved to post-switch asynchronous refresh.
+    3. Implication:
+        1. Create latency now tracks real git worktree add cost instead of cross-worktree metadata fanout cost. This aligns UX with terminal expectations for fast branch/worktree operations.

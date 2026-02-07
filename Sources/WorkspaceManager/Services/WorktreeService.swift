@@ -10,6 +10,7 @@ enum WorktreeServiceError: Error, LocalizedError, Sendable {
     case notGitRepository(String)
     case invalidRequest(String)
     case commandFailed(String)
+    case commandTimedOut(String)
     case parseFailed(String)
     case descriptorNotFound(String)
 
@@ -21,6 +22,8 @@ enum WorktreeServiceError: Error, LocalizedError, Sendable {
             return message
         case .commandFailed(let message):
             return message
+        case .commandTimedOut(let command):
+            return "Git command timed out while processing worktrees: \(command)"
         case .parseFailed(let message):
             return message
         case .descriptorNotFound(let path):
@@ -43,6 +46,8 @@ private struct WorktreePorcelainRecord {
 }
 
 actor WorktreeService: WorktreeServicing {
+    private let commandTimeoutSeconds: TimeInterval = 12
+
     func catalog(for path: URL) async throws -> WorktreeCatalog {
         let normalizedInputPath = path.standardizedFileURL.path
         let repositoryRootPath = try repositoryRootPath(for: normalizedInputPath)
@@ -105,15 +110,10 @@ actor WorktreeService: WorktreeServicing {
                 workingPath: repositoryRoot
             )
         }
-
-        let catalogDocument = try await catalog(for: URL(fileURLWithPath: destinationPath))
-        if let descriptor = catalogDocument.descriptors.first(where: {
-            URL(fileURLWithPath: $0.worktreePath).standardizedFileURL.path == destinationPath
-        }) {
-            return descriptor
-        }
-
-        throw WorktreeServiceError.descriptorNotFound(destinationPath)
+        return try descriptorForCreatedWorktree(
+            destinationPath: destinationPath,
+            repositoryRootPath: repositoryRoot
+        )
     }
 
     nonisolated func workspaceSyncPlan(catalog: WorktreeCatalog, existingWorkspaces: [Workspace]) -> WorktreeWorkspaceSyncPlan {
@@ -326,6 +326,49 @@ actor WorktreeService: WorktreeServicing {
         return (ahead, behind)
     }
 
+    private func descriptorForCreatedWorktree(
+        destinationPath: String,
+        repositoryRootPath: String
+    ) throws -> WorktreeDescriptor {
+        let normalizedPath = URL(fileURLWithPath: destinationPath).standardizedFileURL.path
+        let headShortSHA = try resolveHeadShortSHA(at: normalizedPath, fallback: "")
+
+        let branchOutput = try runGitAllowFailure(
+            arguments: ["symbolic-ref", "--short", "HEAD"],
+            workingPath: normalizedPath
+        )
+        let branchName: String
+        let isDetachedHead: Bool
+        if branchOutput.exitCode == 0 {
+            let resolvedBranch = branchOutput.standardOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+            if resolvedBranch.isEmpty {
+                branchName = "detached@\(headShortSHA)"
+                isDetachedHead = true
+            } else {
+                branchName = resolvedBranch
+                isDetachedHead = false
+            }
+        } else {
+            branchName = "detached@\(headShortSHA)"
+            isDetachedHead = true
+        }
+
+        let isDirty = try resolveDirtyState(at: normalizedPath)
+        let divergence = try resolveAheadBehindCounts(at: normalizedPath)
+
+        return WorktreeDescriptor(
+            repositoryRootPath: repositoryRootPath,
+            worktreePath: normalizedPath,
+            branchName: branchName,
+            headShortSHA: headShortSHA,
+            isDetachedHead: isDetachedHead,
+            isCurrent: false,
+            isDirty: isDirty,
+            aheadCount: divergence.ahead,
+            behindCount: divergence.behind
+        )
+    }
+
     private func runGit(arguments: [String], workingPath: String) throws -> WorktreeCommandOutput {
         let output = try runGitAllowFailure(arguments: arguments, workingPath: workingPath)
         guard output.exitCode == 0 else {
@@ -338,17 +381,41 @@ actor WorktreeService: WorktreeServicing {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git", "-C", workingPath] + arguments
+        let commandDescription = (["git", "-C", workingPath] + arguments).joined(separator: " ")
 
-        let standardOutputPipe = Pipe()
-        let standardErrorPipe = Pipe()
-        process.standardOutput = standardOutputPipe
-        process.standardError = standardErrorPipe
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+        let standardOutputURL = temporaryDirectory.appendingPathComponent("wm_worktree_stdout_\(UUID().uuidString)")
+        let standardErrorURL = temporaryDirectory.appendingPathComponent("wm_worktree_stderr_\(UUID().uuidString)")
+        FileManager.default.createFile(atPath: standardOutputURL.path, contents: nil)
+        FileManager.default.createFile(atPath: standardErrorURL.path, contents: nil)
+
+        let standardOutputHandle = try FileHandle(forWritingTo: standardOutputURL)
+        let standardErrorHandle = try FileHandle(forWritingTo: standardErrorURL)
+        defer {
+            try? standardOutputHandle.close()
+            try? standardErrorHandle.close()
+            try? FileManager.default.removeItem(at: standardOutputURL)
+            try? FileManager.default.removeItem(at: standardErrorURL)
+        }
+
+        process.standardOutput = standardOutputHandle
+        process.standardError = standardErrorHandle
+
+        let terminationSemaphore = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in
+            terminationSemaphore.signal()
+        }
 
         try process.run()
-        process.waitUntilExit()
+        let waitResult = terminationSemaphore.wait(timeout: .now() + commandTimeoutSeconds)
+        if waitResult == .timedOut {
+            process.terminate()
+            _ = terminationSemaphore.wait(timeout: .now() + 2)
+            throw WorktreeServiceError.commandTimedOut(commandDescription)
+        }
 
-        let standardOutputData = standardOutputPipe.fileHandleForReading.readDataToEndOfFile()
-        let standardErrorData = standardErrorPipe.fileHandleForReading.readDataToEndOfFile()
+        let standardOutputData = (try? Data(contentsOf: standardOutputURL)) ?? Data()
+        let standardErrorData = (try? Data(contentsOf: standardErrorURL)) ?? Data()
 
         return WorktreeCommandOutput(
             standardOutput: String(data: standardOutputData, encoding: .utf8) ?? "",

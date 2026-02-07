@@ -85,6 +85,10 @@
         1. AppState create method was converted to async throws and no longer spawns an internal detached task.
         2. ContentView create handler now awaits the full create pipeline and always exits spinner state on success or error.
         3. This removes the stuck Create-button spinner failure mode during rapid worktree creation attempts.
+    20. Worktree create pipeline is now optimized for low-latency execution:
+        1. WorktreeService create path returns descriptor from the new worktree directly instead of forcing full-catalog reconstruction before returning.
+        2. AppState create flow now adds and links only the created workspace on the critical path, then refreshes catalog asynchronously after switching.
+        3. WorktreeService git execution now uses file-backed stdout/stderr capture with command timeout protection to prevent process-output deadlocks.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).

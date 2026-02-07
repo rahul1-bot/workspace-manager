@@ -1197,22 +1197,41 @@ final class AppState: ObservableObject {
 
         do {
             let descriptor = try await worktreeService.createWorktree(request)
-            let catalog = try await worktreeService.catalog(for: URL(fileURLWithPath: descriptor.worktreePath))
-            worktreeCatalog = catalog
             worktreeErrorText = nil
             showCreateWorktreeSheet = false
 
-            await syncCatalogToWorkspaces()
-            _ = switchToWorktree(path: descriptor.worktreePath)
-            setWorktreeDiffBaseline(.mergeBaseWithDefault)
+            let normalizedPath = URL(fileURLWithPath: descriptor.worktreePath).standardizedFileURL.path
+            let workspaceID: UUID
+            if let existingWorkspaceID = workspaces.first(where: {
+                URL(fileURLWithPath: $0.path).standardizedFileURL.path == normalizedPath
+            })?.id {
+                workspaceID = existingWorkspaceID
+            } else {
+                let name = uniqueAutoManagedWorkspaceName(for: descriptor)
+                guard addWorkspace(name: name, path: descriptor.worktreePath),
+                      let addedWorkspaceID = workspaces.first(where: {
+                          URL(fileURLWithPath: $0.path).standardizedFileURL.path == normalizedPath
+                      })?.id else {
+                    throw WorktreeServiceError.invalidRequest("Failed to register created worktree as a workspace.")
+                }
+                workspaceID = addedWorkspaceID
+            }
+
+            await worktreeStateService.linkWorkspace(
+                workspaceID: workspaceID,
+                worktreePath: descriptor.worktreePath,
+                repoRootPath: descriptor.repositoryRootPath,
+                isAutoManaged: true
+            )
 
             if let purpose = request.purpose?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !purpose.isEmpty,
-               let workspaceID = workspaces.first(where: {
-                   URL(fileURLWithPath: $0.path).standardizedFileURL.path == descriptor.worktreePath
-               })?.id {
+               !purpose.isEmpty {
                 await worktreeStateService.upsertPurpose(workspaceID: workspaceID, purpose: purpose)
             }
+
+            _ = switchToWorktree(path: descriptor.worktreePath)
+            setWorktreeDiffBaseline(.mergeBaseWithDefault)
+            refreshWorktreeCatalogForSelection()
         } catch {
             worktreeErrorText = String(describing: error)
             throw error
