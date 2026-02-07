@@ -23,6 +23,10 @@ final class AppState: ObservableObject {
     @Published var focusedGraphNodeId: UUID?
     @Published var selectedGraphNodeId: UUID?
     @Published var graphViewport: ViewportTransform = .identity
+    @Published var worktreeCatalog: WorktreeCatalog?
+    @Published var worktreeErrorText: String?
+    @Published var isWorktreeLoading: Bool = false
+    @Published var showCreateWorktreeSheet: Bool = false
 
     private let configService: ConfigService
     private let graphStateService: GraphStateService = GraphStateService()
@@ -31,6 +35,8 @@ final class AppState: ObservableObject {
     private let editorLaunchService: any EditorLaunching
     private let prLinkBuilder: any PRLinkBuilding
     private let urlOpener: any URLOpening
+    private let worktreeService: any WorktreeServicing
+    let worktreeStateService: WorktreeStateService = WorktreeStateService()
     private let fallbackTerminalName = "Terminal"
     private var diffLoadTask: Task<Void, Never>?
     private var commitTask: Task<Void, Never>?
@@ -40,19 +46,22 @@ final class AppState: ObservableObject {
     private var commitSummaryTask: Task<Void, Never>?
     private var runtimePathObserver: NSObjectProtocol?
     private var terminalRuntimePaths: [UUID: String] = [:]
+    private var worktreeCatalogTask: Task<Void, Never>?
 
     init(
         configService: ConfigService = ConfigService.shared,
         gitRepositoryService: any GitRepositoryServicing = GitRepositoryService(),
         editorLaunchService: any EditorLaunching = EditorLaunchService(),
         prLinkBuilder: any PRLinkBuilding = PRLinkBuilder(),
-        urlOpener: any URLOpening = WorkspaceURLOpener()
+        urlOpener: any URLOpening = WorkspaceURLOpener(),
+        worktreeService: any WorktreeServicing = WorktreeService()
     ) {
         self.configService = configService
         self.gitRepositoryService = gitRepositoryService
         self.editorLaunchService = editorLaunchService
         self.prLinkBuilder = prLinkBuilder
         self.urlOpener = urlOpener
+        self.worktreeService = worktreeService
         self.showSidebar = configService.config.appearance.show_sidebar
         self.focusMode = configService.config.appearance.focus_mode
         loadWorkspacesFromConfig()
@@ -74,6 +83,7 @@ final class AppState: ObservableObject {
         if let runtimePathObserver {
             NotificationCenter.default.removeObserver(runtimePathObserver)
         }
+        worktreeCatalogTask?.cancel()
     }
 
     // MARK: - Config-Driven Loading
@@ -600,8 +610,16 @@ final class AppState: ObservableObject {
 
     func setDiffPanelModePlaceholder(_ mode: DiffPanelMode) {
         gitPanelState.mode = mode
+        if mode != .worktreeComparison {
+            gitPanelState.worktreeDiffRequest = nil
+            gitPanelState.baselineLabel = nil
+        }
         if gitPanelState.isPresented {
-            loadDiffPanel()
+            if mode == .worktreeComparison {
+                setWorktreeDiffBaseline(.mergeBaseWithDefault)
+            } else {
+                loadDiffPanel()
+            }
         }
     }
 
@@ -813,6 +831,7 @@ final class AppState: ObservableObject {
             commitSheetState.disabledReason = .noWorkspace
             commitSheetState.summary = GitChangeSummary()
             commitSheetState.isPresented = false
+            resetWorktreeStateForUnavailableContext()
             return
         }
 
@@ -824,6 +843,7 @@ final class AppState: ObservableObject {
             commitSheetState.disabledReason = .noTerminalSelection
             commitSheetState.summary = GitChangeSummary()
             commitSheetState.isPresented = false
+            resetWorktreeStateForUnavailableContext()
             return
         }
 
@@ -835,6 +855,7 @@ final class AppState: ObservableObject {
             commitSheetState.disabledReason = .noTerminalSelection
             commitSheetState.summary = GitChangeSummary()
             commitSheetState.isPresented = false
+            resetWorktreeStateForUnavailableContext()
             return
         }
 
@@ -862,6 +883,7 @@ final class AppState: ObservableObject {
                 if status.isRepository {
                     self.gitPanelState.disabledReason = nil
                     self.commitSheetState.disabledReason = nil
+                    self.refreshWorktreeCatalogForSelection()
                     if self.gitPanelState.isPresented {
                         self.loadDiffPanel()
                     }
@@ -871,6 +893,7 @@ final class AppState: ObservableObject {
                     self.gitPanelState.isPresented = false
                     self.diffLoadTask?.cancel()
                     self.commitSheetState.isPresented = false
+                    self.resetWorktreeStateForUnavailableContext()
                 }
                 self.commitSheetState.summary = GitChangeSummary(branchName: status.branchName)
             }
@@ -886,6 +909,11 @@ final class AppState: ObservableObject {
     }
 
     private func loadDiffPanel() {
+        if gitPanelState.mode == .worktreeComparison {
+            loadWorktreeDiffPanel()
+            return
+        }
+
         guard let workspace = selectedWorkspace else { return }
         guard gitPanelState.disabledReason == nil else { return }
         guard let actionTargetURL = selectedActionTargetURL else {
@@ -939,6 +967,14 @@ final class AppState: ObservableObject {
                 return "Cannot resolve a base branch for this repository."
             case .noChangesToCommit:
                 return "No changes to diff."
+            case .invalidWorktreeBaseline:
+                return "Select a valid worktree comparison baseline."
+            case .targetWorktreeNotFound:
+                return "Target worktree could not be found."
+            case .crossRepositoryComparisonUnsupported:
+                return "Worktree comparison only supports paths in the same repository."
+            case .worktreeCommandFailed(let message):
+                return message.trimmingCharacters(in: .whitespacesAndNewlines)
             case .commandFailed(let message):
                 return message.trimmingCharacters(in: .whitespacesAndNewlines)
             }
@@ -955,6 +991,14 @@ final class AppState: ObservableObject {
                 return "Repository has no commit history yet."
             case .missingBaseBranch:
                 return "Cannot resolve a base branch for this repository."
+            case .invalidWorktreeBaseline:
+                return "Select a valid worktree comparison baseline."
+            case .targetWorktreeNotFound:
+                return "Target worktree could not be found."
+            case .crossRepositoryComparisonUnsupported:
+                return "Worktree comparison only supports paths in the same repository."
+            case .worktreeCommandFailed(let message):
+                return message.trimmingCharacters(in: .whitespacesAndNewlines)
             case .commandFailed(let message):
                 return message.trimmingCharacters(in: .whitespacesAndNewlines)
             }
@@ -999,6 +1043,354 @@ final class AppState: ObservableObject {
                 }
             }
         }
+    }
+
+    func refreshWorktreeCatalogForSelection() {
+        guard let actionTargetURL = selectedActionTargetURL else {
+            isWorktreeLoading = false
+            worktreeCatalog = nil
+            worktreeErrorText = nil
+            gitPanelState.worktreeDiffRequest = nil
+            gitPanelState.baselineLabel = nil
+            return
+        }
+
+        isWorktreeLoading = true
+        worktreeErrorText = nil
+        let workspaceID = selectedWorkspaceId
+        worktreeCatalogTask?.cancel()
+        worktreeCatalogTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let catalog = try await worktreeService.catalog(for: actionTargetURL)
+                if Task.isCancelled {
+                    await MainActor.run {
+                        self.isWorktreeLoading = false
+                    }
+                    return
+                }
+                await MainActor.run {
+                    self.isWorktreeLoading = false
+                    guard self.selectedWorkspaceId == workspaceID else { return }
+                    self.worktreeCatalog = catalog
+                }
+                await self.syncCatalogToWorkspaces()
+
+                await MainActor.run {
+                    guard self.selectedWorkspaceId == workspaceID else { return }
+                    if self.gitPanelState.mode == .worktreeComparison {
+                        self.setWorktreeDiffBaseline(.mergeBaseWithDefault)
+                    }
+                }
+            } catch {
+                if Task.isCancelled {
+                    await MainActor.run {
+                        self.isWorktreeLoading = false
+                    }
+                    return
+                }
+                await MainActor.run {
+                    self.isWorktreeLoading = false
+                    guard self.selectedWorkspaceId == workspaceID else { return }
+                    self.worktreeCatalog = nil
+                    self.worktreeErrorText = String(describing: error)
+                    self.gitPanelState.worktreeDiffRequest = nil
+                    self.gitPanelState.baselineLabel = nil
+                }
+            }
+        }
+    }
+
+    func syncCatalogToWorkspaces() async {
+        guard let catalog = worktreeCatalog else { return }
+
+        let syncPlan = worktreeService.workspaceSyncPlan(catalog: catalog, existingWorkspaces: workspaces)
+
+        for update in syncPlan.updates {
+            await worktreeStateService.linkWorkspace(
+                workspaceID: update.workspaceID,
+                worktreePath: update.descriptor.worktreePath,
+                repoRootPath: update.descriptor.repositoryRootPath,
+                isAutoManaged: false
+            )
+        }
+
+        for descriptor in syncPlan.additions {
+            let name = uniqueAutoManagedWorkspaceName(for: descriptor)
+            let added = addWorkspace(name: name, path: descriptor.worktreePath)
+            guard added else { continue }
+            guard let workspaceID = workspaces.first(where: {
+                URL(fileURLWithPath: $0.path).standardizedFileURL.path == descriptor.worktreePath
+            })?.id else {
+                continue
+            }
+            await worktreeStateService.linkWorkspace(
+                workspaceID: workspaceID,
+                worktreePath: descriptor.worktreePath,
+                repoRootPath: descriptor.repositoryRootPath,
+                isAutoManaged: true
+            )
+        }
+
+        let stateDocument = await worktreeStateService.load()
+        let activePaths = Set(catalog.descriptors.map(\.worktreePath))
+        let stalePaths = stateDocument.linksByWorktreePath.keys.filter { !activePaths.contains($0) }
+        await worktreeStateService.setStaleWorktreePaths(stalePaths)
+    }
+
+    @discardableResult
+    func switchToWorktree(path: String) -> Bool {
+        let normalizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+        guard let workspace = workspaces.first(where: {
+            URL(fileURLWithPath: $0.path).standardizedFileURL.path == normalizedPath
+        }) else {
+            return false
+        }
+
+        selectedWorkspaceId = workspace.id
+        if let firstTerminal = workspace.terminals.first {
+            selectTerminal(id: firstTerminal.id, in: workspace.id)
+        } else {
+            selectedTerminalId = nil
+            refreshGitUIState()
+        }
+        return true
+    }
+
+    func createWorktreeFromSelection(request: WorktreeCreateRequest) {
+        isWorktreeLoading = true
+        worktreeErrorText = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let descriptor = try await worktreeService.createWorktree(request)
+                let catalog = try await worktreeService.catalog(for: URL(fileURLWithPath: descriptor.worktreePath))
+                await MainActor.run {
+                    self.worktreeCatalog = catalog
+                    self.isWorktreeLoading = false
+                    self.worktreeErrorText = nil
+                    self.showCreateWorktreeSheet = false
+                }
+                await self.syncCatalogToWorkspaces()
+
+                await MainActor.run {
+                    _ = self.switchToWorktree(path: descriptor.worktreePath)
+                    self.setWorktreeDiffBaseline(.mergeBaseWithDefault)
+                }
+
+                if let purpose = request.purpose?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !purpose.isEmpty,
+                   let workspaceID = await MainActor.run(body: {
+                       self.workspaces.first(where: {
+                           URL(fileURLWithPath: $0.path).standardizedFileURL.path == descriptor.worktreePath
+                       })?.id
+                   }) {
+                    await worktreeStateService.upsertPurpose(workspaceID: workspaceID, purpose: purpose)
+                }
+            } catch {
+                await MainActor.run {
+                    self.isWorktreeLoading = false
+                    self.worktreeErrorText = String(describing: error)
+                }
+            }
+        }
+    }
+
+    func setWorktreeDiffBaseline(_ baseline: WorktreeComparisonBaseline) {
+        guard let request = makeWorktreeDiffRequest(baseline: baseline) else { return }
+        gitPanelState.worktreeDiffRequest = request
+        gitPanelState.baselineLabel = baseline.title
+        if gitPanelState.isPresented, gitPanelState.mode == .worktreeComparison {
+            loadWorktreeDiffPanel()
+        }
+    }
+
+    func openWorktreeComparisonPanel() {
+        guard gitPanelState.disabledReason == nil else { return }
+        dismissPDFPanel()
+        gitPanelState.mode = .worktreeComparison
+        gitPanelState.isPresented = true
+        setWorktreeDiffBaseline(.mergeBaseWithDefault)
+    }
+
+    func compareAgainstWorktree(_ descriptor: WorktreeDescriptor) {
+        guard gitPanelState.disabledReason == nil else { return }
+        dismissPDFPanel()
+        gitPanelState.mode = .worktreeComparison
+        gitPanelState.isPresented = true
+        setWorktreeDiffBaseline(.siblingWorktree(path: descriptor.worktreePath, branchName: descriptor.branchName))
+    }
+
+    func switchToNextWorktree() {
+        guard let catalog = worktreeCatalog, !catalog.descriptors.isEmpty else { return }
+        let currentPath = currentWorktreeDescriptor()?.worktreePath
+        guard let currentPath,
+              let currentIndex = catalog.descriptors.firstIndex(where: { $0.worktreePath == currentPath }) else {
+            _ = switchToWorktree(path: catalog.descriptors[0].worktreePath)
+            return
+        }
+        let nextIndex = (currentIndex + 1) % catalog.descriptors.count
+        _ = switchToWorktree(path: catalog.descriptors[nextIndex].worktreePath)
+    }
+
+    func switchToPreviousWorktree() {
+        guard let catalog = worktreeCatalog, !catalog.descriptors.isEmpty else { return }
+        let currentPath = currentWorktreeDescriptor()?.worktreePath
+        guard let currentPath,
+              let currentIndex = catalog.descriptors.firstIndex(where: { $0.worktreePath == currentPath }) else {
+            _ = switchToWorktree(path: catalog.descriptors[0].worktreePath)
+            return
+        }
+        let previousIndex = (currentIndex - 1 + catalog.descriptors.count) % catalog.descriptors.count
+        _ = switchToWorktree(path: catalog.descriptors[previousIndex].worktreePath)
+    }
+
+    var availableWorktreeBaselines: [WorktreeComparisonBaseline] {
+        guard let catalog = worktreeCatalog else {
+            return [.mergeBaseWithDefault]
+        }
+
+        var baselines: [WorktreeComparisonBaseline] = [.mergeBaseWithDefault]
+        for descriptor in catalog.siblingDescriptors {
+            baselines.append(
+                .siblingWorktree(path: descriptor.worktreePath, branchName: descriptor.branchName)
+            )
+        }
+        return baselines
+    }
+
+    func suggestedWorktreeDestinationPath(for branchName: String) -> String? {
+        guard let catalog = worktreeCatalog else { return nil }
+        let repositoryURL = URL(fileURLWithPath: catalog.repositoryRootPath)
+        let parentURL = repositoryURL.deletingLastPathComponent()
+        let slug = sluggedBranchName(branchName)
+        guard !slug.isEmpty else { return nil }
+        let destinationURL = parentURL.appendingPathComponent("\(repositoryURL.lastPathComponent)-\(slug)")
+        return destinationURL.path
+    }
+
+    func currentWorktreeDescriptor() -> WorktreeDescriptor? {
+        guard let catalog = worktreeCatalog,
+              let actionTargetURL = selectedActionTargetURL else {
+            return nil
+        }
+
+        let actionPath = actionTargetURL.standardizedFileURL.path
+        let matches = catalog.descriptors.filter { descriptor in
+            actionPath == descriptor.worktreePath || actionPath.hasPrefix(descriptor.worktreePath + "/")
+        }
+
+        return matches.max(by: { lhs, rhs in
+            lhs.worktreePath.count < rhs.worktreePath.count
+        })
+    }
+
+    private func makeWorktreeDiffRequest(baseline: WorktreeComparisonBaseline) -> WorktreeDiffRequest? {
+        guard let catalog = worktreeCatalog,
+              let descriptor = currentWorktreeDescriptor() else {
+            return nil
+        }
+
+        return WorktreeDiffRequest(
+            repositoryRootPath: catalog.repositoryRootPath,
+            sourceWorktreePath: descriptor.worktreePath,
+            sourceBranchName: descriptor.branchName,
+            baseline: baseline
+        )
+    }
+
+    private func loadWorktreeDiffPanel() {
+        guard let workspace = selectedWorkspace else { return }
+        guard gitPanelState.disabledReason == nil else { return }
+
+        if gitPanelState.worktreeDiffRequest == nil {
+            setWorktreeDiffBaseline(.mergeBaseWithDefault)
+        }
+
+        guard let request = gitPanelState.worktreeDiffRequest else {
+            gitPanelState.isLoading = false
+            gitPanelState.patchText = ""
+            gitPanelState.errorText = "No worktree baseline is selected."
+            return
+        }
+
+        let workspaceID = workspace.id
+        let fallbackBranchName = gitPanelState.summary.branchName
+
+        diffLoadTask?.cancel()
+        gitPanelState.isLoading = true
+        gitPanelState.errorText = nil
+        gitPanelState.patchText = ""
+
+        diffLoadTask = Task {
+            do {
+                let snapshot = try await gitRepositoryService.diffWorktreeComparison(request: request)
+                await MainActor.run {
+                    guard selectedWorkspaceId == workspaceID else { return }
+                    guard gitPanelState.mode == .worktreeComparison else { return }
+                    gitPanelState.summary = snapshot.summary
+                    gitPanelState.patchText = snapshot.patchText
+                    gitPanelState.isLoading = false
+                }
+            } catch {
+                if Task.isCancelled {
+                    return
+                }
+                await MainActor.run {
+                    guard selectedWorkspaceId == workspaceID else { return }
+                    guard gitPanelState.mode == .worktreeComparison else { return }
+                    gitPanelState.summary = GitChangeSummary(branchName: fallbackBranchName)
+                    gitPanelState.patchText = ""
+                    gitPanelState.isLoading = false
+                    gitPanelState.errorText = diffErrorText(error)
+                }
+            }
+        }
+    }
+
+    private func resetWorktreeStateForUnavailableContext() {
+        worktreeCatalogTask?.cancel()
+        isWorktreeLoading = false
+        worktreeCatalog = nil
+        worktreeErrorText = nil
+        showCreateWorktreeSheet = false
+        gitPanelState.worktreeDiffRequest = nil
+        gitPanelState.baselineLabel = nil
+    }
+
+    private func uniqueAutoManagedWorkspaceName(for descriptor: WorktreeDescriptor) -> String {
+        let base = descriptor.isDetachedHead ? descriptor.pathLeaf : descriptor.branchName
+        let trimmedBase = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = trimmedBase.isEmpty ? descriptor.pathLeaf : trimmedBase
+        let seed = "wt " + fallback
+
+        if !workspaces.contains(where: { $0.name == seed }) {
+            return seed
+        }
+
+        var suffix = 2
+        while workspaces.contains(where: { $0.name == "\(seed) \(suffix)" }) {
+            suffix += 1
+        }
+        return "\(seed) \(suffix)"
+    }
+
+    private func sluggedBranchName(_ branchName: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        let lowered = branchName.lowercased()
+        var slug = ""
+        for scalar in lowered.unicodeScalars {
+            if allowed.contains(scalar) {
+                slug.unicodeScalars.append(scalar)
+            } else {
+                slug.append("-")
+            }
+        }
+        while slug.contains("--") {
+            slug = slug.replacingOccurrences(of: "--", with: "-")
+        }
+        return slug.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 
     private func terminal(with terminalID: UUID) -> Terminal? {

@@ -97,6 +97,60 @@ struct WorkspaceSidebar: View {
                             selectedTerminalId: appState.selectedTerminalId
                         )
                     }
+
+                    if let catalog = appState.worktreeCatalog {
+                        Divider()
+                            .padding(.vertical, 6)
+
+                        HStack {
+                            Text("WORKTREES (CURRENT REPO)")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            if appState.isWorktreeLoading {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+
+                            Button {
+                                appState.showCreateWorktreeSheet = true
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+
+                        if let errorText = appState.worktreeErrorText {
+                            Text(errorText)
+                                .font(.caption2)
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 8)
+                                .padding(.bottom, 4)
+                        }
+
+                        ForEach(catalog.descriptors) { descriptor in
+                            WorktreeRow(
+                                descriptor: descriptor,
+                                onSelect: {
+                                    _ = appState.switchToWorktree(path: descriptor.worktreePath)
+                                },
+                                onCompare: {
+                                    if descriptor.isCurrent {
+                                        appState.openWorktreeComparisonPanel()
+                                    } else {
+                                        appState.compareAgainstWorktree(descriptor)
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
                 .padding(.vertical, 4)
             }
@@ -398,6 +452,225 @@ private struct TerminalIcon: View {
             return nil
         }
         return NSImage(contentsOf: url)
+    }
+}
+
+struct WorktreeRow: View {
+    let descriptor: WorktreeDescriptor
+    let onSelect: () -> Void
+    let onCompare: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(descriptor.isCurrent ? Color.green : Color.gray.opacity(0.5))
+                .frame(width: 8, height: 8)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(descriptor.branchName)
+                    .font(.system(.callout, design: .default))
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(descriptor.pathLeaf)
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.6))
+                        .lineLimit(1)
+
+                    Text(descriptor.isDirty ? "dirty" : "clean")
+                        .font(.caption2)
+                        .foregroundColor(descriptor.isDirty ? .orange : .green)
+
+                    Text("↑\(descriptor.aheadCount) ↓\(descriptor.behindCount)")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.55))
+                }
+            }
+
+            Spacer()
+
+            Button {
+                onCompare()
+            } label: {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelect()
+        }
+    }
+}
+
+struct WorktreeCreateSheet: View {
+    @Binding var branchName: String
+    @Binding var baseReference: String
+    @Binding var destinationPath: String
+    @Binding var purpose: String
+    @Binding var errorMessage: String?
+    let isCreating: Bool
+    let onDestinationEdited: () -> Void
+    let onCancel: () -> Void
+    let onCreate: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            headerSection
+
+            sectionDivider
+
+            formSection
+
+            sectionDivider
+
+            footerSection
+        }
+        .frame(width: 640)
+        .background(
+            ZStack {
+                VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
+                Color.black.opacity(0.45)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .onExitCommand {
+            onCancel()
+        }
+    }
+
+    private var sectionDivider: some View {
+        Divider()
+            .overlay(Color.white.opacity(0.08))
+    }
+
+    private var headerSection: some View {
+        HStack {
+            Text("New Worktree")
+                .font(.system(size: 18, weight: .semibold, design: .default))
+                .foregroundColor(.white.opacity(0.95))
+
+            Spacer()
+
+            Text("Esc")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.55))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var formSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Branch name", text: $branchName)
+                .worktreeSheetTextFieldStyle()
+                .onChange(of: branchName) { _, _ in
+                    errorMessage = nil
+                }
+
+            TextField("HEAD", text: $baseReference)
+                .worktreeSheetTextFieldStyle()
+                .onChange(of: baseReference) { _, _ in
+                    errorMessage = nil
+                }
+
+            TextField("Destination path", text: $destinationPath)
+                .worktreeSheetTextFieldStyle()
+                .onChange(of: destinationPath) { _, _ in
+                    onDestinationEdited()
+                    errorMessage = nil
+                }
+
+            TextField("Purpose (optional)", text: $purpose)
+                .worktreeSheetTextFieldStyle()
+                .onChange(of: purpose) { _, _ in
+                    errorMessage = nil
+                }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private var footerSection: some View {
+        VStack(spacing: 8) {
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(.callout, design: .default))
+                    .foregroundColor(.red.opacity(0.85))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 8) {
+                Button(action: onCancel) {
+                    Text("Cancel")
+                        .font(.system(.body, design: .default))
+                        .foregroundColor(.white.opacity(0.85))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button(action: onCreate) {
+                    HStack(spacing: 8) {
+                        if isCreating {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        }
+                        Text("Create")
+                            .font(.system(.headline, design: .default))
+                            .foregroundColor(.white.opacity(0.92))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.accentColor.opacity(0.9))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.defaultAction)
+                .disabled(isCreating)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+}
+
+private extension View {
+    func worktreeSheetTextFieldStyle() -> some View {
+        self
+            .textFieldStyle(.plain)
+            .font(.system(.body, design: .default))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .foregroundColor(.white)
+            .background(Color.black.opacity(0.25))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
     }
 }
 

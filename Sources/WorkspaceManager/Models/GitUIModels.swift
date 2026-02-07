@@ -4,6 +4,7 @@ enum DiffPanelMode: String, CaseIterable, Codable, Sendable {
     case uncommitted
     case allBranchChanges
     case lastTurnChanges
+    case worktreeComparison
 
     var title: String {
         switch self {
@@ -13,6 +14,8 @@ enum DiffPanelMode: String, CaseIterable, Codable, Sendable {
             return "All branch changes"
         case .lastTurnChanges:
             return "Last turn changes"
+        case .worktreeComparison:
+            return "Worktree comparison"
         }
     }
 }
@@ -81,6 +84,8 @@ struct GitPanelState: Codable, Equatable, Sendable {
     var isLoading: Bool
     var errorText: String?
     var disabledReason: GitControlDisabledReason?
+    var worktreeDiffRequest: WorktreeDiffRequest?
+    var baselineLabel: String?
 
     init(
         isPresented: Bool = false,
@@ -89,7 +94,9 @@ struct GitPanelState: Codable, Equatable, Sendable {
         patchText: String = "",
         isLoading: Bool = false,
         errorText: String? = nil,
-        disabledReason: GitControlDisabledReason? = .unavailableInPhase
+        disabledReason: GitControlDisabledReason? = .unavailableInPhase,
+        worktreeDiffRequest: WorktreeDiffRequest? = nil,
+        baselineLabel: String? = nil
     ) {
         self.isPresented = isPresented
         self.mode = mode
@@ -98,6 +105,8 @@ struct GitPanelState: Codable, Equatable, Sendable {
         self.isLoading = isLoading
         self.errorText = errorText
         self.disabledReason = disabledReason
+        self.worktreeDiffRequest = worktreeDiffRequest
+        self.baselineLabel = baselineLabel
     }
 }
 

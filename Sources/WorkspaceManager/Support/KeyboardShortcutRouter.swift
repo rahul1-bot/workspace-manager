@@ -5,6 +5,7 @@ struct ShortcutContext {
     let appIsActive: Bool
     let showCommandPalette: Bool
     let showShortcutsHelp: Bool
+    let showCreateWorktreeSheet: Bool
     let showCommitSheet: Bool
     let showDiffPanel: Bool
     let showPDFPanel: Bool
@@ -19,6 +20,7 @@ struct ShortcutContext {
 enum ShortcutCommand: Hashable {
     case closeShortcutsHelp
     case closeCommandPalette
+    case closeCreateWorktreeSheet
     case closeCommitSheet
     case closeDiffPanel
     case togglePDFPanel
@@ -58,6 +60,11 @@ enum ShortcutCommand: Hashable {
     case graphZoomToFit
     case graphRerunLayout
     case focusSelectedGraphNode
+    case newWorktree
+    case refreshWorktrees
+    case openWorktreeDiff
+    case previousWorktree
+    case nextWorktree
     case swallow
 }
 
@@ -112,6 +119,10 @@ final class KeyboardShortcutRouter {
             return .passthrough
         }
 
+        if context.showCreateWorktreeSheet, keyCode == 53 {
+            return .consume(.closeCreateWorktreeSheet)
+        }
+
         if context.sidebarFocused && context.isRenaming && keyCode == 53 {
             return .consume(.sidebarCancelRename)
         }
@@ -137,6 +148,9 @@ final class KeyboardShortcutRouter {
             if char == "}" { return .consume(.nextPDFTab) }
             if char == "w" { return .consume(.closePDFTab) }
         }
+
+        if cmd && option && char == "[" { return .consume(.previousWorktree) }
+        if cmd && option && char == "]" { return .consume(.nextWorktree) }
 
         if cmd && !shift && !option && ["c", "v", "x", "z", "a"].contains(char) {
             return .passthrough
@@ -169,6 +183,9 @@ final class KeyboardShortcutRouter {
         if cmd && char == "." { return .consume(.toggleFocusMode) }
         if cmd && char == "g" { return .consume(.toggleViewMode) }
         if cmd && shift && char == "p" { return .consume(.togglePDFPanel) }
+        if cmd && shift && char == "w" { return .consume(.newWorktree) }
+        if cmd && shift && char == "f" { return .consume(.refreshWorktrees) }
+        if cmd && shift && char == "d" { return .consume(.openWorktreeDiff) }
         if cmd && char == "p" { return .consume(.toggleCommandPalette) }
         if cmd && shift && char == "?" { return .consume(.toggleShortcutsHelp) }
         if cmd && char == "w" && context.selectedTerminalExists { return .consume(.closeTerminalPrompt) }

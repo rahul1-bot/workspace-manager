@@ -4,6 +4,49 @@
 
 ---
 
+| Progress Todo | Git Worktree Orchestration MVP — Compare, Switch, Create | Date: 07 February 2026 | Time: 07:10 AM | Name: Ghost |
+
+    1. Delivered and compiling on branch ghost/worktree-orchestration-foundation:
+        1. ✅ Worktree domain models and persistence document added (WorktreeModels.swift, WorktreeStateDocument.swift).
+        2. ✅ Worktree services implemented:
+            1. WorktreeService handles catalog discovery, creation flow, and workspace sync planning.
+            2. WorktreeStateService persists link metadata, purpose labels, auto-managed flags, and stale status.
+        3. ✅ AppState expanded with worktree orchestration methods:
+            1. refreshWorktreeCatalogForSelection, syncCatalogToWorkspaces, switchToWorktree, createWorktreeFromSelection.
+            2. setWorktreeDiffBaseline, openWorktreeComparisonPanel, compareAgainstWorktree.
+            3. switchToPreviousWorktree and switchToNextWorktree keyboard navigation support.
+        4. ✅ Diff integration completed:
+            1. DiffPanelMode now includes worktreeComparison.
+            2. GitRepositoryService exposes diffWorktreeComparison(request:) with merge-base and sibling baseline support.
+            3. Diff panel header includes baseline selector for worktree mode.
+        5. ✅ UI integration completed:
+            1. Sidebar section WORKTREES (CURRENT REPO) with status rows and compare action.
+            2. New Worktree overlay uses unified dark glass style.
+            3. Action bar includes Worktrees menu actions (refresh, create, compare).
+            4. Command palette includes worktree entries and worktree actions.
+        6. ✅ Shortcut routing completed:
+            1. Shift+Cmd+W opens create worktree overlay.
+            2. Shift+Cmd+F refreshes worktree catalog.
+            3. Shift+Cmd+D opens worktree comparison.
+            4. Option+Cmd+[ and Option+Cmd+] cycle between discovered worktrees.
+            5. Escape closes New Worktree overlay via router-level handling.
+        7. ✅ Branch safety hardening documented and installed:
+            1. docs/git-workflow-guardrails.md created.
+            2. Local pre-commit and pre-push hooks installed to block commits and pushes on dev and main.
+    2. Validation executed:
+        1. ✅ swift build.
+        2. ✅ swift test --filter KeyboardShortcutRouterTests.
+        3. ✅ swift test --filter GitRepositoryServiceTests.
+        4. ✅ swift test --filter GitUIStateTests.
+        5. ✅ swift test --filter WorktreeServiceTests.
+    3. Bug fixes completed during implementation:
+        1. ✅ Cross-repository false positive in sibling worktree comparison fixed by switching repository identity checks to git common directory (`git rev-parse --git-common-dir`).
+        2. ✅ New Worktree overlay escape-close and loading indicator behaviors stabilized.
+    4. Remaining UX decision to finalize with Rahul:
+        1. Destination-path strategy for created worktrees (inside repository, sibling folder, or shared `.wt/` root).
+
+---
+
 | Progress Todo | PDF/Paper Viewer Panel — Feature Complete | Date: 06 February 2026 | Time: 06:57 PM | Name: Lyra |
 
     1. Delivered and compiling (branch: feat/ui-ux-improvements):

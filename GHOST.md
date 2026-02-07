@@ -23,6 +23,9 @@
         3. DiffPatchParser builds structured render models from unified diff text.
         4. DiffSyntaxHighlightingService provides internal token highlighting with actor-local cache.
         5. DiffFileCardView and DiffCodeRowView render grouped file and hunk surfaces with dual line numbers.
+        6. WorktreeService discovers and creates git worktrees via porcelain parsing and safe command wrapping.
+        7. WorktreeStateService persists worktree-to-workspace links in worktree-state.json, independent from config.toml.
+        8. Worktree comparison mode extends diff pipeline with merge-base and sibling baseline variants.
     5. Graph stack:
         1. SwiftUI Canvas renders nodes, edges, grid, and cluster boundaries in a single immediate-mode pass.
         2. Custom force-directed layout engine (ForceLayoutEngine.swift) with SIMD2 vector math.
@@ -60,15 +63,27 @@
     12. Phase 1 cleanup complete: 4 bugs fixed (shortcut routing, cluster hit-test, ghostty threading, graph load race), 1 false positive closed.
     13. Phase 2 cleanup complete: 5 bugs fixed (magnify zoom compounding, focus/unfocus lifecycle, edge dedup, clipboard userdata retain).
     14. Phase 3 cleanup complete: 4 bugs fixed (git refresh redundancy, git task cancellation, shell teardown, Escape rename priority), 1 false positive closed (NotificationCenter threading).
+    15. Git Worktree Orchestration MVP implemented on ghost/worktree-orchestration-foundation:
+        1. Worktree discovery, create flow, and workspace auto-sync (add/update only, no auto-delete).
+        2. Worktree section integrated into sidebar with switch and compare actions.
+        3. Worktree comparison mode added to diff panel with baseline selector.
+        4. Worktree actions added to action bar, command palette, and keyboard shortcuts.
+        5. Regression coverage added for worktree service, git worktree diff behavior, app state flow, and shortcut routing.
+    16. Local branch safety hardening is active:
+        1. pre-commit hook blocks commits on dev and main.
+        2. pre-push hook blocks pushes on dev and main.
+        3. Guardrail documentation added at docs/git-workflow-guardrails.md.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).
     2. Precompiled ghostty static artifact trust remains a supply-chain governance concern.
 
 ## Next Steps
-    1. Design and implement Git Worktree Orchestration (second knowledge workspace feature).
-    3. Design and implement Read-only Code Viewer panel (third knowledge workspace feature).
-    4. Resolve whisper hold-command integration gap for terminal focus path.
+    1. Stabilize worktree orchestration UX details:
+        1. Auto-default destination strategy and path ergonomics for fast create flow.
+        2. Visual polish pass for worktree rows and comparison labels.
+    2. Design and implement Read-only Code Viewer panel (third knowledge workspace feature).
+    3. Resolve whisper hold-command integration gap for terminal focus path.
 
 ## File Tracking Policy
     1. Ledger files (GHOST.md, LYRA.md, memory.md, progress.md) are ALWAYS tracked in git and merge across branches.

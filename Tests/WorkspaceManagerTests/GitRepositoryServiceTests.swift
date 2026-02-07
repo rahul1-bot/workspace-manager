@@ -222,6 +222,151 @@ final class GitRepositoryServiceTests: XCTestCase {
         XCTAssertEqual(result.baseBranch, "trunk")
     }
 
+    func testDiffWorktreeComparisonDefaultBaselineSuccess() async throws {
+        let service = GitRepositoryService()
+        let repositoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let siblingURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: repositoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: repositoryURL)
+            try? FileManager.default.removeItem(at: siblingURL)
+        }
+
+        try await service.initializeRepository(at: repositoryURL)
+        try runGit(arguments: ["config", "user.email", "test@example.com"], workspaceURL: repositoryURL)
+        try runGit(arguments: ["config", "user.name", "Tester"], workspaceURL: repositoryURL)
+        try runGit(arguments: ["branch", "-M", "main"], workspaceURL: repositoryURL)
+
+        let fileURL = repositoryURL.appendingPathComponent("sample.txt")
+        try "line-1\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        try runGit(arguments: ["add", "."], workspaceURL: repositoryURL)
+        try runGit(arguments: ["commit", "-m", "init"], workspaceURL: repositoryURL)
+
+        try runGit(arguments: ["checkout", "-b", "feature/source"], workspaceURL: repositoryURL)
+        try "line-1\nline-2\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        try runGit(arguments: ["add", "."], workspaceURL: repositoryURL)
+        try runGit(arguments: ["commit", "-m", "feature change"], workspaceURL: repositoryURL)
+
+        try runGit(arguments: ["worktree", "add", "-b", "feature/sibling", siblingURL.path, "main"], workspaceURL: repositoryURL)
+
+        let request = WorktreeDiffRequest(
+            repositoryRootPath: repositoryURL.path,
+            sourceWorktreePath: repositoryURL.path,
+            sourceBranchName: "feature/source",
+            baseline: .mergeBaseWithDefault
+        )
+        let snapshot = try await service.diffWorktreeComparison(request: request)
+        XCTAssertGreaterThan(snapshot.summary.filesChanged, 0)
+        XCTAssertTrue(snapshot.patchText.contains("diff --git"))
+    }
+
+    func testDiffWorktreeComparisonSiblingBaselineSuccess() async throws {
+        let service = GitRepositoryService()
+        let repositoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let siblingURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: repositoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: repositoryURL)
+            try? FileManager.default.removeItem(at: siblingURL)
+        }
+
+        try await service.initializeRepository(at: repositoryURL)
+        try runGit(arguments: ["config", "user.email", "test@example.com"], workspaceURL: repositoryURL)
+        try runGit(arguments: ["config", "user.name", "Tester"], workspaceURL: repositoryURL)
+        try runGit(arguments: ["branch", "-M", "main"], workspaceURL: repositoryURL)
+
+        let fileURL = repositoryURL.appendingPathComponent("sample.txt")
+        try "line-1\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        try runGit(arguments: ["add", "."], workspaceURL: repositoryURL)
+        try runGit(arguments: ["commit", "-m", "init"], workspaceURL: repositoryURL)
+
+        try runGit(arguments: ["checkout", "-b", "feature/source"], workspaceURL: repositoryURL)
+        try "line-1\nline-2\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        try runGit(arguments: ["add", "."], workspaceURL: repositoryURL)
+        try runGit(arguments: ["commit", "-m", "feature change"], workspaceURL: repositoryURL)
+
+        try runGit(arguments: ["worktree", "add", "-b", "feature/sibling", siblingURL.path, "main"], workspaceURL: repositoryURL)
+
+        let request = WorktreeDiffRequest(
+            repositoryRootPath: repositoryURL.path,
+            sourceWorktreePath: repositoryURL.path,
+            sourceBranchName: "feature/source",
+            baseline: .siblingWorktree(path: siblingURL.path, branchName: "feature/sibling")
+        )
+        let snapshot = try await service.diffWorktreeComparison(request: request)
+        XCTAssertGreaterThan(snapshot.summary.filesChanged, 0)
+        XCTAssertTrue(snapshot.patchText.contains("diff --git"))
+    }
+
+    func testDiffWorktreeComparisonTargetNotFoundError() async throws {
+        let service = GitRepositoryService()
+        let repositoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: repositoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repositoryURL) }
+
+        try await service.initializeRepository(at: repositoryURL)
+        try runGit(arguments: ["config", "user.email", "test@example.com"], workspaceURL: repositoryURL)
+        try runGit(arguments: ["config", "user.name", "Tester"], workspaceURL: repositoryURL)
+        try runGit(arguments: ["branch", "-M", "main"], workspaceURL: repositoryURL)
+
+        let fileURL = repositoryURL.appendingPathComponent("sample.txt")
+        try "line-1\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        try runGit(arguments: ["add", "."], workspaceURL: repositoryURL)
+        try runGit(arguments: ["commit", "-m", "init"], workspaceURL: repositoryURL)
+
+        let missingPath = repositoryURL.appendingPathComponent("does-not-exist")
+        let request = WorktreeDiffRequest(
+            repositoryRootPath: repositoryURL.path,
+            sourceWorktreePath: repositoryURL.path,
+            sourceBranchName: "main",
+            baseline: .siblingWorktree(path: missingPath.path, branchName: "missing")
+        )
+
+        do {
+            _ = try await service.diffWorktreeComparison(request: request)
+            XCTFail("Expected targetWorktreeNotFound error")
+        } catch let error as GitRepositoryServiceError {
+            XCTAssertEqual(error, .targetWorktreeNotFound)
+        }
+    }
+
+    func testDiffWorktreeComparisonCrossRepositoryError() async throws {
+        let service = GitRepositoryService()
+        let repositoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let otherRepositoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: repositoryURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: otherRepositoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: repositoryURL)
+            try? FileManager.default.removeItem(at: otherRepositoryURL)
+        }
+
+        try await service.initializeRepository(at: repositoryURL)
+        try await service.initializeRepository(at: otherRepositoryURL)
+        try runGit(arguments: ["config", "user.email", "test@example.com"], workspaceURL: repositoryURL)
+        try runGit(arguments: ["config", "user.name", "Tester"], workspaceURL: repositoryURL)
+        try runGit(arguments: ["branch", "-M", "main"], workspaceURL: repositoryURL)
+
+        let fileURL = repositoryURL.appendingPathComponent("sample.txt")
+        try "line-1\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        try runGit(arguments: ["add", "."], workspaceURL: repositoryURL)
+        try runGit(arguments: ["commit", "-m", "init"], workspaceURL: repositoryURL)
+
+        let request = WorktreeDiffRequest(
+            repositoryRootPath: repositoryURL.path,
+            sourceWorktreePath: repositoryURL.path,
+            sourceBranchName: "main",
+            baseline: .siblingWorktree(path: otherRepositoryURL.path, branchName: "other")
+        )
+
+        do {
+            _ = try await service.diffWorktreeComparison(request: request)
+            XCTFail("Expected crossRepositoryComparisonUnsupported error")
+        } catch let error as GitRepositoryServiceError {
+            XCTAssertEqual(error, .crossRepositoryComparisonUnsupported)
+        }
+    }
+
     private func runGit(arguments: [String], workspaceURL: URL) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")

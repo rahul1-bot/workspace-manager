@@ -62,6 +62,7 @@ private enum PaletteEntryKind: Hashable {
     case workspace(UUID)
     case terminal(workspaceId: UUID, terminalId: UUID)
     case pdfTab(UUID)
+    case worktree(path: String)
     case action(PaletteAction)
 }
 
@@ -75,6 +76,9 @@ private enum PaletteAction: String, CaseIterable, Hashable {
     case toggleGraphView
     case graphZoomToFit
     case graphRerunLayout
+    case newWorktree
+    case refreshWorktrees
+    case openWorktreeDiff
 
     var title: String {
         switch self {
@@ -96,6 +100,12 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Zoom to fit all nodes"
         case .graphRerunLayout:
             return "Rerun graph layout"
+        case .newWorktree:
+            return "New worktree"
+        case .refreshWorktrees:
+            return "Refresh worktrees"
+        case .openWorktreeDiff:
+            return "Open worktree diff"
         }
     }
 
@@ -119,6 +129,12 @@ private enum PaletteAction: String, CaseIterable, Hashable {
             return "Fit all graph nodes into the viewport (⌘0)"
         case .graphRerunLayout:
             return "Re-run the force-directed layout algorithm (⌘L)"
+        case .newWorktree:
+            return "Create a git worktree from the current repository (⇧⌘W)"
+        case .refreshWorktrees:
+            return "Refresh detected worktrees for selected terminal path (⇧⌘F)"
+        case .openWorktreeDiff:
+            return "Open worktree comparison in the diff panel (⇧⌘D)"
         }
     }
 }
@@ -200,6 +216,22 @@ private struct CommandPaletteView: View {
             }
         }
 
+        if let worktreeCatalog = appState.worktreeCatalog {
+            for descriptor in worktreeCatalog.descriptors {
+                let composite = "\(descriptor.branchName) \(descriptor.pathLeaf) \(descriptor.worktreePath)"
+                if match(composite) {
+                    results.append(
+                        PaletteEntry(
+                            id: "wt:\(descriptor.worktreePath)",
+                            title: descriptor.branchName,
+                            subtitle: descriptor.pathLeaf,
+                            kind: .worktree(path: descriptor.worktreePath)
+                        )
+                    )
+                }
+            }
+        }
+
         if !q.isEmpty {
             for action in PaletteAction.allCases {
                 if match(action.title) || match(action.subtitle) {
@@ -227,6 +259,9 @@ private struct CommandPaletteView: View {
             case .pdfTab(let tabId):
                 if tabId == appState.pdfPanelState.activeTabId { return 5 }
                 return 6
+            case .worktree(let path):
+                if path == appState.currentWorktreeDescriptor()?.worktreePath { return 4 }
+                return 7
             case .action:
                 return 10
             }
@@ -411,6 +446,8 @@ private struct CommandPaletteView: View {
         case .pdfTab(let tabId):
             appState.selectPDFTab(id: tabId)
             appState.pdfPanelState.isPresented = true
+        case .worktree(let path):
+            _ = appState.switchToWorktree(path: path)
         case .action(let action):
             switch action {
             case .newTerminal:
@@ -438,6 +475,12 @@ private struct CommandPaletteView: View {
                 NotificationCenter.default.post(name: .wmGraphZoomToFit, object: nil)
             case .graphRerunLayout:
                 appState.rerunForceLayout()
+            case .newWorktree:
+                appState.showCreateWorktreeSheet = true
+            case .refreshWorktrees:
+                appState.refreshWorktreeCatalogForSelection()
+            case .openWorktreeDiff:
+                appState.openWorktreeComparisonPanel()
             }
         }
 
@@ -540,6 +583,18 @@ private struct ShortcutsHelpCard: View {
                     sectionDivider
 
                     shortcutGroup(
+                        title: "Worktrees",
+                        rows: [
+                            ("⇧⌘W", "Open create worktree sheet"),
+                            ("⇧⌘F", "Refresh worktree catalog"),
+                            ("⇧⌘D", "Open worktree comparison"),
+                            ("⌥⌘[ / ⌥⌘]", "Previous / next worktree")
+                        ]
+                    )
+
+                    sectionDivider
+
+                    shortcutGroup(
                         title: "Sidebar (when focused)",
                         rows: [
                             ("↑ / ↓", "Cycle terminals"),
@@ -620,4 +675,3 @@ private struct ShortcutsHelpCard: View {
         .padding(.vertical, 12)
     }
 }
-

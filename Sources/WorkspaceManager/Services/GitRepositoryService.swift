@@ -27,6 +27,7 @@ protocol GitRepositoryServicing: Sendable {
     func status(at workspaceURL: URL) async -> GitRepositoryStatus
     func initializeRepository(at workspaceURL: URL) async throws
     func diff(at workspaceURL: URL, mode: DiffPanelMode) async throws -> GitDiffSnapshot
+    func diffWorktreeComparison(request: WorktreeDiffRequest) async throws -> GitDiffSnapshot
     func executeCommit(
         at workspaceURL: URL,
         stagePolicy: CommitStagePolicy,
@@ -41,6 +42,10 @@ enum GitRepositoryServiceError: Error, Sendable, Equatable {
     case noHistory
     case missingBaseBranch
     case noChangesToCommit
+    case invalidWorktreeBaseline
+    case targetWorktreeNotFound
+    case crossRepositoryComparisonUnsupported
+    case worktreeCommandFailed(String)
 }
 
 private struct GitCommandOutput {
@@ -106,6 +111,85 @@ actor GitRepositoryService: GitRepositoryServicing {
             let stats = try runGit(arguments: ["diff", "--numstat", "HEAD~1..HEAD"], workspaceURL: workspaceURL)
             let summary = parseSummary(fromNumstat: stats.standardOutput, branchName: branchName)
             return GitDiffSnapshot(summary: summary, patchText: patch.standardOutput)
+        case .worktreeComparison:
+            throw GitRepositoryServiceError.invalidWorktreeBaseline
+        }
+    }
+
+    func diffWorktreeComparison(request: WorktreeDiffRequest) async throws -> GitDiffSnapshot {
+        do {
+            let sourceURL = URL(fileURLWithPath: request.sourceWorktreePath)
+            let normalizedSource = normalizedPath(sourceURL.path)
+            let requestedRootURL = URL(fileURLWithPath: request.repositoryRootPath)
+            let expectedCommonDirectory = try gitCommonDirectoryPath(at: requestedRootURL)
+            let sourceCommonDirectory = try gitCommonDirectoryPath(at: sourceURL)
+            guard sourceCommonDirectory == expectedCommonDirectory else {
+                throw GitRepositoryServiceError.crossRepositoryComparisonUnsupported
+            }
+
+            let sourceBranchName = request.sourceBranchName
+            switch request.baseline {
+            case .mergeBaseWithDefault:
+                guard let baseReference = resolveBaseReference(workspaceURL: sourceURL) else {
+                    throw GitRepositoryServiceError.missingBaseBranch
+                }
+                let mergeBase = try runGit(arguments: ["merge-base", "HEAD", baseReference], workspaceURL: sourceURL)
+                    .standardOutput
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let patch = try runGit(
+                    arguments: ["diff", "--no-ext-diff", "--minimal", "\(mergeBase)..HEAD"],
+                    workspaceURL: sourceURL
+                )
+                let stats = try runGit(arguments: ["diff", "--numstat", "\(mergeBase)..HEAD"], workspaceURL: sourceURL)
+                let summary = parseSummary(fromNumstat: stats.standardOutput, branchName: sourceBranchName)
+                return GitDiffSnapshot(summary: summary, patchText: patch.standardOutput)
+
+            case .siblingWorktree(let targetPath, _):
+                let targetURL = URL(fileURLWithPath: targetPath)
+                let normalizedTargetPath = normalizedPath(targetURL.path)
+                guard normalizedTargetPath != normalizedSource else {
+                    throw GitRepositoryServiceError.invalidWorktreeBaseline
+                }
+                let targetExists = FileManager.default.fileExists(atPath: normalizedTargetPath)
+                guard targetExists else {
+                    throw GitRepositoryServiceError.targetWorktreeNotFound
+                }
+
+                let targetCommonDirectory: String
+                do {
+                    targetCommonDirectory = try gitCommonDirectoryPath(at: targetURL)
+                } catch {
+                    throw GitRepositoryServiceError.targetWorktreeNotFound
+                }
+                guard targetCommonDirectory == expectedCommonDirectory else {
+                    throw GitRepositoryServiceError.crossRepositoryComparisonUnsupported
+                }
+
+                let sourceHead = try runGit(arguments: ["rev-parse", "HEAD"], workspaceURL: sourceURL)
+                    .standardOutput
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let targetHead = try runGit(arguments: ["rev-parse", "HEAD"], workspaceURL: targetURL)
+                    .standardOutput
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                let mergeBase = try runGit(arguments: ["merge-base", sourceHead, targetHead], workspaceURL: sourceURL)
+                    .standardOutput
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let patch = try runGit(
+                    arguments: ["diff", "--no-ext-diff", "--minimal", "\(mergeBase)..\(sourceHead)"],
+                    workspaceURL: sourceURL
+                )
+                let stats = try runGit(
+                    arguments: ["diff", "--numstat", "\(mergeBase)..\(sourceHead)"],
+                    workspaceURL: sourceURL
+                )
+                let summary = parseSummary(fromNumstat: stats.standardOutput, branchName: sourceBranchName)
+                return GitDiffSnapshot(summary: summary, patchText: patch.standardOutput)
+            }
+        } catch let error as GitRepositoryServiceError {
+            throw error
+        } catch {
+            throw GitRepositoryServiceError.worktreeCommandFailed(String(describing: error))
         }
     }
 
@@ -322,6 +406,34 @@ actor GitRepositoryService: GitRepositoryServicing {
             return value.isEmpty ? nil : value
         }
         return nil
+    }
+
+    private func repositoryRootPath(at workspaceURL: URL) throws -> String {
+        let output = try runGit(arguments: ["rev-parse", "--show-toplevel"], workspaceURL: workspaceURL)
+        let root = output.standardOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !root.isEmpty else {
+            throw GitRepositoryServiceError.commandFailed("Unable to resolve repository root path.")
+        }
+        return normalizedPath(root)
+    }
+
+    private func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
+    private func gitCommonDirectoryPath(at workspaceURL: URL) throws -> String {
+        let output = try runGit(arguments: ["rev-parse", "--git-common-dir"], workspaceURL: workspaceURL)
+        let rawPath = output.standardOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rawPath.isEmpty else {
+            throw GitRepositoryServiceError.commandFailed("Unable to resolve git common directory.")
+        }
+
+        if rawPath.hasPrefix("/") {
+            return normalizedPath(rawPath)
+        }
+
+        let resolved = workspaceURL.appendingPathComponent(rawPath).path
+        return normalizedPath(resolved)
     }
 
     private func parseSummary(fromNumstat output: String, branchName: String) -> GitChangeSummary {

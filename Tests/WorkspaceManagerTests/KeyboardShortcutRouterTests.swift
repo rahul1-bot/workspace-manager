@@ -81,6 +81,18 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertConsume(escapeRoute, expected: .closeCommitSheet)
     }
 
+    func testCreateWorktreeSheetConsumesEscape() {
+        let visibleContext = makeContext(showCreateWorktreeSheet: true)
+        let escapeRoute = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: visibleContext
+        )
+        assertConsume(escapeRoute, expected: .closeCreateWorktreeSheet)
+    }
+
     func testDiffPanelConsumesEscape() {
         let visibleContext = makeContext(showDiffPanel: true)
         let escapeRoute = router.route(
@@ -265,6 +277,59 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertConsume(graphRoute, expected: .graphRerunLayout)
     }
 
+    func testShiftCmdWTriggersNewWorktree() {
+        let route = router.route(
+            keyCode: 13,
+            modifierFlags: [.command, .shift],
+            charactersIgnoringModifiers: "w",
+            isRepeat: false,
+            context: makeContext(showPDFPanel: false)
+        )
+        assertConsume(route, expected: .newWorktree)
+    }
+
+    func testShiftCmdFTriggersRefreshWorktrees() {
+        let route = router.route(
+            keyCode: 3,
+            modifierFlags: [.command, .shift],
+            charactersIgnoringModifiers: "f",
+            isRepeat: false,
+            context: makeContext()
+        )
+        assertConsume(route, expected: .refreshWorktrees)
+    }
+
+    func testShiftCmdDTriggersOpenWorktreeDiff() {
+        let route = router.route(
+            keyCode: 2,
+            modifierFlags: [.command, .shift],
+            charactersIgnoringModifiers: "d",
+            isRepeat: false,
+            context: makeContext()
+        )
+        assertConsume(route, expected: .openWorktreeDiff)
+    }
+
+    func testOptionCmdBracketRoutesWorktreeSwitching() {
+        let previousRoute = router.route(
+            keyCode: 33,
+            modifierFlags: [.command, .option],
+            charactersIgnoringModifiers: "[",
+            isRepeat: false,
+            context: makeContext()
+        )
+        assertConsume(previousRoute, expected: .previousWorktree)
+
+        let nextRoute = router.route(
+            keyCode: 30,
+            modifierFlags: [.command, .option],
+            charactersIgnoringModifiers: "]",
+            isRepeat: false,
+            context: makeContext()
+        )
+        assertConsume(nextRoute, expected: .nextWorktree)
+    }
+
     func testGraphZoomShortcutsIgnoredOutsideGraphMode() {
         let zoomInRoute = router.route(
             keyCode: 24,
@@ -338,10 +403,22 @@ final class KeyboardShortcutRouterTests: XCTestCase {
         assertConsume(route, expected: .sidebarCancelRename)
     }
 
+    func testEscapeCreateWorktreePriorityOverDiffPanel() {
+        let route = router.route(
+            keyCode: 53,
+            modifierFlags: [],
+            charactersIgnoringModifiers: "",
+            isRepeat: false,
+            context: makeContext(showCreateWorktreeSheet: true, showDiffPanel: true)
+        )
+        assertConsume(route, expected: .closeCreateWorktreeSheet)
+    }
+
     private func makeContext(
         appIsActive: Bool = true,
         showCommandPalette: Bool = false,
         showShortcutsHelp: Bool = false,
+        showCreateWorktreeSheet: Bool = false,
         showCommitSheet: Bool = false,
         showDiffPanel: Bool = false,
         showPDFPanel: Bool = false,
@@ -356,6 +433,7 @@ final class KeyboardShortcutRouterTests: XCTestCase {
             appIsActive: appIsActive,
             showCommandPalette: showCommandPalette,
             showShortcutsHelp: showShortcutsHelp,
+            showCreateWorktreeSheet: showCreateWorktreeSheet,
             showCommitSheet: showCommitSheet,
             showDiffPanel: showDiffPanel,
             showPDFPanel: showPDFPanel,

@@ -17,6 +17,10 @@ struct WorkspaceActionBar: View {
         appState.gitPanelState.disabledReason != nil
     }
 
+    private var worktreeDisabled: Bool {
+        appState.gitPanelState.disabledReason != nil
+    }
+
     private var isNonGitRepository: Bool {
         appState.gitPanelState.disabledReason == .notGitRepository
     }
@@ -53,6 +57,33 @@ struct WorkspaceActionBar: View {
             .buttonStyle(.plain)
             .disabled(diffDisabled)
             .help(appState.gitPanelState.disabledReason?.title ?? "Toggle diff panel")
+
+            Menu {
+                Button("Refresh worktrees") {
+                    appState.refreshWorktreeCatalogForSelection()
+                }
+                Button("New worktree") {
+                    appState.showCreateWorktreeSheet = true
+                }
+                Button("Compare current worktree") {
+                    appState.openWorktreeComparisonPanel()
+                }
+                .disabled(appState.currentWorktreeDescriptor() == nil)
+
+                if let catalog = appState.worktreeCatalog, !catalog.siblingDescriptors.isEmpty {
+                    Divider()
+                    ForEach(catalog.siblingDescriptors) { descriptor in
+                        Button("Compare vs \(descriptor.branchName)") {
+                            appState.compareAgainstWorktree(descriptor)
+                        }
+                    }
+                }
+            } label: {
+                WorkspaceActionPill(icon: "point.3.connected.trianglepath.dotted", title: "Worktrees", showsChevron: true, isDisabled: worktreeDisabled)
+            }
+            .menuStyle(.borderlessButton)
+            .disabled(worktreeDisabled)
+            .help(appState.gitPanelState.disabledReason?.title ?? "Worktree actions")
 
             if isNonGitRepository {
                 Button {

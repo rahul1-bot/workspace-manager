@@ -4,6 +4,34 @@
 
 ---
 
+| Memory | Worktree Repository Identity Must Use git-common-dir, Not Worktree Root Path Equality | Date: 07 February 2026 | Time: 07:10 AM | Name: Ghost |
+
+    1. Observation:
+        1. A repository-level equality check based only on worktree root paths is insufficient for git worktrees because each worktree has a distinct working directory path.
+        2. During sibling worktree comparison tests, cross-repository detection produced false positives even when both paths belonged to the same git repository.
+    2. Decision:
+        1. Repository identity for worktree comparison must be validated using `git rev-parse --git-common-dir` for source, target, and expected root contexts.
+        2. Path normalization must include symlink resolution to avoid `/var` versus `/private/var` divergence on macOS.
+    3. Implication:
+        1. Any future worktree orchestration logic that needs repository membership checks must compare git common directories, not directory names.
+        2. This rule prevents correctness regressions when worktrees are placed outside the repository parent folder.
+
+---
+
+| Memory | Worktree Create UI Must Be Overlay-Scoped and Decouple Spinner State from Catalog Refresh | Date: 07 February 2026 | Time: 07:10 AM | Name: Ghost |
+
+    1. Observation:
+        1. Rendering the New Worktree flow as a SwiftUI `.sheet` created material inconsistencies versus command palette and commit overlays.
+        2. Reusing a global loading flag (`isWorktreeLoading`) for both discovery refresh and create flow made the Create button spinner appear stuck in unrelated scenarios.
+    2. Decision:
+        1. Worktree creation UI is implemented as an in-window overlay in ContentView, using the same dark glass style as command palette and commit sheet.
+        2. Create button spinner is controlled by local create-flow state in ContentView, while catalog refresh keeps a separate global loading state.
+    3. Implication:
+        1. Overlay consistency and keyboard escape behavior remain deterministic.
+        2. UI loading indicators now reflect real operation intent, reducing confusion during long work sessions.
+
+---
+
 | Memory | macOS charactersIgnoringModifiers Preserves Shift for Punctuation Keys | Date: 06 February 2026 | Time: 11:19 PM | Name: Lyra |
 
     1. Observation:

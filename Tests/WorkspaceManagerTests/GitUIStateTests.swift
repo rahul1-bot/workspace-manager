@@ -24,6 +24,14 @@ actor MockGitRepositoryService: GitRepositoryServicing {
         )
     }
 
+    func diffWorktreeComparison(request: WorktreeDiffRequest) async throws -> GitDiffSnapshot {
+        _ = request
+        return GitDiffSnapshot(
+            summary: GitChangeSummary(branchName: "dev", filesChanged: 1, additions: 1, deletions: 0),
+            patchText: "worktreeComparison"
+        )
+    }
+
     func executeCommit(
         at workspaceURL: URL,
         stagePolicy: CommitStagePolicy,
@@ -75,6 +83,11 @@ actor MockNonGitRepositoryService: GitRepositoryServicing {
         throw GitRepositoryServiceError.commandFailed("not repository")
     }
 
+    func diffWorktreeComparison(request: WorktreeDiffRequest) async throws -> GitDiffSnapshot {
+        _ = request
+        throw GitRepositoryServiceError.commandFailed("not repository")
+    }
+
     func executeCommit(
         at workspaceURL: URL,
         stagePolicy: CommitStagePolicy,
@@ -117,6 +130,15 @@ actor MockSlowDiffRepositoryService: GitRepositoryServicing {
         )
     }
 
+    func diffWorktreeComparison(request: WorktreeDiffRequest) async throws -> GitDiffSnapshot {
+        _ = request
+        try await Task.sleep(nanoseconds: 40_000_000)
+        return GitDiffSnapshot(
+            summary: GitChangeSummary(branchName: "dev", filesChanged: 1, additions: 2, deletions: 1),
+            patchText: "worktreeComparison"
+        )
+    }
+
     func executeCommit(
         at workspaceURL: URL,
         stagePolicy: CommitStagePolicy,
@@ -152,6 +174,11 @@ actor MockMissingBaseDiffRepositoryService: GitRepositoryServicing {
         throw GitRepositoryServiceError.missingBaseBranch
     }
 
+    func diffWorktreeComparison(request: WorktreeDiffRequest) async throws -> GitDiffSnapshot {
+        _ = request
+        throw GitRepositoryServiceError.missingBaseBranch
+    }
+
     func executeCommit(
         at workspaceURL: URL,
         stagePolicy: CommitStagePolicy,
@@ -168,6 +195,31 @@ actor MockMissingBaseDiffRepositoryService: GitRepositoryServicing {
     func autoCommitMessage(at workspaceURL: URL) async throws -> String {
         _ = workspaceURL
         return "chore: update 1 files in workspace"
+    }
+}
+
+actor MockWorktreeService: WorktreeServicing {
+    private let catalogResolver: (URL) -> WorktreeCatalog
+    private let createResolver: (WorktreeCreateRequest) -> WorktreeDescriptor
+
+    init(
+        catalogResolver: @escaping (URL) -> WorktreeCatalog,
+        createResolver: @escaping (WorktreeCreateRequest) -> WorktreeDescriptor
+    ) {
+        self.catalogResolver = catalogResolver
+        self.createResolver = createResolver
+    }
+
+    func catalog(for path: URL) async throws -> WorktreeCatalog {
+        catalogResolver(path)
+    }
+
+    func createWorktree(_ request: WorktreeCreateRequest) async throws -> WorktreeDescriptor {
+        createResolver(request)
+    }
+
+    nonisolated func workspaceSyncPlan(catalog: WorktreeCatalog, existingWorkspaces: [Workspace]) -> WorktreeWorkspaceSyncPlan {
+        WorktreeService().workspaceSyncPlan(catalog: catalog, existingWorkspaces: existingWorkspaces)
     }
 }
 
@@ -463,9 +515,156 @@ final class GitUIStateTests: XCTestCase {
         XCTAssertEqual(appState.commitSheetState.summary.branchName, "dev")
     }
 
+    @MainActor
+    func testCatalogRefreshAutoAddsWorkspaceForDiscoveredWorktree() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let siblingURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: siblingURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+            try? FileManager.default.removeItem(at: siblingURL)
+        }
+
+        let catalog = Self.makeCatalog(rootURL: rootURL, siblingURLs: [siblingURL])
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockGitRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener(),
+            worktreeService: MockWorktreeService(
+                catalogResolver: { _ in catalog },
+                createResolver: { _ in catalog.descriptors[0] }
+            )
+        )
+
+        let terminal = Terminal(name: "root-terminal", workingDirectory: rootURL.path)
+        let workspace = Workspace(id: UUID(), name: "root", path: rootURL.path, terminals: [terminal])
+        appState.workspaces = [workspace]
+        appState.selectTerminal(id: terminal.id, in: workspace.id)
+        appState.gitPanelState.disabledReason = nil
+
+        appState.refreshWorktreeCatalogForSelection()
+        try? await Task.sleep(nanoseconds: 450_000_000)
+
+        XCTAssertNotNil(appState.worktreeCatalog)
+        XCTAssertTrue(appState.workspaces.contains(where: {
+            URL(fileURLWithPath: $0.path).standardizedFileURL.path == siblingURL.standardizedFileURL.path
+        }))
+    }
+
+    @MainActor
+    func testSwitchToWorktreeUpdatesSelection() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let siblingURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: siblingURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+            try? FileManager.default.removeItem(at: siblingURL)
+        }
+
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockGitRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener(),
+            worktreeService: MockWorktreeService(
+                catalogResolver: { _ in Self.makeCatalog(rootURL: rootURL, siblingURLs: [siblingURL]) },
+                createResolver: { _ in Self.makeCatalog(rootURL: rootURL, siblingURLs: [siblingURL]).descriptors[1] }
+            )
+        )
+
+        let rootTerminal = Terminal(name: "root-terminal", workingDirectory: rootURL.path)
+        let siblingTerminal = Terminal(name: "sibling-terminal", workingDirectory: siblingURL.path)
+        let rootWorkspace = Workspace(id: UUID(), name: "root", path: rootURL.path, terminals: [rootTerminal])
+        let siblingWorkspace = Workspace(id: UUID(), name: "sibling", path: siblingURL.path, terminals: [siblingTerminal])
+        appState.workspaces = [rootWorkspace, siblingWorkspace]
+        appState.selectTerminal(id: rootTerminal.id, in: rootWorkspace.id)
+
+        let switched = appState.switchToWorktree(path: siblingURL.path)
+        XCTAssertTrue(switched)
+        XCTAssertEqual(appState.selectedWorkspaceId, siblingWorkspace.id)
+        XCTAssertEqual(appState.selectedTerminalId, siblingTerminal.id)
+    }
+
+    @MainActor
+    func testWorktreeComparisonModeLoadsPatchAndSummary() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let siblingURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: siblingURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+            try? FileManager.default.removeItem(at: siblingURL)
+        }
+
+        let catalog = Self.makeCatalog(rootURL: rootURL, siblingURLs: [siblingURL])
+        let appState = AppState(
+            configService: ConfigService.shared,
+            gitRepositoryService: MockGitRepositoryService(),
+            editorLaunchService: MockEditorLaunchService(),
+            prLinkBuilder: MockPRLinkBuilder(),
+            urlOpener: MockURLOpener(),
+            worktreeService: MockWorktreeService(
+                catalogResolver: { _ in catalog },
+                createResolver: { _ in catalog.descriptors[1] }
+            )
+        )
+
+        let terminal = Terminal(name: "root-terminal", workingDirectory: rootURL.path)
+        let workspace = Workspace(id: UUID(), name: "root", path: rootURL.path, terminals: [terminal])
+        appState.workspaces = [workspace]
+        appState.selectTerminal(id: terminal.id, in: workspace.id)
+        appState.gitPanelState.disabledReason = nil
+        appState.worktreeCatalog = catalog
+
+        appState.openWorktreeComparisonPanel()
+        try? await Task.sleep(nanoseconds: 300_000_000)
+
+        XCTAssertEqual(appState.gitPanelState.mode, .worktreeComparison)
+        XCTAssertEqual(appState.gitPanelState.patchText, "worktreeComparison")
+        XCTAssertEqual(appState.gitPanelState.baselineLabel, "Merge-base vs trunk/upstream")
+    }
+
     func testDiffPanelModeTitles() {
         XCTAssertEqual(DiffPanelMode.uncommitted.title, "Uncommitted changes")
         XCTAssertEqual(DiffPanelMode.allBranchChanges.title, "All branch changes")
         XCTAssertEqual(DiffPanelMode.lastTurnChanges.title, "Last turn changes")
+        XCTAssertEqual(DiffPanelMode.worktreeComparison.title, "Worktree comparison")
+    }
+
+    private static func makeCatalog(rootURL: URL, siblingURLs: [URL]) -> WorktreeCatalog {
+        let rootDescriptor = WorktreeDescriptor(
+            repositoryRootPath: rootURL.path,
+            worktreePath: rootURL.path,
+            branchName: "main",
+            headShortSHA: "11111111",
+            isDetachedHead: false,
+            isCurrent: true,
+            isDirty: false,
+            aheadCount: 0,
+            behindCount: 0
+        )
+        let siblings = siblingURLs.enumerated().map { index, siblingURL in
+            WorktreeDescriptor(
+                repositoryRootPath: rootURL.path,
+                worktreePath: siblingURL.path,
+                branchName: "feature/\(index)",
+                headShortSHA: "2222222\(index)",
+                isDetachedHead: false,
+                isCurrent: false,
+                isDirty: false,
+                aheadCount: 0,
+                behindCount: 0
+            )
+        }
+        return WorktreeCatalog(
+            repositoryRootPath: rootURL.path,
+            currentWorktreePath: rootURL.path,
+            descriptors: [rootDescriptor] + siblings
+        )
     }
 }
