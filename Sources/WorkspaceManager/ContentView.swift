@@ -24,10 +24,8 @@ struct ContentView: View {
     @State private var showCloseTerminalConfirm = false
     @State private var worktreeBranchName: String = ""
     @State private var worktreeBaseReference: String = "HEAD"
-    @State private var worktreeDestinationPath: String = ""
     @State private var worktreePurpose: String = ""
     @State private var worktreeCreateError: String?
-    @State private var didEditWorktreeDestination: Bool = false
     @State private var isCreatingWorktree: Bool = false
     @State private var shortcutThrottle: [String: TimeInterval] = [:]
     @State private var diffPanelWidthRatio: CGFloat = 0.5
@@ -108,13 +106,10 @@ struct ContentView: View {
                 WorktreeCreateSheet(
                     branchName: $worktreeBranchName,
                     baseReference: $worktreeBaseReference,
-                    destinationPath: $worktreeDestinationPath,
                     purpose: $worktreePurpose,
                     errorMessage: $worktreeCreateError,
                     isCreating: isCreatingWorktree,
-                    onDestinationEdited: {
-                        didEditWorktreeDestination = true
-                    },
+                    destinationPreview: appState.suggestedWorktreeDestinationPath(for: worktreeBranchName),
                     onCancel: {
                         appState.showCreateWorktreeSheet = false
                         worktreeCreateError = nil
@@ -157,13 +152,6 @@ struct ContentView: View {
                 seedWorktreeSheetState()
             } else {
                 isCreatingWorktree = false
-            }
-        }
-        .onChange(of: worktreeBranchName) { _, value in
-            guard appState.showCreateWorktreeSheet else { return }
-            guard !didEditWorktreeDestination else { return }
-            if let suggestedPath = appState.suggestedWorktreeDestinationPath(for: value) {
-                worktreeDestinationPath = suggestedPath
             }
         }
         .onChange(of: appState.worktreeErrorText) { _, value in
@@ -467,12 +455,6 @@ struct ContentView: View {
         worktreeBranchName = ""
         worktreeBaseReference = "HEAD"
         worktreePurpose = ""
-        didEditWorktreeDestination = false
-        if let suggestedPath = appState.suggestedWorktreeDestinationPath(for: "") {
-            worktreeDestinationPath = suggestedPath
-        } else {
-            worktreeDestinationPath = ""
-        }
     }
 
     private func createWorktreeFromOverlay() {
@@ -496,9 +478,8 @@ struct ContentView: View {
             return
         }
 
-        let destinationPath = worktreeDestinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        if destinationPath.isEmpty {
-            worktreeCreateError = "Destination path cannot be empty."
+        guard let destinationPath = appState.suggestedWorktreeDestinationPath(for: branch) else {
+            worktreeCreateError = "Cannot resolve destination path. Branch name is invalid."
             isCreatingWorktree = false
             return
         }

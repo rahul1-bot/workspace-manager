@@ -150,3 +150,14 @@
         1. NSEvent.addLocalMonitorForEvents intercepts arrow keys (125, 126) and Enter (36). Registered on onAppear, removed on onDisappear. LIFO order means it receives events before ContentView's global monitor.
     3. Implication:
         1. The monitor consumes only arrow keys and Enter (returning nil). All other keys propagate to TextField and shortcut router. Escape handling remains in ContentView's router.
+
+---
+
+| Memory | Worktree Destination Must Be Policy-Driven, Not Manually Typed | Date: 07 February 2026 | Time: 07:30 AM | Name: Ghost |
+
+    1. Observation:
+        1. The first worktree-create overlay required manual destination path input. This made the flow cognitively expensive and error-prone because users had to leave the task to construct long filesystem paths repeatedly.
+    2. Decision:
+        1. Destination input was removed from the overlay. The path is now always computed from branch name using a deterministic policy at .wt/<repo>/<branch-slug> under the repository parent. The create service also ensures parent folders exist before running git worktree add.
+    3. Implication:
+        1. Worktree creation now has fewer variables, faster operator throughput, and consistent filesystem layout across sessions and collaborators on the same repository structure.

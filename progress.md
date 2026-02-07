@@ -753,3 +753,28 @@
     3. Files modified:
         1. README.md — complete rewrite (184 lines, was 182 lines)
         2. docs/knowledge-workspace-roadmap.md — updated (155 lines, was 109 lines)
+
+---
+
+| Progress Todo | Worktree Create UX — Auto Destination Under .wt and Manual Path Removal | Date: 07 February 2026 | Time: 07:30 AM | Name: Ghost |
+
+    1. Scope:
+        1. Implemented deterministic destination policy for worktree creation and removed manual destination typing from the overlay flow, while preserving existing worktree orchestration behavior.
+    2. Code changes:
+        1. Sources/WorkspaceManager/ContentView.swift:
+            1. Removed local destination editing state and manual destination validation path.
+            2. Create request now resolves destination directly via AppState.suggestedWorktreeDestinationPath(for: branch).
+            3. Overlay wiring now passes destination preview only.
+        2. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift:
+            1. WorktreeCreateSheet removed editable destination text field.
+            2. Added read-only destination preview row aligned with existing glass form styling.
+        3. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Destination suggestion policy now resolves to .wt/<repo>/<branch-slug> with normalized and symlink-resolved repository root.
+        4. Sources/WorkspaceManager/Services/WorktreeService.swift:
+            1. Ensured destination parent folders are created before invoking git worktree add, preventing missing-directory failures.
+    3. Validation:
+        1. Executed full suite with swift test.
+        2. Result: 95 tests executed, 0 failures.
+    4. Outcome:
+        1. Worktree creation no longer asks users to paste long destination paths.
+        2. Destination layout is consistent by policy and optimized for repeated high-frequency worktree operations.

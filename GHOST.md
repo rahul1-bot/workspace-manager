@@ -54,7 +54,7 @@
     3. Diff flow executes reliably and supports richer line-type color treatment.
     4. Diff viewer renders structured file sections, hunk grouping, dual line numbers, token highlighting, and intraline emphasis.
     5. All overlay panels use unified dark liquid glass visual pattern.
-    6. CI gate is active and passing locally (70 tests, 0 failures).
+    6. CI gate is active and passing locally (95 tests, 0 failures).
     7. PDF/Paper Viewer panel with multi-PDF tab support renders research papers inline.
     8. Panel exclusivity enforced between diff and PDF panels.
     9. Spatial graph view (Phase 1) operational: force-directed layout, cluster drag, node focus/unfocus, minimap, zoom controls.
@@ -73,6 +73,10 @@
         1. pre-commit hook blocks commits on dev and main.
         2. pre-push hook blocks pushes on dev and main.
         3. Guardrail documentation added at docs/git-workflow-guardrails.md.
+    17. Worktree create flow now uses deterministic auto-destination policy:
+        1. Manual destination-path input removed from the create overlay.
+        2. Destination path is auto-computed as .wt/<repo>/<branch-slug> under the repository parent directory.
+        3. Parent folders are created automatically before git worktree add executes.
 
 ## Active Risks
     1. Whisper hold-command behavior remains asymmetric (sidebar path works, main terminal path unresolved).
@@ -80,8 +84,7 @@
 
 ## Next Steps
     1. Stabilize worktree orchestration UX details:
-        1. Auto-default destination strategy and path ergonomics for fast create flow.
-        2. Visual polish pass for worktree rows and comparison labels.
+        1. Visual polish pass for worktree rows and comparison labels.
     2. Design and implement Read-only Code Viewer panel (third knowledge workspace feature).
     3. Resolve whisper hold-command integration gap for terminal focus path.
 

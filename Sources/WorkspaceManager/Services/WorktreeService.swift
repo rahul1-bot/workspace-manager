@@ -87,6 +87,8 @@ actor WorktreeService: WorktreeServicing {
         _ = try repositoryRootPath(for: repositoryRoot)
 
         let destinationPath = URL(fileURLWithPath: request.destinationPath).standardizedFileURL.path
+        let destinationParent = URL(fileURLWithPath: destinationPath).deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: destinationParent, withIntermediateDirectories: true)
         let branchExistsOutput = try runGitAllowFailure(
             arguments: ["show-ref", "--verify", "--quiet", "refs/heads/\(branchName)"],
             workingPath: repositoryRoot
@@ -355,4 +357,3 @@ actor WorktreeService: WorktreeServicing {
         )
     }
 }
-

@@ -510,11 +510,10 @@ struct WorktreeRow: View {
 struct WorktreeCreateSheet: View {
     @Binding var branchName: String
     @Binding var baseReference: String
-    @Binding var destinationPath: String
     @Binding var purpose: String
     @Binding var errorMessage: String?
     let isCreating: Bool
-    let onDestinationEdited: () -> Void
+    let destinationPreview: String?
     let onCancel: () -> Void
     let onCreate: () -> Void
 
@@ -586,12 +585,26 @@ struct WorktreeCreateSheet: View {
                     errorMessage = nil
                 }
 
-            TextField("Destination path", text: $destinationPath)
-                .worktreeSheetTextFieldStyle()
-                .onChange(of: destinationPath) { _, _ in
-                    onDestinationEdited()
-                    errorMessage = nil
-                }
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Destination")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.65))
+
+                Text(destinationPreview ?? ".wt/<repo>/<branch-slug>")
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.88))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.black.opacity(0.25))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
+            }
 
             TextField("Purpose (optional)", text: $purpose)
                 .worktreeSheetTextFieldStyle()

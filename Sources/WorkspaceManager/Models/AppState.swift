@@ -1262,11 +1262,13 @@ final class AppState: ObservableObject {
 
     func suggestedWorktreeDestinationPath(for branchName: String) -> String? {
         guard let catalog = worktreeCatalog else { return nil }
-        let repositoryURL = URL(fileURLWithPath: catalog.repositoryRootPath)
+        let repositoryURL = URL(fileURLWithPath: catalog.repositoryRootPath).resolvingSymlinksInPath().standardizedFileURL
         let parentURL = repositoryURL.deletingLastPathComponent()
+        let wtRootURL = parentURL.appendingPathComponent(".wt", isDirectory: true)
+        let repoBucketURL = wtRootURL.appendingPathComponent(repositoryURL.lastPathComponent, isDirectory: true)
         let slug = sluggedBranchName(branchName)
         guard !slug.isEmpty else { return nil }
-        let destinationURL = parentURL.appendingPathComponent("\(repositoryURL.lastPathComponent)-\(slug)")
+        let destinationURL = repoBucketURL.appendingPathComponent(slug, isDirectory: true)
         return destinationURL.path
     }
 
