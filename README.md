@@ -16,6 +16,9 @@ This is not a terminal management problem. Terminal multiplexers solve terminal 
 
 Workspace Manager keeps everything in one spatial workspace: terminals, research papers, git diffs, commit flows, and a graph that maps the relationships between all of it. Every feature exists to solve a high-value problem that research engineers face daily. Low-value distractions — config UIs, theme pickers, status bars — are intentionally skipped.
 
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 02 45 25" src="https://github.com/user-attachments/assets/2fd8be6e-f5d6-49db-b8d4-3608e94e7dd8" />
+<img width="1728" height="1117" alt="WorkspaceManager 2026-02-07 02 44 56" src="https://github.com/user-attachments/assets/83433fe2-2f7d-4210-b115-5a7df59691c5" />
+
 ## What It Does Today
 
 ### Spatial Graph View
@@ -26,7 +29,12 @@ The graph gives structure to complex workflows. When you're running 5 experiment
 
 ### PDF / Paper Viewer
 
-Open research papers inline next to your terminal (`Cmd+Shift+P`). Multi-tab support — keep multiple papers open and cycle between them. Page navigation, zoom. The paper sits beside your code. Read the architecture diagram, glance right, implement it. Zero context switch.
+Open research papers inline next to your terminal. Multi-tab support, page navigation, and fast open/close flows are built into the panel. The paper sits beside your code: read the architecture diagram, glance right, implement it.
+
+- `Shift+Cmd+P` toggles the documents panel.
+- `Shift+Cmd+O` opens the file picker.
+- Finder supports opening a batch of PDFs in one go (multi-select).
+- PDF sessions are terminal-scoped: switching terminals restores each terminal's own open tabs and panel visibility.
 
 ### Git Diff Panel
 
@@ -40,13 +48,21 @@ Commit, commit and push, or commit and create a PR. Directly from the keyboard, 
 
 Multiple workspaces, multiple terminals per workspace. Dual rendering paths: **libghostty** (Metal GPU, 120Hz) as default, **SwiftTerm** (CPU) as fallback. Terminal processes persist across view mode switches — flip between sidebar and graph without killing shells. All terminal actions (open in Finder, open in editor, git operations) target the selected terminal's runtime working directory.
 
+### Git Worktree Orchestration
+
+Worktrees are first-class in the sidebar and action flows:
+- Dedicated `WORKTREES (CURRENT REPO)` section with current/sibling worktree visibility.
+- Create/switch/compare worktree flows from action bar, sidebar, command palette, and shortcuts.
+- Automatic destination policy for created worktrees under `.wt/<repo>/<branch-slug>`.
+- Auto-managed worktree workspace entries are filtered from primary `WORKSPACES` navigation to prevent sidebar pollution.
+
 ### The Rest
 
 - **Command palette** (`Cmd+P`) — fast switching between workspaces, terminals, open PDFs, and actions
 - **Keyboard-first** — every action has a shortcut, every shortcut is documented in the help overlay (`Shift+Cmd+/`)
 - **Config-driven** — `~/.config/workspace-manager/config.toml` is the single source of truth for workspace roster and appearance
 - **Dark liquid glass** — unified visual aesthetic across all overlays (command palette, commit sheet, shortcuts help, diff panel)
-- **CI gate** — 70 tests, 0 failures
+- **CI gate** — 102 tests, 0 failures
 
 ## The Graph Vision
 
@@ -61,9 +77,9 @@ Phase 1 (shipped) delivers the foundation: force-directed layout with a custom S
 
 ## Coming Next
 
-**Git Worktree Orchestration** — first-class worktree awareness. Visualize which worktrees exist and what branch each is on. Fast-switch between worktrees with auto-created workspace and terminal per worktree. The workspace concept already maps naturally — each worktree IS a workspace with a directory path.
-
 **Code Viewer Panel** — read-only source file viewer with syntax highlighting and line numbers. Quick reference without leaving the app. Reuses the existing diff syntax highlighting infrastructure.
+
+**Knowledge-layer graph nodes** — markdown knowledge nodes, relationship edges, and richer graph semantics to bridge code, papers, and project context.
 
 ## First Principles Filter
 
@@ -86,7 +102,6 @@ What we explicitly skip: settings UI panels, theme pickers, built-in AI chat (th
 - No Electron. No web views. No compromise.
 
 ## Quickstart
-
 ### Requirements
 
 - macOS 14+
@@ -152,8 +167,13 @@ path = "~/code/research"
 | `Cmd+R` | Rename selected |
 | `Cmd+O` | Open in Finder |
 | `Cmd+W` | Close terminal |
-| `Shift+Cmd+P` | Toggle PDF panel |
+| `Shift+Cmd+P` | Toggle documents panel |
+| `Shift+Cmd+O` | Open one or more PDF files |
 | `Shift+Cmd+{` / `}` | Previous / next PDF tab |
+| `Shift+Cmd+W` | Close active PDF tab (when PDF panel focused) / open create worktree sheet (default) |
+| `Shift+Cmd+F` | Refresh worktree catalog |
+| `Shift+Cmd+D` | Open worktree comparison |
+| `Option+Cmd+[` / `]` | Previous / next discovered worktree |
 | `Cmd+=` / `Cmd+-` | Graph zoom in / out |
 | `Cmd+0` | Graph zoom to fit |
 | `Enter` | Focus selected graph node |
@@ -180,4 +200,4 @@ path = "~/code/research"
 
 ## Status
 
-Active development. Used daily for AI research and coursework at FAU. Spatial graph Phase 1 is shipped. Knowledge workspace features (worktree orchestration, code viewer) are next.
+Active development. Used daily for AI research and coursework at `University of Erlangen-Nuremberg` Germany. Spatial graph and worktree orchestration are shipped. Knowledge workspace expansion (code viewer and deeper graph knowledge layer) is next.

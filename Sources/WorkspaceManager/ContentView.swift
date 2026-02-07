@@ -22,6 +22,11 @@ struct ContentView: View {
     @State private var showCommandPalette = false
     @State private var showShortcutsHelp = false
     @State private var showCloseTerminalConfirm = false
+    @State private var worktreeBranchName: String = ""
+    @State private var worktreeBaseReference: String = "HEAD"
+    @State private var worktreePurpose: String = ""
+    @State private var worktreeCreateError: String?
+    @State private var isCreatingWorktree: Bool = false
     @State private var shortcutThrottle: [String: TimeInterval] = [:]
     @State private var diffPanelWidthRatio: CGFloat = 0.5
     @State private var diffPanelDragStartRatio: CGFloat?
@@ -88,6 +93,33 @@ struct ContentView: View {
                     appState.dismissCommitSheetPlaceholder()
                 }
             }
+
+            if appState.showCreateWorktreeSheet {
+                Color.black.opacity(0.25)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        appState.showCreateWorktreeSheet = false
+                        worktreeCreateError = nil
+                        isCreatingWorktree = false
+                    }
+
+                WorktreeCreateSheet(
+                    branchName: $worktreeBranchName,
+                    baseReference: $worktreeBaseReference,
+                    purpose: $worktreePurpose,
+                    errorMessage: $worktreeCreateError,
+                    isCreating: isCreatingWorktree,
+                    destinationPreview: appState.suggestedWorktreeDestinationPath(for: worktreeBranchName),
+                    onCancel: {
+                        appState.showCreateWorktreeSheet = false
+                        worktreeCreateError = nil
+                        isCreatingWorktree = false
+                    },
+                    onCreate: {
+                        createWorktreeFromOverlay()
+                    }
+                )
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
@@ -113,6 +145,21 @@ struct ContentView: View {
             if !isPresented {
                 pdfPanelDragStartRatio = nil
                 isPDFPanelResizing = false
+            }
+        }
+        .onChange(of: appState.showCreateWorktreeSheet) { _, isPresented in
+            if isPresented {
+                seedWorktreeSheetState()
+                appState.refreshWorktreeCatalogForSelection()
+            } else {
+                isCreatingWorktree = false
+            }
+        }
+        .onChange(of: appState.worktreeErrorText) { _, value in
+            guard appState.showCreateWorktreeSheet else { return }
+            if let value, !value.isEmpty {
+                worktreeCreateError = value
+                isCreatingWorktree = false
             }
         }
         .alert("Close Terminal?", isPresented: $showCloseTerminalConfirm) {
@@ -155,11 +202,15 @@ struct ContentView: View {
                             DiffPanelView(
                                 state: appState.gitPanelState,
                                 isResizing: isDiffPanelResizing,
+                                worktreeBaselines: appState.availableWorktreeBaselines,
                                 onClose: {
                                     appState.dismissDiffPanelPlaceholder()
                                 },
                                 onModeSelected: { mode in
                                     appState.setDiffPanelModePlaceholder(mode)
+                                },
+                                onWorktreeBaselineSelected: { baseline in
+                                    appState.setWorktreeDiffBaseline(baseline)
                                 }
                             )
                         }
@@ -215,6 +266,7 @@ struct ContentView: View {
                 appIsActive: NSApp.isActive,
                 showCommandPalette: showCommandPalette,
                 showShortcutsHelp: showShortcutsHelp,
+                showCreateWorktreeSheet: appState.showCreateWorktreeSheet,
                 showCommitSheet: appState.commitSheetState.isPresented,
                 showDiffPanel: appState.gitPanelState.isPresented,
                 showPDFPanel: appState.pdfPanelState.isPresented,
@@ -242,6 +294,10 @@ struct ContentView: View {
             showShortcutsHelp = false
         case .closeCommandPalette:
             showCommandPalette = false
+        case .closeCreateWorktreeSheet:
+            appState.showCreateWorktreeSheet = false
+            worktreeCreateError = nil
+            isCreatingWorktree = false
         case .closeCommitSheet:
             appState.dismissCommitSheetPlaceholder()
         case .closeDiffPanel:
@@ -249,6 +305,9 @@ struct ContentView: View {
         case .togglePDFPanel:
             guard shouldExecuteShortcut("togglePDFPanel") else { return }
             appState.togglePDFPanel()
+        case .openPDFFile:
+            guard shouldExecuteShortcut("openPDFFile") else { return }
+            appState.presentPDFFilePicker()
         case .closePDFPanel:
             appState.dismissPDFPanel()
         case .nextPDFTab:
@@ -379,8 +438,78 @@ struct ContentView: View {
             appState.rerunForceLayout()
         case .focusSelectedGraphNode:
             appState.focusSelectedGraphNode()
+        case .newWorktree:
+            appState.presentCreateWorktreeSheet()
+        case .refreshWorktrees:
+            appState.refreshWorktreeCatalogForSelection()
+        case .openWorktreeDiff:
+            appState.openWorktreeComparisonPanel()
+        case .previousWorktree:
+            appState.switchToPreviousWorktree()
+        case .nextWorktree:
+            appState.switchToNextWorktree()
         case .swallow:
             break
+        }
+    }
+
+    private func seedWorktreeSheetState() {
+        worktreeCreateError = nil
+        isCreatingWorktree = false
+        worktreeBranchName = ""
+        worktreeBaseReference = "HEAD"
+        worktreePurpose = ""
+    }
+
+    private func createWorktreeFromOverlay() {
+        let branch = worktreeBranchName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if branch.isEmpty {
+            worktreeCreateError = "Branch name cannot be empty."
+            isCreatingWorktree = false
+            return
+        }
+
+        let baseReference = worktreeBaseReference.trimmingCharacters(in: .whitespacesAndNewlines)
+        if baseReference.isEmpty {
+            worktreeCreateError = "Base reference cannot be empty."
+            isCreatingWorktree = false
+            return
+        }
+
+        let trimmedPurpose = worktreePurpose.trimmingCharacters(in: .whitespacesAndNewlines)
+        worktreeCreateError = nil
+        isCreatingWorktree = true
+        Task { @MainActor in
+            do {
+                let repositoryRootPath = try await appState.resolveWorktreeRepositoryRootForSelection()
+                guard let destinationPath = appState.suggestedWorktreeDestinationPath(
+                    for: branch,
+                    repositoryRootPath: repositoryRootPath
+                ) else {
+                    worktreeCreateError = "Cannot resolve destination path. Branch name is invalid."
+                    isCreatingWorktree = false
+                    return
+                }
+
+                let request = WorktreeCreateRequest(
+                    repositoryRootPath: repositoryRootPath,
+                    branchName: branch,
+                    baseReference: baseReference,
+                    destinationPath: destinationPath,
+                    purpose: trimmedPurpose.isEmpty ? nil : trimmedPurpose
+                )
+
+                try await appState.createWorktreeFromSelection(request: request)
+                isCreatingWorktree = false
+            } catch {
+                if let localized = (error as? LocalizedError)?.errorDescription,
+                   !localized.isEmpty {
+                    worktreeCreateError = localized
+                } else {
+                    worktreeCreateError = String(describing: error)
+                }
+                isCreatingWorktree = false
+            }
         }
     }
 

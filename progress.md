@@ -4,6 +4,49 @@
 
 ---
 
+| Progress Todo | Git Worktree Orchestration MVP — Compare, Switch, Create | Date: 07 February 2026 | Time: 07:10 AM | Name: Ghost |
+
+    1. Delivered and compiling on branch ghost/worktree-orchestration-foundation:
+        1. ✅ Worktree domain models and persistence document added (WorktreeModels.swift, WorktreeStateDocument.swift).
+        2. ✅ Worktree services implemented:
+            1. WorktreeService handles catalog discovery, creation flow, and workspace sync planning.
+            2. WorktreeStateService persists link metadata, purpose labels, auto-managed flags, and stale status.
+        3. ✅ AppState expanded with worktree orchestration methods:
+            1. refreshWorktreeCatalogForSelection, syncCatalogToWorkspaces, switchToWorktree, createWorktreeFromSelection.
+            2. setWorktreeDiffBaseline, openWorktreeComparisonPanel, compareAgainstWorktree.
+            3. switchToPreviousWorktree and switchToNextWorktree keyboard navigation support.
+        4. ✅ Diff integration completed:
+            1. DiffPanelMode now includes worktreeComparison.
+            2. GitRepositoryService exposes diffWorktreeComparison(request:) with merge-base and sibling baseline support.
+            3. Diff panel header includes baseline selector for worktree mode.
+        5. ✅ UI integration completed:
+            1. Sidebar section WORKTREES (CURRENT REPO) with status rows and compare action.
+            2. New Worktree overlay uses unified dark glass style.
+            3. Action bar includes Worktrees menu actions (refresh, create, compare).
+            4. Command palette includes worktree entries and worktree actions.
+        6. ✅ Shortcut routing completed:
+            1. Shift+Cmd+W opens create worktree overlay.
+            2. Shift+Cmd+F refreshes worktree catalog.
+            3. Shift+Cmd+D opens worktree comparison.
+            4. Option+Cmd+[ and Option+Cmd+] cycle between discovered worktrees.
+            5. Escape closes New Worktree overlay via router-level handling.
+        7. ✅ Branch safety hardening documented and installed:
+            1. docs/git-workflow-guardrails.md created.
+            2. Local pre-commit and pre-push hooks installed to block commits and pushes on dev and main.
+    2. Validation executed:
+        1. ✅ swift build.
+        2. ✅ swift test --filter KeyboardShortcutRouterTests.
+        3. ✅ swift test --filter GitRepositoryServiceTests.
+        4. ✅ swift test --filter GitUIStateTests.
+        5. ✅ swift test --filter WorktreeServiceTests.
+    3. Bug fixes completed during implementation:
+        1. ✅ Cross-repository false positive in sibling worktree comparison fixed by switching repository identity checks to git common directory (`git rev-parse --git-common-dir`).
+        2. ✅ New Worktree overlay escape-close and loading indicator behaviors stabilized.
+    4. Remaining UX decision to finalize with Rahul:
+        1. Destination-path strategy for created worktrees (inside repository, sibling folder, or shared `.wt/` root).
+
+---
+
 | Progress Todo | PDF/Paper Viewer Panel — Feature Complete | Date: 06 February 2026 | Time: 06:57 PM | Name: Lyra |
 
     1. Delivered and compiling (branch: feat/ui-ux-improvements):
@@ -710,3 +753,290 @@
     3. Files modified:
         1. README.md — complete rewrite (184 lines, was 182 lines)
         2. docs/knowledge-workspace-roadmap.md — updated (155 lines, was 109 lines)
+
+---
+
+| Progress Todo | Worktree Create UX — Auto Destination Under .wt and Manual Path Removal | Date: 07 February 2026 | Time: 07:30 AM | Name: Ghost |
+
+    1. Scope:
+        1. Implemented deterministic destination policy for worktree creation and removed manual destination typing from the overlay flow, while preserving existing worktree orchestration behavior.
+    2. Code changes:
+        1. Sources/WorkspaceManager/ContentView.swift:
+            1. Removed local destination editing state and manual destination validation path.
+            2. Create request now resolves destination directly via AppState.suggestedWorktreeDestinationPath(for: branch).
+            3. Overlay wiring now passes destination preview only.
+        2. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift:
+            1. WorktreeCreateSheet removed editable destination text field.
+            2. Added read-only destination preview row aligned with existing glass form styling.
+        3. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Destination suggestion policy now resolves to .wt/<repo>/<branch-slug> with normalized and symlink-resolved repository root.
+        4. Sources/WorkspaceManager/Services/WorktreeService.swift:
+            1. Ensured destination parent folders are created before invoking git worktree add, preventing missing-directory failures.
+    3. Validation:
+        1. Executed full suite with swift test.
+        2. Result: 95 tests executed, 0 failures.
+    4. Outcome:
+        1. Worktree creation no longer asks users to paste long destination paths.
+        2. Destination layout is consistent by policy and optimized for repeated high-frequency worktree operations.
+
+---
+
+| Progress Todo | Worktree Create Reliability — Remove False No-Context Failures | Date: 07 February 2026 | Time: 07:45 AM | Name: Ghost |
+
+    1. Root cause:
+        1. The create handler in ContentView required appState.worktreeCatalog to exist before building the create request. Under fast operator flow, the sheet could open before refreshWorktreeCatalogForSelection() completed, causing the red error "No repository context selected for worktree creation." even while terminal context was valid.
+    2. Fix applied:
+        1. Added AppState.presentCreateWorktreeSheet() and routed all entry points to it:
+            1. Keyboard shortcut path in ContentView.
+            2. Action bar worktree menu in WorkspaceActionBar.
+            3. Command palette action in Overlays.
+            4. Sidebar worktree-plus action in WorkspaceSidebar.
+        2. Added AppState.resolveWorktreeRepositoryRootForSelection() to lazily load catalog from selected action target when preloaded state is missing.
+        3. Refactored destination generation to support direct repository-root input via suggestedWorktreeDestinationPath(for:repositoryRootPath:), then used it in create submit flow.
+        4. Updated ContentView create submit pipeline to:
+            1. Validate branch and base locally.
+            2. Resolve repository root asynchronously if needed.
+            3. Build request and delegate create to AppState without requiring preloaded catalog.
+    3. Test coverage:
+        1. Added GitUIStateTests.testResolveWorktreeRepositoryRootForSelectionWithoutPreloadedCatalog.
+    4. Validation:
+        1. swift test --filter GitUIStateTests passed (15 tests).
+        2. swift test --filter KeyboardShortcutRouterTests passed (31 tests).
+        3. swift test passed (96 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift
+        2. Sources/WorkspaceManager/ContentView.swift
+        3. Sources/WorkspaceManager/Views/WorkspaceActionBar.swift
+        4. Sources/WorkspaceManager/Views/Overlays.swift
+        5. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift
+        6. Tests/WorkspaceManagerTests/GitUIStateTests.swift
+
+---
+
+| Progress Todo | Worktree Create Spinner Stall Fix (Async Lifecycle Alignment) | Date: 07 February 2026 | Time: 07:55 AM | Name: Ghost |
+
+    1. Root cause:
+        1. ContentView set isCreatingWorktree to true and called AppState.createWorktreeFromSelection, but that method launched an internal Task and returned immediately. UI completion and operation completion were decoupled, so spinner reset depended on secondary state-change observers and could stall.
+    2. Fix applied:
+        1. Refactored AppState.createWorktreeFromSelection to async throws with direct awaited flow.
+        2. Removed internal fire-and-forget Task from create path.
+        3. Updated ContentView submit logic to await create completion directly and clear spinner in deterministic success and failure branches.
+    3. Validation:
+        1. swift test --filter GitUIStateTests passed (15 tests).
+        2. swift test --filter WorktreeServiceTests passed (5 tests).
+        3. swift test passed (96 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift
+        2. Sources/WorkspaceManager/ContentView.swift
+
+---
+
+| Progress Todo | Worktree Create Performance and Deadlock Hardening | Date: 07 February 2026 | Time: 08:09 AM | Name: Ghost |
+
+    1. Root cause:
+        1. Even after spinner-lifecycle fixes, create latency remained unacceptable because the critical path still forced full catalog reconstruction before control returned. That path executes multiple git calls across all worktrees.
+        2. WorktreeService used pipe capture with waitUntilExit before draining output, which is vulnerable to output-buffer deadlock in high-output conditions.
+    2. Fix applied:
+        1. WorktreeService.createWorktree now returns a descriptor for the newly created worktree directly instead of calling catalog(for:) during create completion.
+        2. AppState.createWorktreeFromSelection now:
+            1. Registers or reuses the workspace for only the created path.
+            2. Links worktree metadata immediately.
+            3. Switches to the created worktree.
+            4. Triggers refreshWorktreeCatalogForSelection() asynchronously after switch.
+        3. WorktreeService command runner upgraded to file-backed output capture with timeout enforcement and explicit timeout error surface.
+    3. Validation:
+        1. Manual shell baseline check: git worktree add/remove cycle completed in 0.07 seconds on the same repo path.
+        2. swift test --filter WorktreeServiceTests passed (5 tests).
+        3. swift test --filter GitUIStateTests passed (15 tests).
+        4. swift test passed (96 tests, 0 failures).
+    4. Files modified:
+        1. Sources/WorkspaceManager/Services/WorktreeService.swift
+        2. Sources/WorkspaceManager/Models/AppState.swift
+
+---
+
+| Progress Todo | Sidebar Pollution Fix — Hide Auto-Managed Worktree Nodes from Primary Workspace Tree | Date: 07 February 2026 | Time: 08:17 AM | Name: Ghost |
+
+    1. Root cause:
+        1. Worktree auto-sync persisted created worktrees as config-backed workspaces. The sidebar rendered all workspaces in the primary WORKSPACES tree, so repeated worktree orchestration produced many wt-prefixed entries and visual duplication against WORKTREES (CURRENT REPO).
+    2. Fix applied:
+        1. Added AppState.worktreeAutoManagedWorkspaceIDs as tracked metadata set populated from worktree-state.json.
+        2. Added AppState.sidebarWorkspaces computed list that filters auto-managed IDs out of primary navigation while preserving currently selected context.
+        3. Updated WorkspaceSidebar to render sidebarWorkspaces instead of the full workspaces array.
+        4. Sync path now preserves existing isAutoManaged flags for update links instead of forcing false, and refreshes auto-managed metadata after sync.
+    3. Test coverage:
+        1. Added GitUIStateTests.testSidebarWorkspacesHideAutoManagedUnlessSelected.
+    4. Validation:
+        1. swift test --filter GitUIStateTests passed (16 tests).
+        2. swift test --filter WorktreeServiceTests passed (5 tests).
+        3. swift test passed (97 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift
+        2. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift
+        3. Tests/WorkspaceManagerTests/GitUIStateTests.swift
+
+---
+
+| Progress Todo | Legacy Auto-Managed Heuristic Backstop and Problem Statement Framing | Date: 07 February 2026 | Time: 05:18 PM | Name: Ghost |
+
+    1. Scope:
+        1. Addressed screenshot-reported leakage of old `wt` entries in primary WORKSPACES when metadata flags were historically inconsistent.
+        2. Produced local problem framing document for ongoing orchestration redesign using both current branch evidence and Lyra branch reference analysis.
+    2. Code changes:
+        1. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Sidebar filtering upgraded from ID-only to combined metadata-plus-heuristic auto-managed detection.
+            2. Added helper classification for `wt` naming and `.wt/` path conventions.
+            3. Sync update flow now infers auto-managed status for legacy entries when persisted links are incomplete.
+            4. Auto-managed workspace set refresh now unions persisted and heuristic signals.
+        2. Tests/WorkspaceManagerTests/GitUIStateTests.swift:
+            1. Added `testSidebarWorkspacesHideHeuristicAutoManagedEntries` to lock regression behavior.
+    3. Documentation changes:
+        1. Added local file `/Users/rahulsawhney/Library/CloudStorage/OneDrive-Personal/Documents/StudyDocuments/Rahul/code/ideas/TUI/workspace-manager/docs/problem_statement.md` containing mission, current-state evidence, branch comparison (Ghost vs Lyra), constraints, acceptance criteria, and iterative execution plan.
+        2. Note: docs/ is gitignored in this repository, so this file remains local by policy unless ignore rules are explicitly changed.
+    4. Validation:
+        1. swift test --filter GitUIStateTests passed (17 tests).
+        2. swift test --filter WorktreeServiceTests passed (5 tests).
+        3. swift test passed (98 tests, 0 failures).
+    5. Files modified:
+        1. Sources/WorkspaceManager/Models/AppState.swift
+        2. Tests/WorkspaceManagerTests/GitUIStateTests.swift
+
+---
+
+| Progress Todo | Branch Context Surfacing, Documents Action Pill, and Root-Tracked Problem Statement | Date: 07 February 2026 | Time: 06:12 PM | Name: Ghost |
+
+    1. Scope:
+        1. Completed the pending UX slice from transcript: show branch context inline with terminal labels, add a visible documents action button, and move problem_statement.md out of docs/ so it is git-tracked.
+    2. Code changes:
+        1. Sources/WorkspaceManager/Views/WorkspaceSidebar.swift:
+            1. Wired workspace branch metadata into WorkspaceRow and TerminalRow.
+            2. Terminal rows now render branch context in `<terminal-name> <branch-name>` form with dirty marker (`*`) when repository state is dirty.
+        2. Sources/WorkspaceManager/Views/TerminalView.swift:
+            1. Active terminal header now displays workspace branch metadata beside terminal name using monospaced compact styling.
+        3. Sources/WorkspaceManager/Views/WorkspaceActionBar.swift:
+            1. Added dedicated `Documents` action pill that routes to `appState.togglePDFPanel()` for direct PDF workflow entry.
+        4. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Reused and validated workspace-branch metadata refresh pipeline already in progress, confirming metadata is refreshed on startup, config reload, workspace add, and worktree sync/create flows.
+        5. Sources/WorkspaceManager/Models/WorkspaceBranchMetadata.swift:
+            1. Added workspace-branch metadata model (`branchName`, `isDirty`).
+        6. Sources/WorkspaceManager/Services/WorkspaceBranchMetadataService.swift:
+            1. Added timeout-safe git metadata service resolving current branch (or detached HEAD shorthand) and dirty status per workspace path.
+    3. Documentation changes:
+        1. Moved `docs/problem_statement.md` to repository root as `problem_statement.md` so the file is tracked.
+        2. Updated problem statement acceptance criteria and execution plan to explicitly include:
+            1. Inline terminal branch context.
+            2. Visible `Documents` action button behavior.
+    4. Validation:
+        1. swift build ✅
+        2. swift test ✅ (98 tests, 0 failures)
+    5. Outcome:
+        1. Worktree/branch context is now visible where terminal selection happens.
+        2. PDF document workflow is now first-class in the action bar.
+        3. Problem statement is now branch-visible and shareable through git history.
+
+---
+
+| Progress Todo | Documents Toggle Semantics and PDF Keymap Split | Date: 07 February 2026 | Time: 06:28 PM | Name: Ghost |
+
+    1. Root cause:
+        1. `togglePDFPanel()` still opened Finder directly, so pressing `Documents` or `⇧⌘P` always launched file picker instead of toggling panel visibility.
+        2. Shortcut routing had no dedicated open-file shortcut separate from panel toggle intent.
+    2. Fix applied:
+        1. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Reworked `togglePDFPanel()` into true visibility toggle behavior.
+            2. Panel reopen now restores existing tabs without reopening Finder; diff panel is dismissed when showing PDF panel.
+        2. Sources/WorkspaceManager/Support/KeyboardShortcutRouter.swift:
+            1. Added `openPDFFile` command route on `⇧⌘O`.
+            2. Preserved `⇧⌘P` for `togglePDFPanel`.
+            3. Guarded `⌘O` as non-shift-only to prevent shortcut collision.
+        3. Sources/WorkspaceManager/ContentView.swift:
+            1. Wired `openPDFFile` command to `presentPDFFilePicker()`.
+        4. Sources/WorkspaceManager/Views/Overlays.swift:
+            1. Command palette `Open PDF` now runs explicit file-picker path.
+            2. Shortcuts help updated: `⇧⌘P` toggle documents, `⇧⌘O` open PDF file.
+        5. Sources/WorkspaceManager/Views/PDFPanelView.swift:
+            1. Empty-state helper text updated to reflect open-file shortcut (`⌘⇧O`).
+        6. Tests/WorkspaceManagerTests/KeyboardShortcutRouterTests.swift:
+            1. Added `testShiftCmdPTogglesPDFPanel`.
+            2. Added `testShiftCmdOOpensPDFFilePicker`.
+    3. Documentation updates:
+        1. Updated `problem_statement.md` to encode toggle-vs-open separation and keymap acceptance criteria.
+    4. Validation:
+        1. swift build passed.
+        2. swift test --filter KeyboardShortcutRouterTests passed (33 tests).
+        3. swift test passed (100 tests, 0 failures).
+    5. Outcome:
+        1. `Documents` behaves as a real toggle and no longer forces Finder reopen when tabs already exist.
+        2. Open-file intent is explicit and predictable through command palette and `⇧⌘O`.
+
+---
+
+| Progress Todo | PDF Toggle Keymap Hardening and Shortcut Discoverability | Date: 07 February 2026 | Time: 06:44 PM | Name: Ghost |
+
+    1. Scope:
+        1. Finalized and hardened the PDF toggle keymap after live validation feedback.
+    2. Code changes:
+        1. Sources/WorkspaceManager/Support/KeyboardShortcutRouter.swift:
+            1. Added keycode fallback matching for `⇧⌘P` toggle (`keyCode 35`) and `⇧⌘O` open-file (`keyCode 31`).
+            2. Guarded `⌘O` route with `!shift` to prevent conflict with `⇧⌘O`.
+        2. Sources/WorkspaceManager/Views/WorkspaceActionBar.swift:
+            1. Updated Documents button tooltip text to `Toggle Documents panel (⇧⌘P)` for direct in-app keymap discoverability.
+    3. Documentation updates:
+        1. Updated `problem_statement.md` with canonical keymap statement and keycode-backstop acceptance criterion.
+    4. Validation:
+        1. swift test --filter KeyboardShortcutRouterTests passed (33 tests).
+        2. swift test passed (100 tests, 0 failures).
+    5. Outcome:
+        1. Toggle keymap is now explicit, visible, and resilient across keyboard-layout variation.
+
+---
+
+| Progress Todo | Terminal-Scoped PDF Session State | Date: 07 February 2026 | Time: 06:56 PM | Name: Ghost |
+
+    1. Root cause:
+        1. `pdfPanelState` was maintained as one global AppState field, so PDF tabs and visibility followed the app globally instead of the selected terminal context.
+    2. Fix applied:
+        1. Sources/WorkspaceManager/Models/AppState.swift:
+            1. Added terminal-keyed PDF session store (`pdfPanelStateByTerminalID`).
+            2. Added persistence/restore helpers for terminal PDF sessions.
+            3. Wired terminal switch flow to persist outgoing terminal PDF state and restore incoming terminal PDF state.
+            4. Reset or clear PDF session state in terminal-removal and empty-selection flows to avoid stale resurrection.
+            5. Added no-selection guard for file picker invocation.
+        2. Tests/WorkspaceManagerTests/GitUIStateTests.swift:
+            1. Added `testPDFPanelStateIsScopedPerTerminalSelection` to verify independent tabs/visibility restoration across terminals.
+    3. Documentation updates:
+        1. Updated `problem_statement.md` to include terminal-local document context as a first-class requirement and acceptance criterion.
+    4. Validation:
+        1. swift test --filter GitUIStateTests passed (18 tests).
+        2. swift test passed (101 tests, 0 failures).
+    5. Outcome:
+        1. PDF panel context is now local to each terminal and restored on terminal switch.
+        2. Document tabs no longer leak across unrelated terminal scopes.
+
+---
+
+| Progress Todo | Batch PDF Open Support and README Synchronization | Date: 07 February 2026 | Time: 07:05 PM | Name: Ghost |
+
+    1. Scope:
+        1. Added multi-document intake through Finder picker and updated repository README to reflect all shipped behaviors and current keymaps.
+    2. Code changes:
+        1. Sources/WorkspaceManager/Models/AppState.swift:
+            1. `presentPDFFilePicker()` now enables multi-selection and opens all chosen files in one action.
+            2. Added `openPDFFiles(_:)` to route batch URLs through existing per-file open flow.
+        2. Sources/WorkspaceManager/Views/Overlays.swift:
+            1. Command palette `Open PDF` subtitle updated to communicate multi-file support.
+        3. Tests/WorkspaceManagerTests/GitUIStateTests.swift:
+            1. Added `testOpenPDFFilesAddsBatchIntoCurrentTerminalContext`.
+    3. Documentation changes:
+        1. README.md:
+            1. Updated PDF section with toggle/open semantics, batch open behavior, and terminal-scoped session restoration.
+            2. Added shipped Git Worktree Orchestration section.
+            3. Updated keybinding table with current PDF/worktree shortcuts and context notes.
+            4. Updated CI gate count and roadmap/status text.
+        2. problem_statement.md:
+            1. Added batch document intake as requirement and acceptance criterion.
+    4. Validation:
+        1. swift test passed (102 tests, 0 failures).
+    5. Outcome:
+        1. Users can select multiple PDFs in one picker action and open them together.
+        2. README now mirrors current product behavior and shortcut contracts.

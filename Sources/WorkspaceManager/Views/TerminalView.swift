@@ -216,6 +216,10 @@ struct TerminalHeader: View {
         workspace?.terminals.first(where: { $0.id == terminalId })
     }
 
+    private var workspaceBranchMetadata: WorkspaceBranchMetadata? {
+        appState.workspaceBranchMetadataByWorkspaceID[workspaceId]
+    }
+
     var body: some View {
         HStack(alignment: .top) {
             HStack(spacing: 8) {
@@ -227,6 +231,12 @@ struct TerminalHeader: View {
                     .font(.system(.body, design: .monospaced))
                     .fontWeight(.medium)
                     .foregroundColor(.white)
+
+                if let workspaceBranchMetadata {
+                    Text(workspaceBranchMetadata.branchName + (workspaceBranchMetadata.isDirty ? "*" : ""))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundColor(workspaceBranchMetadata.isDirty ? .orange : .white.opacity(0.72))
+                }
 
                 Text("—")
                     .foregroundColor(.white.opacity(0.6))

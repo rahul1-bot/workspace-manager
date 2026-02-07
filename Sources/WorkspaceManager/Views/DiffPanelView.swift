@@ -3,8 +3,10 @@ import SwiftUI
 struct DiffPanelView: View {
     let state: GitPanelState
     let isResizing: Bool
+    let worktreeBaselines: [WorktreeComparisonBaseline]
     let onClose: () -> Void
     let onModeSelected: (DiffPanelMode) -> Void
+    let onWorktreeBaselineSelected: (WorktreeComparisonBaseline) -> Void
 
     @State private var document: DiffDocument = .empty
     @State private var collapsedSectionIDs: Set<String> = []
@@ -77,6 +79,25 @@ struct DiffPanelView: View {
             }
             .menuStyle(.borderlessButton)
 
+            if state.mode == .worktreeComparison {
+                Menu {
+                    ForEach(worktreeBaselines, id: \.self) { baseline in
+                        Button(baseline.title) {
+                            onWorktreeBaselineSelected(baseline)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(state.baselineLabel ?? "Select baseline")
+                            .font(.system(.subheadline, design: .default))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(.white.opacity(0.8))
+                }
+                .menuStyle(.borderlessButton)
+            }
+
             Spacer()
 
             Button(action: onClose) {
@@ -96,13 +117,19 @@ struct DiffPanelView: View {
     }
 
     private var summaryView: some View {
-        HStack(spacing: 10) {
-            Text("\(state.summary.filesChanged) files")
-                .foregroundColor(.white.opacity(0.75))
-            Text("+\(state.summary.additions)")
-                .foregroundColor(.green)
-            Text("-\(state.summary.deletions)")
-                .foregroundColor(.red)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Text("\(state.summary.filesChanged) files")
+                    .foregroundColor(.white.opacity(0.75))
+                Text("+\(state.summary.additions)")
+                    .foregroundColor(.green)
+                Text("-\(state.summary.deletions)")
+                    .foregroundColor(.red)
+            }
+            if state.mode == .worktreeComparison, let baselineLabel = state.baselineLabel {
+                Text(baselineLabel)
+                    .foregroundColor(.white.opacity(0.62))
+            }
         }
         .font(.system(.caption, design: .monospaced))
         .padding(.horizontal, 8)

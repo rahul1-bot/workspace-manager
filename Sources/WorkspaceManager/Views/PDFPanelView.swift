@@ -256,7 +256,7 @@ struct PDFPanelView: View {
                 .font(.system(.body, design: .default))
                 .foregroundColor(.white.opacity(0.5))
 
-            Text("⌘⇧P to open a PDF file")
+            Text("⌘⇧O to open a PDF file")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundColor(.white.opacity(0.4))
 
